@@ -78,11 +78,11 @@ function saveConfig(config) {
   success(`Configuration saved to ${CONFIG_FILE}`);
 }
 
-// 验证环境
+// Verify environment
 function checkEnvironment(config) {
   const checks = [];
   
-  // 检查 Copilot CLI
+  // Check Copilot CLI
   try {
     execSync('copilot --version', { stdio: 'pipe' });
     checks.push({ name: 'Copilot CLI', status: true });
@@ -90,28 +90,28 @@ function checkEnvironment(config) {
     checks.push({ name: 'Copilot CLI', status: false, help: 'npm install -g @github/copilot' });
   }
   
-  // 检查仓库路径
+  // Check repository path
   checks.push({
-    name: '仓库路径',
+    name: 'Repository Path',
     status: fs.existsSync(config.repoPath),
-    help: `设置正确的路径: ai-issue config set repoPath <path>`
+    help: `Set correct path: ai-issue config set repoPath <path>`
   });
   
-  // 检查报告路径
+  // Check report path
   checks.push({
-    name: '报告路径',
+    name: 'Report Path',
     status: fs.existsSync(config.reportPath),
-    help: `创建目录: mkdir -p ${config.reportPath}`
+    help: `Create directory: mkdir -p ${config.reportPath}`
   });
   
-  // 检查提示词文件
+  // Check prompt files
   const initPromptFile = path.join(__dirname, 'AI_Issue_Resolution_Experiment.md');
   const evalPromptFile = path.join(__dirname, 'MANUAL_EVALUATION_PROMPT.md');
   
   checks.push({
-    name: '初始化提示词',
+    name: 'Initialization Prompt',
     status: fs.existsSync(initPromptFile),
-    help: `需要文件: ${initPromptFile}`
+    help: `Required file: ${initPromptFile}`
   });
   
   checks.push({
