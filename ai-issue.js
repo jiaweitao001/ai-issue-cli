@@ -201,7 +201,10 @@ This is an Issue that needs to be handled. Please start immediately:
 1. Do not ask for confirmation, start analysis directly
 2. I'm not sure about the status of this Issue, you need to determine if it's already resolved (if resolved, don't check PR and comments)
 3. Complete all steps according to specifications INCLUDING creating git branch and committing changes
-4. Generate analysis report to the specified path
+4. **CRITICAL**: You MUST save the analysis report to this EXACT path: ${analysisFile}
+   - Use the create_file tool to save the report
+   - The file MUST be created at the specified path
+   - Do NOT skip this step - the report is required
 
 Start execution now.
 `;
@@ -308,40 +311,70 @@ ${evaluationFile}
 // Command: batch
 async function cmdBatch(issues, options) {
   log('', colors.bright);
-  log('📦 Batch Processing Mode', colors.cyan);
+  log('📦 Batch Processing Mode (Parallel)', colors.cyan);
   log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', colors.cyan);
   log('');
   
-  info(`Total ${issues.length} Issues to process`);
+  // Concurrency limit (default: 3 parallel instances)
+  const concurrency = options.concurrency || 3;
+  
+  info(`Total ${issues.length} Issues to process (${concurrency} concurrent)`);
   log('');
   
   const results = {
     success: [],
-    failed: []
+    failed: [],
+    processing: new Set(),
+    completed: 0
   };
   
-  for (let i = 0; i < issues.length; i++) {
-    const issue = issues[i];
-    const index = i + 1;
-    
-    log('');
-    log(`[${index}/${issues.length}] Processing Issue #${issue}`, colors.bright);
-    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', colors.cyan);
-    log('');
+  // Process issue with progress tracking
+  async function processIssue(issue) {
+    results.processing.add(issue);
+    const startTime = Date.now();
     
     try {
-      await cmdSolve(issue, { ...options, skipHeader: true });
+      log('');
+      log(`[${results.completed + 1}/${issues.length}] 🚀 Starting Issue #${issue}`, colors.bright);
+      
+      await cmdSolve(issue, { ...options, skipHeader: true, quiet: true });
+      
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       results.success.push(issue);
+      success(`Issue #${issue} completed in ${duration}s`);
     } catch (err) {
-      error(`Issue #${issue} processing failed: ${err.message}`);
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      error(`Issue #${issue} failed after ${duration}s: ${err.message}`);
       results.failed.push(issue);
+    } finally {
+      results.processing.delete(issue);
+      results.completed++;
+      
+      // Show progress
+      const activeIssues = Array.from(results.processing).join(', #');
+      if (results.processing.size > 0) {
+        info(`Progress: ${results.completed}/${issues.length} | Active: #${activeIssues}`);
+      }
+    }
+  }
+  
+  // Process issues with concurrency limit
+  const queue = [...issues];
+  const activePromises = new Set();
+  
+  while (queue.length > 0 || activePromises.size > 0) {
+    // Start new tasks up to concurrency limit
+    while (queue.length > 0 && activePromises.size < concurrency) {
+      const issue = queue.shift();
+      const promise = processIssue(issue)
+        .then(() => activePromises.delete(promise))
+        .catch(() => activePromises.delete(promise));
+      activePromises.add(promise);
     }
     
-    // Delay before next
-    if (index < issues.length) {
-      log('');
-      info('Waiting 5 seconds before continuing...');
-      await new Promise(resolve => setTimeout(resolve, 5000));
+    // Wait for at least one task to complete
+    if (activePromises.size > 0) {
+      await Promise.race(activePromises);
     }
   }
   
@@ -354,11 +387,18 @@ async function cmdBatch(issues, options) {
   log(`Total: ${issues.length}`);
   log(`Success: ${results.success.length}`, colors.green);
   log(`Failed: ${results.failed.length}`, colors.red);
+  log(`Concurrency: ${concurrency}`);
   
   if (results.failed.length > 0) {
     log('');
     error('Failed Issues:');
     results.failed.forEach(issue => log(`   - #${issue}`, colors.red));
+  }
+  
+  if (results.success.length > 0) {
+    log('');
+    success('Successful Issues:');
+    results.success.forEach(issue => log(`   - #${issue}`, colors.green));
   }
   
   log('');
@@ -460,12 +500,14 @@ function showHelp() {
   log('Options:', colors.bright);
   log('  --no-eval               Only solve Issue, do not evaluate');
   log('  --model <model>         Specify AI model (gpt-5 or claude-sonnet-4.5)');
+  log('  --concurrency <number>  Parallel instances for batch (default: 3)');
   log('');
   log('Examples:', colors.bright);
   log('  ai-issue solve 30340');
   log('  ai-issue solve 30340 --no-eval');
   log('  ai-issue evaluate 30340');
   log('  ai-issue batch 30340 31316 31500');
+  log('  ai-issue batch 30340 31316 31500 --concurrency 5');
   log('  ai-issue config show');
   log('  ai-issue config set model gpt-5');
   log('  ai-issue check');
@@ -492,7 +534,8 @@ async function main() {
   const command = args[0];
   const options = {
     noEval: args.includes('--no-eval'),
-    model: args.includes('--model') ? args[args.indexOf('--model') + 1] : null
+    model: args.includes('--model') ? args[args.indexOf('--model') + 1] : null,
+    concurrency: args.includes('--concurrency') ? parseInt(args[args.indexOf('--concurrency') + 1]) : 3
   };
   
   // Update config if model is specified
