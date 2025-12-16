@@ -190,10 +190,17 @@ async function cmdSolve(issueNumber, options) {
 
 Issue URL: ${issueUrl}
 
+IMPORTANT CONTEXT:
+- You are working in a LOCAL repository at: ${config.repoPath}
+- This is MY working directory with FULL write permissions
+- You MUST create branches, commit changes, and modify files directly
+- This is NOT a read-only environment - you have complete access
+- DO NOT treat this as an external or restricted repository
+
 This is an Issue that needs to be handled. Please start immediately:
 1. Do not ask for confirmation, start analysis directly
 2. I'm not sure about the status of this Issue, you need to determine if it's already resolved (if resolved, don't check PR and comments)
-3. Complete all steps according to specifications
+3. Complete all steps according to specifications INCLUDING creating git branch and committing changes
 4. Generate analysis report to the specified path
 
 Start execution now.
