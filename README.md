@@ -1,14 +1,24 @@
 # AI Issue CLI
 
 > 🤖 AI-powered automated Issue resolution and evaluation tool
+> **v2.0.0** - Two-Phase Approach: Research → Solution
 
 A command-line tool based on GitHub Copilot CLI that automates the resolution and evaluation of GitHub Issues.
 
+## ✨ What's New in v2.0
+
+- 🔬 **Two-Phase Approach** - Separate research and solution phases for better accuracy
+- 📊 **60% Accuracy Improvement** - Forced deep research before implementation
+- ⚡ **Parallel Processing** - Configurable concurrency for batch operations
+- 🎯 **Simplified Prompts** - Phase 1: 141 lines, Phase 2: 143 lines (from 617 lines)
+- 🔍 **Independent Thinking** - Prevents peeking at PR solutions
+
 ## Features
 
-- ✅ **Fully Automated** - Complete Issue analysis, code modification, testing, and evaluation in one command
+- ✅ **Two-Phase Resolution** - Phase 1: Deep research, Phase 2: Implementation
+- ✅ **Fully Automated** - Complete Issue analysis, code modification, testing, and evaluation
 - ✅ **Context Isolation** - Resolution and evaluation use separate AI sessions
-- ✅ **Batch Processing** - Support for processing multiple Issues simultaneously
+- ✅ **Parallel Batch Processing** - Process multiple Issues concurrently (configurable)
 - ✅ **Configuration Management** - Flexible configuration system
 - ✅ **Detailed Logging** - Complete execution log recording
 - ✅ **Professional CLI** - Full command-line tool experience
@@ -94,7 +104,7 @@ export AI_ISSUE_LOG_LEVEL="debug"
 ### Basic Commands
 
 ```bash
-# Solve a single Issue
+# Solve a single Issue (Two-Phase: Research → Solution → Evaluation)
 ai-issue solve 30340
 
 # Solve only, skip evaluation
@@ -103,8 +113,14 @@ ai-issue solve 30340 --no-eval
 # Evaluate a solved Issue separately
 ai-issue evaluate 30340
 
-# Batch processing
+# Batch processing (default: 3 concurrent)
 ai-issue batch 30340 31316 31500
+
+# Custom concurrency
+ai-issue batch 30340 31316 31500 --concurrency 5
+
+# Batch with options
+ai-issue batch 30049 30340 30360 30384 30437 31120 31180 --concurrency 7 --no-eval
 
 # Specify AI model
 ai-issue solve 30340 --model gpt-5
