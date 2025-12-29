@@ -8,10 +8,11 @@
 
 ## 独立思考要求
 
+- ❌ **不能查看Issue的评论区（comments）** - 评论可能包含答案
 - ❌ 不能查看修复该Issue的PR代码（如果存在）
 - ❌ 不能查看Issue评论区中直接给出的解决方案
-- ✅ 可以查看Issue讨论中对问题的分析
-- ✅ 可以查看维护者的回复了解技术限制
+- ✅ 只能查看Issue的原始描述（title + body）
+- ✅ 可以查看代码仓库进行调研
 
 ## 关键原则
 
@@ -39,6 +40,7 @@ ls -la path/to/resource/directory/
 - 相似资源文件路径
 - 关键实现差异
 - 为何它没问题
+- **字段精确命名**（查SDK struct，注意`_id`/`_name`/`_type`后缀）
 
 ### 2. 搜SDK工具 ⭐⭐
 
@@ -92,6 +94,21 @@ grep -r "field_name" internal/services/
 
 ```markdown
 # Issue #[编号] 调研报告
+
+## 问题分类 ⭐⭐⭐
+
+**类型**: 🔧 CODE_CHANGE / 📖 GUIDANCE
+
+**判定依据**: [简述为什么是这个分类]
+
+### 分类标准
+- 🔧 CODE_CHANGE: Bug修复、缺失功能（已GA）、验证问题、SDK未映射等需要修改代码的情况
+- 📖 GUIDANCE: 
+  - 用户配置错误
+  - 设计如此（预期行为）
+  - 需升级provider版本
+  - **功能处于preview/public preview阶段** - 告知用户等GA后处理
+  - 提供workaround即可
 
 ## 问题概述
 [简述问题、涉及资源、错误信息]
@@ -149,3 +166,5 @@ grep -r "field_name" internal/services/
 - [ ] 读了官方文档
 - [ ] **没有假设问题已被其他PR修复**
 - [ ] **调研范围与Issue描述一致，没有发散**
+- [ ] **确认了字段的精确命名**（SDK struct字段名 → Terraform字段名）
+- [ ] **查看了相似字段的测试模式**

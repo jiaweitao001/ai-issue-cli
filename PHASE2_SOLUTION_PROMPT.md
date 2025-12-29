@@ -30,6 +30,13 @@
 
 > **牢记：开源项目偏好最小化改动以降低风险。"做得更多"≠"做得更好"。**
 
+### 5. 高频致命错误 ⚠️
+
+- **字段命名必须精确** - 查SDK struct确认，不要猜测（如`runtime_environment` vs `runtime_environment_name`）
+- **新字段必须有测试** - 无论多简单，acceptance test不可省略
+- **Optional字段用`d.GetOk()`** - 不要用`d.Get()`直接取值，会传空字符串
+- **Read中用`pointer.From()`** - 安全处理nil值
+
 ---
 
 ## 📚 参考案例（正确 vs 错误）
@@ -130,6 +137,8 @@
 | 未添加Issue未要求的日志？ | | |
 | 代码行数变化合理？（+/-行数） | | |
 | 参考了类似PR的修复风格？ | | |
+| **字段名与SDK struct完全匹配？** | | 精确到`_name`/`_id`后缀 |
+| **新增字段有acceptance test？** | | 不接受"太简单不需要"的理由 |
 
 ## 10. Issue 回复
 
