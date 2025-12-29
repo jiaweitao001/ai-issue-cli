@@ -8,10 +8,11 @@ Conduct **comprehensive technical research** on the Issue to provide a solid fou
 
 ## Independent Thinking Requirements
 
+- ❌ **Do not look at Issue comments** - Comments may contain answers
 - ❌ Do not look at the PR code that fixes this Issue (if it exists)
 - ❌ Do not look at solutions directly given in Issue comments
-- ✅ Can review discussions in the Issue that analyze the problem
-- ✅ Can review maintainer replies to understand technical constraints
+- ✅ Can only view the original Issue description (title + body)
+- ✅ Can review the code repository for research
 
 ## Key Principles
 
@@ -39,6 +40,7 @@ ls -la path/to/resource/directory/
 - Similar resource file paths
 - Key implementation differences
 - Why it doesn't have the problem
+- **Exact field naming** (check SDK struct, note `_id`/`_name`/`_type` suffixes)
 
 ### 2. Search SDK Tools ⭐⭐
 
@@ -92,6 +94,21 @@ Create `issue-[number]-research.md`, containing:
 
 ```markdown
 # Issue #[number] Research Report
+
+## Problem Classification ⭐⭐⭐
+
+**Type**: 🔧 CODE_CHANGE / 📖 GUIDANCE
+
+**Justification**: [Brief explanation of why this classification]
+
+### Classification Criteria
+- 🔧 CODE_CHANGE: Bug fixes, missing features (already GA), validation issues, SDK not mapped, etc. that require code changes
+- 📖 GUIDANCE: 
+  - User configuration error
+  - By design (expected behavior)
+  - Needs provider version upgrade
+  - **Feature is in preview/public preview stage** - Inform user to wait for GA
+  - Workaround is sufficient
 
 ## Problem Overview
 [Brief description of the problem, affected resources, error messages]
@@ -149,3 +166,5 @@ Confirm before completion:
 - [ ] Read official documentation
 - [ ] **Did not assume the issue has been fixed by another PR**
 - [ ] **Research scope is consistent with Issue description, no divergence**
+- [ ] **Confirmed exact field naming** (SDK struct field name → Terraform field name)
+- [ ] **Reviewed test patterns for similar fields**

@@ -30,6 +30,13 @@ Based on Phase 1 research, design and implement a high-quality solution.
 
 > **Remember: Open source projects prefer minimal changes to reduce risk. "Doing more" ≠ "Doing better".**
 
+### 5. High-Frequency Fatal Errors ⚠️
+
+- **Field naming must be exact** - Check SDK struct to confirm, don't guess (e.g., `runtime_environment` vs `runtime_environment_name`)
+- **New fields must have tests** - No matter how simple, acceptance tests cannot be omitted
+- **Optional fields use `d.GetOk()`** - Don't use `d.Get()` directly, it will pass empty strings
+- **Use `pointer.From()` in Read** - Safely handle nil values
+
 ---
 
 ## 📚 Reference Cases (Correct vs Wrong)
@@ -130,6 +137,8 @@ Create `issue-[number]-analysis.md`, **using the following format**:
 | No logs added that Issue didn't request? | | |
 | Reasonable code line changes? (+/- lines) | | |
 | Referenced similar PR fix styles? | | |
+| **Field names exactly match SDK struct?** | | Exact to `_name`/`_id` suffix |
+| **New fields have acceptance tests?** | | "Too simple" is not an acceptable reason |
 
 ## 10. Issue Reply
 
