@@ -167,15 +167,33 @@ cli/
 ├── ai-issue.js                           # Main program v2.0 (executable)
 ├── package.json                          # npm configuration
 ├── install.sh                            # Installation script (executable)
-├── PHASE1_RESEARCH_PROMPT.md             # [NEW] Phase 1: Research prompt (141 lines)
-├── PHASE2_SOLUTION_PROMPT.md             # [NEW] Phase 2: Solution prompt (143 lines)
-├── MANUAL_EVALUATION_PROMPT.md           # Phase 3: Evaluation prompt
-├── AI_Issue_Resolution_Experiment.md     # [Legacy] Single-phase prompt (preserved)
-├── TWO_PHASE_APPROACH.md                 # [NEW] Two-phase methodology doc
+├── lib/                                  # Library modules
+│   ├── config.js                        # Configuration management
+│   ├── logger.js                        # Logging utilities
+│   ├── environment.js                   # Environment checks
+│   ├── copilot.js                       # Copilot executor
+│   ├── help.js                          # Help text
+│   └── commands/                        # Command implementations
+│       ├── solve.js                     # solve command (two-phase)
+│       ├── evaluate.js                  # evaluate command
+│       ├── batch.js                     # batch command
+│       ├── config-cmd.js                # config command
+│       └── check.js                     # check command
+├── PHASE1_RESEARCH_PROMPT_EN.md          # Phase 1: Research prompt (English) ★
+├── PHASE2_SOLUTION_PROMPT_EN.md          # Phase 2: Solution prompt (English) ★
+├── PHASE2_GUIDANCE_PROMPT_EN.md          # Phase 2: Guidance prompt (English) ★ NEW
+├── MANUAL_EVALUATION_PROMPT_EN.md        # Phase 3: Evaluation prompt (English) ★
+├── PHASE1_RESEARCH_PROMPT.md             # Phase 1: Research prompt (Chinese)
+├── PHASE2_SOLUTION_PROMPT.md             # Phase 2: Solution prompt (Chinese)
+├── PHASE2_GUIDANCE_PROMPT.md             # Phase 2: Guidance prompt (Chinese) NEW
+├── MANUAL_EVALUATION_PROMPT.md           # Phase 3: Evaluation prompt (Chinese)
+├── TWO_PHASE_APPROACH.md                 # Two-phase methodology doc
+├── STRUCTURE.md                          # Project structure doc
 ├── README.md                             # Complete documentation
-├── QUICKSTART.md                         # This file
-└── DEMO.md                               # Demo documentation
+└── QUICKSTART.md                         # This file
 ```
+
+★ = Used by code (English versions)
 
 ## 9. Next Steps
 

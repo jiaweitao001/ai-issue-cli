@@ -20,9 +20,14 @@ ai-issue-cli/
 │       ├── batch.js        # batch命令（批处理）
 │       ├── config-cmd.js   # config命令
 │       └── check.js        # check命令
-├── PHASE1_RESEARCH_PROMPT.md
-├── PHASE2_SOLUTION_PROMPT.md
-└── MANUAL_EVALUATION_PROMPT.md
+├── PHASE1_RESEARCH_PROMPT.md        # 阶段1调研prompt（中文）
+├── PHASE1_RESEARCH_PROMPT_EN.md     # 阶段1调研prompt（英文）★ 代码使用
+├── PHASE2_SOLUTION_PROMPT.md        # 阶段2解决方案prompt（中文）
+├── PHASE2_SOLUTION_PROMPT_EN.md     # 阶段2解决方案prompt（英文）★ 代码使用
+├── PHASE2_GUIDANCE_PROMPT.md        # 阶段2指导解释prompt（中文）- GUIDANCE类型
+├── PHASE2_GUIDANCE_PROMPT_EN.md     # 阶段2指导解释prompt（英文）★ 代码使用
+├── MANUAL_EVALUATION_PROMPT.md      # 评估prompt（中文）
+└── MANUAL_EVALUATION_PROMPT_EN.md   # 评估prompt（英文）★ 代码使用
 ```
 
 ## 模块说明
@@ -63,8 +68,10 @@ ai-issue-cli/
 
 - **lib/commands/solve.js**
   - 实现两阶段解决方案流程
-  - Phase 1: 深度研究
-  - Phase 2: 方案实现
+  - Phase 1: 深度研究（输出问题分类：CODE_CHANGE/GUIDANCE）
+  - Phase 2: 根据分类选择不同prompt
+    - CODE_CHANGE → PHASE2_SOLUTION_PROMPT_EN.md
+    - GUIDANCE → PHASE2_GUIDANCE_PROMPT_EN.md
 
 - **lib/commands/evaluate.js**
   - 评估已解决的issue

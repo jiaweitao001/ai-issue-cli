@@ -199,14 +199,17 @@ ai-issue solve 30340
 
 ```
 reportPath/
-├── issue-30340-analysis.md      # Analysis report
-├── issue-30340-evaluation.md    # Evaluation report
+├── issue-30340-research.md      # Research report (Phase 1, deleted after Phase 2)
+├── issue-30340-analysis.md      # Analysis report (Phase 2)
+├── issue-30340-evaluation.md    # Evaluation report (Phase 3)
 └── logs/
     └── issue-30340-*.log         # Detailed logs
 
 cli/ (Tool directory)
-├── AI_Issue_Resolution_Experiment.md  # Issue resolution prompt (built-in)
-└── MANUAL_EVALUATION_PROMPT.md        # Evaluation prompt (built-in)
+├── PHASE1_RESEARCH_PROMPT_EN.md          # Phase 1: Research prompt
+├── PHASE2_SOLUTION_PROMPT_EN.md          # Phase 2: Solution prompt (CODE_CHANGE)
+├── PHASE2_GUIDANCE_PROMPT_EN.md          # Phase 2: Guidance prompt (GUIDANCE)
+└── MANUAL_EVALUATION_PROMPT_EN.md        # Phase 3: Evaluation prompt
 ```
 
 ## Examples
@@ -335,14 +338,28 @@ git checkout main
 
 ```
 cli/
-├── ai-issue.js                           # Main program
+├── ai-issue.js                           # Main entry point
 ├── package.json                          # npm configuration
 ├── install.sh                            # Installation script
-├── AI_Issue_Resolution_Experiment.md     # Issue resolution prompt
-├── MANUAL_EVALUATION_PROMPT.md           # Evaluation prompt
+├── lib/                                  # Library modules
+│   ├── config.js                        # Configuration management
+│   ├── logger.js                        # Logging utilities
+│   ├── environment.js                   # Environment checks
+│   ├── copilot.js                       # Copilot executor
+│   ├── help.js                          # Help text
+│   └── commands/                        # Command implementations
+│       ├── solve.js                     # solve command
+│       ├── evaluate.js                  # evaluate command
+│       ├── batch.js                     # batch command
+│       ├── config-cmd.js                # config command
+│       └── check.js                     # check command
+├── PHASE1_RESEARCH_PROMPT_EN.md          # Phase 1: Research prompt
+├── PHASE2_SOLUTION_PROMPT_EN.md          # Phase 2: Solution prompt
+├── PHASE2_GUIDANCE_PROMPT_EN.md          # Phase 2: Guidance prompt (NEW)
+├── MANUAL_EVALUATION_PROMPT_EN.md        # Evaluation prompt
 ├── README.md                             # Complete documentation
 ├── QUICKSTART.md                         # Quick start guide
-└── DEMO.md                               # Demo documentation
+└── STRUCTURE.md                          # Project structure doc
 ```
 
 ### Local Development
@@ -376,8 +393,14 @@ npm unlink -g ai-issue-cli
 ### Custom Prompts
 
 Prompt file locations (built-in with CLI):
-- Solve Issue: `cli/AI_Issue_Resolution_Experiment.md`
-- Evaluate Solution: `cli/MANUAL_EVALUATION_PROMPT.md`
+- Phase 1 Research: `PHASE1_RESEARCH_PROMPT_EN.md`
+- Phase 2 Solution (CODE_CHANGE): `PHASE2_SOLUTION_PROMPT_EN.md`
+- Phase 2 Guidance (GUIDANCE): `PHASE2_GUIDANCE_PROMPT_EN.md`
+- Evaluation: `MANUAL_EVALUATION_PROMPT_EN.md`
+
+Issue types are automatically detected from Phase 1 research:
+- 🔧 **CODE_CHANGE**: Bug fixes, missing features, validation issues
+- 📖 **GUIDANCE**: User configuration errors, expected behavior, version upgrades
 
 These files are distributed with the tool, no additional configuration needed.
 
