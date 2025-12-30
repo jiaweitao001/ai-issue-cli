@@ -75,7 +75,9 @@ Based on Phase 1 research, design and implement a high-quality solution.
 
 ## Output Requirements
 
-Create `issue-[number]-analysis.md`, **using the following format**:
+⚠️ **Only create `issue-[number]-analysis.md` - delete all other temporary files before finishing**
+
+**Using the following format**:
 
 ```markdown
 # Issue #[number] Solution
@@ -172,7 +174,6 @@ git log -1 --format="%H"  # Get commit hash
 - ✅ Use `replace_string_in_file` / `create_file` tools
 - ✅ **Only modify locations explicitly required by Issue**
 - ⚠️ Multiple modifications must have explicit basis in Issue
-- ⚠️ **Only create `issue-[number]-analysis.md` - delete all other temporary files before finishing**
 
 ### 3. Test Updates (Follow Project Conventions)
 

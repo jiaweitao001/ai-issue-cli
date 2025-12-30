@@ -75,7 +75,9 @@
 
 ## 输出要求
 
-创建 `issue-[编号]-analysis.md`，**使用以下格式**：
+⚠️ **只创建 `issue-[编号]-analysis.md`，完成前删除其他所有临时文件**
+
+**使用以下格式**：
 
 ```markdown
 # Issue #[编号] 解决方案
@@ -171,7 +173,6 @@ git log -1 --format="%H"  # 获取commit hash
 - ✅ 使用 `replace_string_in_file` / `create_file` 工具
 - ✅ **只修改Issue明确要求的位置**
 - ⚠️ 修改多处必须有Issue中的明确依据
-- ⚠️ **只创建 `issue-[编号]-analysis.md`，完成前删除其他所有临时文件**
 
 ### 3. 测试更新（参考项目惯例）
 
