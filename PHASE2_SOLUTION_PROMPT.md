@@ -154,6 +154,8 @@
 
 ### 1. Git操作
 
+> ⚠️ **跨平台**：commit message必须用双引号`"`，避免多行，路径用`/`
+
 ```bash
 git checkout main
 git pull origin main

@@ -155,6 +155,8 @@ Create `issue-[number]-analysis.md`, **using the following format**:
 
 ### 1. Git Operations
 
+> ⚠️ **Cross-platform**: Use double quotes `"` for commit message, single-line only, use `/` for paths
+
 ```bash
 git checkout main
 git pull origin main
