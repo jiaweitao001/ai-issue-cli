@@ -86,6 +86,7 @@ Based on Phase 1 research, design and implement a high-quality solution.
 - Problem symptoms
 - Root cause
 - Impact scope
+- Swagger link (if supporting new feature)
 
 ## 2. Code Investigation
 - Key file paths
