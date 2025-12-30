@@ -90,7 +90,7 @@ grep -r "field_name" internal/services/
 
 ## 输出要求
 
-创建 `issue-[编号]-research.md`，包含：
+⚠️ **只创建 `issue-[编号]-research.md`，完成前删除其他所有临时文件**
 
 ```markdown
 # Issue #[编号] 调研报告

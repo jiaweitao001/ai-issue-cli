@@ -90,7 +90,7 @@ grep -r "field_name" internal/services/
 
 ## Output Requirements
 
-Create `issue-[number]-research.md`, containing:
+⚠️ **Only create `issue-[number]-research.md` - delete all other temporary files before finishing**
 
 ```markdown
 # Issue #[number] Research Report

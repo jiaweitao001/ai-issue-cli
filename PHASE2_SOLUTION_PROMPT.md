@@ -171,7 +171,7 @@ git log -1 --format="%H"  # 获取commit hash
 - ✅ 使用 `replace_string_in_file` / `create_file` 工具
 - ✅ **只修改Issue明确要求的位置**
 - ⚠️ 修改多处必须有Issue中的明确依据
-- 🧹 **清理**：完成前删除所有临时/中间文件
+- ⚠️ **只创建 `issue-[编号]-analysis.md`，完成前删除其他所有临时文件**
 
 ### 3. 测试更新（参考项目惯例）
 
