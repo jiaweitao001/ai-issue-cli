@@ -38,7 +38,9 @@ This Issue **does not require code changes**, it needs:
 
 ## Output Requirements
 
-Create `issue-[number]-analysis.md`, **using the following format**:
+⚠️ **Only create `issue-[number]-analysis.md` - delete all other temporary files before finishing**
+
+**Using the following format**:
 
 ```markdown
 # Issue #[number] Analysis Report
