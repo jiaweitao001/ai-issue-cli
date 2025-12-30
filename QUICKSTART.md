@@ -17,7 +17,7 @@
 ## 1. Installation
 
 ```bash
-cd /Users/jiaweitao/Downloads/AI_Issue_Experiment/cli
+cd /path/to/ai-issue-cli
 ./install.sh
 ```
 
@@ -30,8 +30,8 @@ Choose **Option 2 (Local Link)** for development mode installation.
 ai-issue config show
 
 # If you need to modify:
-ai-issue config set repoPath /Users/jiaweitao/Work/terraform-provider-azurerm
-ai-issue config set reportPath /Users/jiaweitao/Work/AI_Issue_Experiment
+ai-issue config set repoPath /path/to/terraform-provider-azurerm
+ai-issue config set reportPath /path/to/AI_Issue_Experiment
 ```
 
 ## 3. Environment Check

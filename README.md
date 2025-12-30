@@ -219,21 +219,29 @@ cli/ (Tool directory)
 ```bash
 $ ai-issue solve 30340
 
-🚀 AI Issue Solver
+🚀 AI Issue Solver (Two-Phase Approach)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ℹ️  Processing Issue #30340
 
-🔧 Phase 1: Solve Issue
+📚 Phase 1: Deep Research
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[Copilot executing...]
+
+✅ Research report generated
+ℹ️  Issue type: 🔧 CODE_CHANGE
+
+🔧 Phase 2: Solution Implementation
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [Copilot executing...]
 
 ✅ Analysis report generated
 ℹ️  File: /path/to/issue-30340-analysis.md
 
+📊 Phase 3: Evaluate Solution
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📊 Phase 2: Evaluate Solution
 
 [Copilot executing...]
 
