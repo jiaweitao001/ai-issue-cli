@@ -172,6 +172,7 @@ git log -1 --format="%H"  # Get commit hash
 - ✅ Use `replace_string_in_file` / `create_file` tools
 - ✅ **Only modify locations explicitly required by Issue**
 - ⚠️ Multiple modifications must have explicit basis in Issue
+- 🧹 **Clean up**: Delete any temporary/intermediate files before finishing
 
 ### 3. Test Updates (Follow Project Conventions)
 
