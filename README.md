@@ -187,7 +187,7 @@ ai-issue solve 30340
 │ Copilot Session 2   │
 │ (Evaluate) Isolated │
 ├─────────────────────┤
-│ • Read analysis.md  │
+│ • Read analysis    │
 │ • Evaluate by std   │
 │ • Generate eval.md  │
 └─────────────────────┘
@@ -200,7 +200,7 @@ ai-issue solve 30340
 ```
 reportPath/
 ├── issue-30340-research.md      # Research report (Phase 1, deleted after Phase 2)
-├── issue-30340-analysis.md      # Analysis report (Phase 2)
+├── issue-30340-analysis-and-solution.md      # Analysis and solution report (Phase 2)
 ├── issue-30340-evaluation.md    # Evaluation report (Phase 3)
 └── logs/
     └── issue-30340-*.log         # Detailed logs
@@ -237,8 +237,8 @@ $ ai-issue solve 30340
 
 [Copilot executing...]
 
-✅ Analysis report generated
-ℹ️  File: /path/to/issue-30340-analysis.md
+✅ Analysis and solution report generated
+ℹ️  File: /path/to/issue-30340-analysis-and-solution.md
 
 📊 Phase 3: Evaluate Solution
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

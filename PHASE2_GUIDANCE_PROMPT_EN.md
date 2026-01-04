@@ -38,7 +38,7 @@ This Issue **does not require code changes**, it needs:
 
 ## Output Requirements
 
-⚠️ **Only create `issue-[number]-analysis.md` - delete all other temporary files before finishing**
+⚠️ **Only create `issue-[number]-analysis-and-solution.md` - delete all other temporary files before finishing**
 
 **Using the following format**:
 

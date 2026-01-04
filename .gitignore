@@ -68,5 +68,5 @@ jspm_packages/
 .ai-issue/
 
 # Generated reports (optional - uncomment if you don't want to track them)
-# issue-*-analysis.md
+# issue-*-analysis-and-solution.md
 # issue-*-evaluation.md

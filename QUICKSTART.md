@@ -99,8 +99,8 @@ ai-issue batch 30049 30340 30360 30384 30437 31120 31180 --concurrency 7
 # Phase 1: Research report (NEW in v2.0)
 ~/Work/AI_Issue_Experiment/issue-30340-research.md
 
-# Phase 2: Analysis report
-~/Work/AI_Issue_Experiment/issue-30340-analysis.md
+# Phase 2: Analysis and solution report
+~/Work/AI_Issue_Experiment/issue-30340-analysis-and-solution.md
 
 # Phase 3: Evaluation report
 ~/Work/AI_Issue_Experiment/issue-30340-evaluation.md
@@ -119,7 +119,7 @@ ai-issue batch 30049 30340 30360 30384 30437 31120 31180 --concurrency 7
 - Follow similar implementations
 - Use SDK functions (not reinvent)
 - Ensure completeness (all CRUD operations)
-- Output: `issue-XXX-analysis.md`
+- Output: `issue-XXX-analysis-and-solution.md`
 
 **Why Two-Phase?**
 - Prevents "quick fix" without understanding root cause

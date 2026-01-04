@@ -9,7 +9,7 @@ if [ -z "$ISSUE_NUMBER" ]; then
     exit 1
 fi
 
-ANALYSIS_FILE="$REPORT_PATH/issue-$ISSUE_NUMBER-analysis.md"
+ANALYSIS_FILE="$REPORT_PATH/issue-$ISSUE_NUMBER-analysis-and-solution.md"
 EVAL_FILE="$REPORT_PATH/issue-$ISSUE_NUMBER-evaluation.md"
 
 echo "📊 Monitoring Issue #$ISSUE_NUMBER processing progress"
@@ -26,9 +26,9 @@ while true; do
     # Check analysis report
     if [ -f "$ANALYSIS_FILE" ]; then
         SIZE=$(wc -l < "$ANALYSIS_FILE")
-        echo "✅ Analysis report: Generated ($SIZE lines)"
+        echo "✅ Analysis and solution report: Generated ($SIZE lines)"
     else
-        echo "⏳ Analysis report: Processing..."
+        echo "⏳ Analysis and solution report: Processing..."
     fi
     
     # Check evaluation report

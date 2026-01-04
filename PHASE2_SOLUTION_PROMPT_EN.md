@@ -75,7 +75,7 @@ Based on Phase 1 research, design and implement a high-quality solution.
 
 ## Output Requirements
 
-⚠️ **Only create `issue-[number]-analysis.md` - delete all other temporary files before finishing**
+⚠️ **Only create `issue-[number]-analysis-and-solution.md` - delete all other temporary files before finishing**
 
 **Using the following format**:
 

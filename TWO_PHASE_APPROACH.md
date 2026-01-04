@@ -63,7 +63,7 @@ ai-issue-cli/
 ```
 AI_Issue_Experiment/
 ├── issue-XXXX-research.md    # 阶段1：调研报告
-├── issue-XXXX-analysis.md    # 阶段2：解决方案报告
+├── issue-XXXX-analysis-and-solution.md    # 阶段2：分析与解决方案报告
 └── issue-XXXX-evaluation.md  # 阶段3：评估报告
 ```
 
@@ -128,7 +128,7 @@ Phase 2: 读取调研 → 基于证据思考 → 选择最佳方案 → 精准�
 
 生成三个独立文件：
 1. `research.md` - 为什么这样分析
-2. `analysis.md` - 为什么这样解决
+2. `analysis-and-solution.md` - 为什么这样解决
 3. `evaluation.md` - 质量如何
 
 可以清晰看到AI的思考过程！
@@ -169,8 +169,8 @@ ai-issue batch 30340 31316 31500
 
 ℹ️  Designing and implementing solution based on research...
 [Copilot执行Phase 2...]
-✅ Analysis report generated
-ℹ️  File: issue-30340-analysis.md
+✅ Analysis and solution report generated
+ℹ️  File: issue-30340-analysis-and-solution.md
 
 📊 Phase 3: Evaluate Solution
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -240,7 +240,7 @@ async function cmdSolve(issueNumber) {
   // Phase 3: Evaluation (optional)
   if (!options.noEval) {
     const evalPrompt = loadPrompt('MANUAL_EVALUATION_PROMPT.md');
-    const analysisReport = readFile(`issue-${issueNumber}-analysis.md`);
+    const analysisReport = readFile(`issue-${issueNumber}-analysis-and-solution.md`);
     await runCopilot(evalPrompt + analysisReport);
   }
 }
@@ -313,7 +313,7 @@ ai-issue solve 31180
 ai-issue batch 31180 30384 30437 30049 31120 30340 30360
 
 # 对比结果
-diff issue-31180-analysis.md issue-31180-analysis-v2.md
+diff issue-31180-analysis-and-solution.md issue-31180-analysis-and-solution-v2.md
 ```
 
 ## 🎓 最佳实践
