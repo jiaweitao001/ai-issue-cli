@@ -38,6 +38,7 @@ Comparative analysis of AI solutions against standard answers (PR) for accuracy 
 ### 1. Obtain Comparison Materials
 - Get standard answer from GitHub PR
 - Read AI-generated analysis report
+- **If Commit Hash exists, use `git show <hash>` to view actual code and evaluate based on real code**
 
 ### 2. Core Comparison
 
