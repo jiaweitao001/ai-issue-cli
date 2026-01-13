@@ -9,7 +9,7 @@ A command-line tool based on GitHub Copilot CLI that automates the resolution an
 
 - 🔬 **Two-Phase Approach** - Separate research and solution phases for better accuracy
 - 📊 **60% Accuracy Improvement** - Forced deep research before implementation
-- ⚡ **Parallel Processing** - Configurable concurrency for batch operations
+- ⚡ **Parallel Processing** - Configurable concurrency for batch operations (recommended ≤5 to avoid rate limits)
 - 🎯 **Simplified Prompts** - Phase 1: 141 lines, Phase 2: 143 lines (from 617 lines)
 - 🔍 **Independent Thinking** - Prevents peeking at PR solutions
 
@@ -86,7 +86,7 @@ ai-issue config show
 | Option | Description | Default |
 |--------|-------------|--------|
 | `repoPath` | Repository path | *(required, must be set)* |
-| `issueBaseUrl` | Issue URL prefix | *(required, must be set)* |
+| `issueBaseUrl` | Issue URL prefix | `https://github.com/hashicorp/terraform-provider-azurerm/issues` |
 | `reportPath` | Report output path | `~/.ai-issue/reports` |
 | `model` | AI model | `claude-sonnet-4.5` |
 | `logLevel` | Log level | `info` |
@@ -122,8 +122,8 @@ ai-issue batch 30340 31316 31500
 # Custom concurrency
 ai-issue batch 30340 31316 31500 --concurrency 5
 
-# Batch with options
-ai-issue batch 30049 30340 30360 30384 30437 31120 31180 --concurrency 7 --no-eval
+# Batch with options (concurrency >5 may hit rate limits)
+ai-issue batch 30049 30340 30360 30384 30437 --concurrency 5 --no-eval
 
 # Specify AI model
 ai-issue solve 30340 --model gpt-5

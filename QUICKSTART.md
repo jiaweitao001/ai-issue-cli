@@ -9,7 +9,7 @@
 
 ⚡ **Parallel Batch Processing**:
 - Process multiple issues concurrently
-- Configurable concurrency (default: 3)
+- Configurable concurrency (default: 3, recommended ≤5 to avoid rate limits)
 - Real-time progress tracking
 
 ## 1. Installation
@@ -29,7 +29,8 @@ ai-issue init
 
 # Set required configurations
 ai-issue config set repoPath /path/to/your/repo
-ai-issue config set issueBaseUrl https://github.com/owner/repo/issues
+# issueBaseUrl defaults to terraform-provider-azurerm, change if needed:
+# ai-issue config set issueBaseUrl https://github.com/owner/repo/issues
 
 # View configuration
 ai-issue config show
@@ -88,8 +89,8 @@ ai-issue config set model gpt-5
 # Default: 3 concurrent issues
 ai-issue batch 30340 31316 31500
 
-# Custom: 7 concurrent issues
-ai-issue batch 30049 30340 30360 30384 30437 31120 31180 --concurrency 7
+# Custom: 5 concurrent issues (recommended max to avoid rate limits)
+ai-issue batch 30049 30340 30360 30384 30437 31120 31180 --concurrency 5
 
 # View real-time progress
 # Output shows: Progress: 3/7 | Active: #30049, #30340, #30360

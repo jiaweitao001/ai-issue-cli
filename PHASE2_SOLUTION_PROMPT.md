@@ -66,11 +66,16 @@
 - 📝 **Schema严谨** - Optional用Default而非Computed；有格式要求加ValidateFunc
 - 🚫 **不要发明方案** - 修改框架/SDK代码前，必须先搜索代码库中解决**同类问题**的现有实现，照着它的模式来
 
-## 独立思考要求
+## 📚 代码规范参考
 
-- ❌ 不能查看修复该Issue的PR代码（如果存在）
-- ❌ 不能查看Issue评论区中直接给出的解决方案
-- ✅ 必须基于阶段1调研结果独立设计方案
+在编写代码前，必须阅读并遵循azurerm项目的代码规范：
+
+- **开发指南**：https://github.com/hashicorp/terraform-provider-azurerm/tree/main/contributing
+- 重点查看：
+  - `topics/guide-new-resource.md` - 新资源开发指南
+  - `topics/guide-new-data-source.md` - 新数据源开发指南
+  - `topics/best-practices.md` - 最佳实践
+  - `topics/schema-design.md` - Schema设计规范
 
 ---
 
@@ -89,18 +94,9 @@
 - 影响范围
 - Swagger链接（如果是支持新特性）
 
-## 2. 代码调查
-- 关键文件路径
-- 相关函数/类/模块
-- 发现的问题点
+## 2. Git操作记录
 
-## 3. 解决方案
-- 修复思路
-- 具体实现方法
-
-## 4. 代码修改
-
-### Git操作记录
+### 分支信息
 - 分支名：issue-XXX
 - Commit Hash: [hash]
 
@@ -109,29 +105,10 @@
 
 ### Commit信息
 ```
-[完整commit message]
+[Fix #XXX: 完整commit message]
 ```
 
-## 5. 测试修改
-
-### 测试文件修改
-- 修改的测试文件路径
-- 新增或修改的测试用例
-- 测试运行结果
-
-## 6. 文档更新（如适用）
-- 更新的文档文件路径
-- 修改内容说明
-
-## 7. 验证方法
-- 测试步骤
-- 预期结果
-
-## 8. 潜在影响
-- 是否影响其他功能
-- 是否需要额外修改
-
-## 9. 提交前自检（必填）⚠️
+## 3. 提交前自检（必填）⚠️
 
 | 检查项 | 是/否 | 说明 |
 |--------|-------|------|
@@ -142,21 +119,20 @@
 | 代码行数变化合理？（+/-行数） | | |
 | 参考了类似PR的修复风格？ | | |
 | **字段名与SDK struct完全匹配？** | | 精确到`_name`/`_id`后缀 |
-| **新增字段有acceptance test？** | | 不接受"太简单不需要"的理由 |
+| **新增字段有acceptance test？** | | 不接受“太简单不需要”的理由 |
 
-## 10. Issue 回复
+## 4. Issue 回复
 
 > 以 "Thank you for raising the issue." 开头，英文撰写，简述根本原因和解决方案。
 
 ```
 [在此填写]
 ```
+```
 
 ---
 
-## 参考：实施清单
-
-### 1. Git操作
+## 参考：Git操作
 
 > ⚠️ **跨平台**：commit message必须用双引号`"`，避免多行，路径用`/`
 
@@ -169,22 +145,6 @@ git add .
 git commit -m "Fix #[编号]: [简短描述]"
 git log -1 --format="%H"  # 获取commit hash
 ```
-
-### 2. 代码修改
-
-- ✅ 使用 `replace_string_in_file` / `create_file` 工具
-- ✅ **只修改Issue明确要求的位置**
-- ⚠️ 修改多处必须有Issue中的明确依据
-
-### 3. 测试更新（参考项目惯例）
-
-- 简单错误处理/文档修复 → 通常不需要新测试
-- 新功能/复杂逻辑变更 → 需要测试
-
-### 4. 文档更新
-
-- 修改公开API/Schema → 必须更新 `.html.markdown`
-- 内部实现 → 不需要
 
 ---
 

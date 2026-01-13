@@ -66,11 +66,16 @@ Based on Phase 1 research, design and implement a high-quality solution.
 - 📝 **Rigorous Schema** - Optional uses Default not Computed; add ValidateFunc for format requirements
 - 🚫 **Don't invent solutions** - Before modifying framework/SDK code, must first search the codebase for existing implementations that solve **similar problems**, then follow that pattern
 
-## Independent Thinking Requirements
+## 📚 Code Style Guidelines
 
-- ❌ Do not look at the PR code that fixes this Issue (if it exists)
-- ❌ Do not look at solutions directly given in Issue comments
-- ✅ Must independently design solution based on Phase 1 research results
+Before writing code, must read and follow the azurerm project's code style guidelines:
+
+- **Contributing Guide**: https://github.com/hashicorp/terraform-provider-azurerm/tree/main/contributing
+- Key documents:
+  - `topics/guide-new-resource.md` - New resource development guide
+  - `topics/guide-new-data-source.md` - New data source development guide
+  - `topics/best-practices.md` - Best practices
+  - `topics/schema-design.md` - Schema design guidelines
 
 ---
 
@@ -89,18 +94,9 @@ Based on Phase 1 research, design and implement a high-quality solution.
 - Impact scope
 - Swagger link (if supporting new feature)
 
-## 2. Code Investigation
-- Key file paths
-- Related functions/classes/modules
-- Discovered problem points
+## 2. Git Operation Record
 
-## 3. Solution
-- Fix approach
-- Specific implementation method
-
-## 4. Code Changes
-
-### Git Operation Record
+### Branch Info
 - Branch name: issue-XXX
 - Commit Hash: [hash]
 
@@ -109,29 +105,10 @@ Based on Phase 1 research, design and implement a high-quality solution.
 
 ### Commit Message
 ```
-[Complete commit message]
+[Fix #XXX: Complete commit message]
 ```
 
-## 5. Test Changes
-
-### Test File Modifications
-- Modified test file paths
-- New or modified test cases
-- Test run results
-
-## 6. Documentation Updates (If Applicable)
-- Updated documentation file paths
-- Modification description
-
-## 7. Verification Method
-- Test steps
-- Expected results
-
-## 8. Potential Impact
-- Whether it affects other functionality
-- Whether additional modifications are needed
-
-## 9. Pre-submission Checklist (Required) ⚠️
+## 3. Pre-submission Checklist (Required) ⚠️
 
 | Check Item | Yes/No | Notes |
 |------------|--------|-------|
@@ -144,7 +121,7 @@ Based on Phase 1 research, design and implement a high-quality solution.
 | **Field names exactly match SDK struct?** | | Exact to `_name`/`_id` suffix |
 | **New fields have acceptance tests?** | | "Too simple" is not an acceptable reason |
 
-## 10. Issue Reply
+## 4. Issue Reply
 
 > Start with "Thank you for raising the issue.", write in English, briefly describe root cause and solution.
 
@@ -155,9 +132,7 @@ Based on Phase 1 research, design and implement a high-quality solution.
 
 ---
 
-## Reference: Implementation Checklist
-
-### 1. Git Operations
+## Reference: Git Operations
 
 > ⚠️ **Cross-platform**: Use double quotes `"` for commit message, single-line only, use `/` for paths
 
@@ -170,22 +145,6 @@ git add .
 git commit -m "Fix #[number]: [short description]"
 git log -1 --format="%H"  # Get commit hash
 ```
-
-### 2. Code Modifications
-
-- ✅ Use `replace_string_in_file` / `create_file` tools
-- ✅ **Only modify locations explicitly required by Issue**
-- ⚠️ Multiple modifications must have explicit basis in Issue
-
-### 3. Test Updates (Follow Project Conventions)
-
-- Simple error handling/documentation fix → Usually no new tests needed
-- New features/complex logic changes → Tests needed
-
-### 4. Documentation Updates
-
-- Modifying public API/Schema → Must update `.html.markdown`
-- Internal implementation → Not needed
 
 ---
 
