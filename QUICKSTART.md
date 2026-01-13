@@ -97,10 +97,10 @@ ai-issue batch 30049 30340 30360 30384 30437 31120 31180 --concurrency 7
 
 ### Q: Where are the generated files?
 ```bash
-# Phase 1: Research report (NEW in v2.0)
+# Phase 1: Research report (temporary, deleted after Phase 2)
 ~/Work/AI_Issue_Experiment/issue-30340-research.md
 
-# Phase 2: Analysis and solution report
+# Phase 2: Analysis and solution report (final output)
 ~/Work/AI_Issue_Experiment/issue-30340-analysis-and-solution.md
 
 # Phase 3: Evaluation report
