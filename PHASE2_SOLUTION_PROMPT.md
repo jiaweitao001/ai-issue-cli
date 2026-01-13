@@ -1,170 +1,170 @@
-# 阶段2：解决方案实施
+# Phase 2: Solution Implementation
 
-基于阶段1调研，设计并实施高质量解决方案。
-
----
-
-## ⚠️ 关键约束（最重要，必读）
-
-### 1. 最小修改原则
-- **只修复Issue明确指出的问题**，不要修复"顺便发现"的其他问题
-- 能改1行就不改3行，能用现有模式就不引入新抽象
-- 额外改进应作为独立Issue/PR，不要混入当前修复
-
-### 2. 严格遵循Issue范围
-- Issue指向哪个文件/行号，**就只修复那里**
-- 区分"Issue要求的"和"我认为应该改进的"——只做前者
-- 不要基于错误日志表象推断，要分析根本原因
-
-### 3. 避免过度工程化
-- ❌ 不添加Issue未要求的日志
-- ❌ 不创建新辅助函数（除非现有代码已有此模式）
-- ❌ 不为"一致性"修改其他文件
-- ❌ 不假设需要修改所有CRUD（除非Issue明确要求）
-- ❌ 不添加项目不需要的测试
-
-### 4. 验证假设
-- 不假设问题"已被其他PR修复"
-- 参考类似Issue的历史PR，了解项目修复风格
-- 如果不确定，采用**最简单**的修复方式
-
-> **牢记：开源项目偏好最小化改动以降低风险。"做得更多"≠"做得更好"。**
-
-### 5. 高频致命错误 ⚠️
-
-- **字段命名必须精确** - 查SDK struct确认，不要猜测（如`runtime_environment` vs `runtime_environment_name`）
-- **新字段必须有测试** - 无论多简单，acceptance test不可省略
-- **Optional字段用`d.GetOk()`** - 不要用`d.Get()`直接取值，会传空字符串
-- **Read中用`pointer.From()`** - 安全处理nil值
+Based on Phase 1 research, design and implement a high-quality solution.
 
 ---
 
-## 📚 参考案例（正确 vs 错误）
+## ⚠️ Key Constraints (Most Important, Must Read)
 
-### 案例1：Issue #30849（SKU验证缺失）
-- **Issue要求**：`HS_S_` SKU被错误拒绝设置`min_capacity`，CustomizeDiff只检查了`GP_S_`
-- **标准修复**：在第120行现有条件后追加 `&& !strings.HasPrefix(..., "HS_S_")`
-- **改动量**：1行
-- **易犯错误**：创建`isServerlessSku()`辅助函数、修改Create/Update函数（Issue未要求）
+### 1. Minimal Change Principle
+- **Only fix the issue explicitly stated** - don't fix other issues "discovered along the way"
+- If 1 line can fix it, don't change 3 lines; if existing patterns work, don't introduce new abstractions
+- Additional improvements should be separate Issues/PRs, not mixed into current fix
 
-### 案例2：Issue #31045（资源删除后报错）
-- **Issue要求**：手动删除`storage_table_entity`后terraform plan报错，Read函数缺少404处理
-- **标准修复**：Read函数添加 `if response.WasNotFound(...) { d.SetId(""); return nil }`
-- **改动量**：4行
-- **易犯错误**：同时处理403、添加日志、修改测试文件（Issue未要求）
+### 2. Strictly Follow Issue Scope
+- Fix **only where** the Issue points to (file/line number)
+- Distinguish "what Issue requires" from "what I think should be improved" - only do the former
+- Don't infer from error log symptoms, analyze root cause
 
-> **从案例中学习**：标准修复都是**最小改动**，只改Issue指向的位置，不扩展范围。
+### 3. Avoid Over-Engineering
+- ❌ Don't add logs not requested by Issue
+- ❌ Don't create new helper functions (unless existing code already has this pattern)
+- ❌ Don't modify other files for "consistency"
+- ❌ Don't assume all CRUD needs modification (unless Issue explicitly requires)
+- ❌ Don't add tests the project doesn't need
 
----
+### 4. Verify Assumptions
+- Don't assume the issue "has been fixed by another PR"
+- Reference historical PRs of similar Issues to understand project fix style
+- If uncertain, adopt the **simplest** fix approach
 
-## 核心原则
+> **Remember: Open source projects prefer minimal changes to reduce risk. "Doing more" ≠ "Doing better".**
 
-- 🎯 **治本不治标** - 解决根因，不绕过问题
-- 🔍 **参考优先** - 采用调研中的相似实现和SDK函数
-- 📐 **最小修改** - 只修复Issue明确指出的问题（见上方约束）
-- 🔐 **动态验证** - CustomizeDiff使用API调用而非硬编码
-- 📝 **Schema严谨** - Optional用Default而非Computed；有格式要求加ValidateFunc
-- 🚫 **不要发明方案** - 修改框架/SDK代码前，必须先搜索代码库中解决**同类问题**的现有实现，照着它的模式来
+### 5. High-Frequency Fatal Errors ⚠️
 
-## 📚 代码规范参考
-
-在编写代码前，必须阅读并遵循azurerm项目的代码规范：
-
-- **开发指南**：https://github.com/hashicorp/terraform-provider-azurerm/tree/main/contributing
-- 重点查看：
-  - `topics/guide-new-resource.md` - 新资源开发指南
-  - `topics/guide-new-data-source.md` - 新数据源开发指南
-  - `topics/best-practices.md` - 最佳实践
-  - `topics/schema-design.md` - Schema设计规范
+- **Field naming must be exact** - Check SDK struct to confirm, don't guess (e.g., `runtime_environment` vs `runtime_environment_name`)
+- **New fields must have tests** - No matter how simple, acceptance tests cannot be omitted
+- **Optional fields use `d.GetOk()`** - Don't use `d.Get()` directly, it will pass empty strings
+- **Use `pointer.From()` in Read** - Safely handle nil values
 
 ---
 
-## 输出要求
+## 📚 Reference Cases (Correct vs Wrong)
 
-⚠️ **只创建 `issue-[编号]-analysis-and-solution.md`，完成前删除其他所有临时文件**
+### Case 1: Issue #30849 (SKU Validation Missing)
+- **Issue requires**: `HS_S_` SKU incorrectly rejected for setting `min_capacity`, CustomizeDiff only checked `GP_S_`
+- **Standard fix**: Append `&& !strings.HasPrefix(..., "HS_S_")` after existing condition on line 120
+- **Change amount**: 1 line
+- **Common mistakes**: Creating `isServerlessSku()` helper function, modifying Create/Update functions (not requested by Issue)
 
-**使用以下格式**：
+### Case 2: Issue #31045 (Error After Resource Deletion)
+- **Issue requires**: After manually deleting `storage_table_entity`, terraform plan errors, Read function lacks 404 handling
+- **Standard fix**: Add `if response.WasNotFound(...) { d.SetId(""); return nil }` in Read function
+- **Change amount**: 4 lines
+- **Common mistakes**: Also handling 403, adding logs, modifying test files (not requested by Issue)
+
+> **Learn from cases**: Standard fixes are **minimal changes**, only modify where Issue points to, don't expand scope.
+
+---
+
+## Core Principles
+
+- 🎯 **Fix root cause, not symptoms** - Solve the root cause, don't work around the problem
+- 🔍 **Reference first** - Use similar implementations and SDK functions found in research
+- 📐 **Minimal modification** - Only fix issues explicitly stated (see constraints above)
+- 🔐 **Dynamic validation** - CustomizeDiff uses API calls instead of hardcoding
+- 📝 **Rigorous Schema** - Optional uses Default not Computed; add ValidateFunc for format requirements
+- 🚫 **Don't invent solutions** - Before modifying framework/SDK code, must first search the codebase for existing implementations that solve **similar problems**, then follow that pattern
+
+## 📚 Code Style Guidelines
+
+Before writing code, must read and follow the azurerm project's code style guidelines:
+
+- **Contributing Guide**: https://github.com/hashicorp/terraform-provider-azurerm/tree/main/contributing
+- Key documents:
+  - `topics/guide-new-resource.md` - New resource development guide
+  - `topics/guide-new-data-source.md` - New data source development guide
+  - `topics/best-practices.md` - Best practices
+  - `topics/schema-design.md` - Schema design guidelines
+
+---
+
+## Output Requirements
+
+⚠️ **Only create `issue-[number]-analysis-and-solution.md` - delete all other temporary files before finishing**
+
+**Using the following format**:
 
 ```markdown
-# Issue #[编号] 解决方案
+# Issue #[number] Solution
 
-## 1. 问题分析
-- 问题现象
-- 根本原因
-- 影响范围
-- Swagger链接（如果是支持新特性）
+## 1. Problem Analysis
+- Problem symptoms
+- Root cause
+- Impact scope
+- Swagger link (if supporting new feature)
 
-## 2. Git操作记录
+## 2. Git Operation Record
 
-### 分支信息
-- 分支名：issue-XXX
+### Branch Info
+- Branch name: issue-XXX
 - Commit Hash: [hash]
 
-### 修改的文件
-- `path/to/file.go` - 修改说明
+### Modified Files
+- `path/to/file.go` - Modification description
 
-### Commit信息
+### Commit Message
 ```
-[Fix #XXX: 完整commit message]
+[Fix #XXX: Complete commit message]
 ```
 
-## 3. 提交前自检（必填）⚠️
+## 3. Pre-submission Checklist (Required) ⚠️
 
-| 检查项 | 是/否 | 说明 |
-|--------|-------|------|
-| 修改的文件与Issue指向一致？ | | |
-| 修改范围未超出Issue描述？ | | |
-| 未引入新函数/新抽象？ | | |
-| 未添加Issue未要求的日志？ | | |
-| 代码行数变化合理？（+/-行数） | | |
-| 参考了类似PR的修复风格？ | | |
-| **字段名与SDK struct完全匹配？** | | 精确到`_name`/`_id`后缀 |
-| **新增字段有acceptance test？** | | 不接受“太简单不需要”的理由 |
+| Check Item | Yes/No | Notes |
+|------------|--------|-------|
+| Modified files match Issue target? | | |
+| Modification scope within Issue description? | | |
+| No new functions/abstractions introduced? | | |
+| No logs added that Issue didn't request? | | |
+| Reasonable code line changes? (+/- lines) | | |
+| Referenced similar PR fix styles? | | |
+| **Field names exactly match SDK struct?** | | Exact to `_name`/`_id` suffix |
+| **New fields have acceptance tests?** | | "Too simple" is not an acceptable reason |
 
-## 4. Issue 回复
+## 4. Issue Reply
 
-> 以 "Thank you for raising the issue." 开头，英文撰写，简述根本原因和解决方案。
+> Start with "Thank you for raising the issue.", write in English, briefly describe root cause and solution.
 
 ```
-[在此填写]
+[Fill in here]
 ```
 ```
 
 ---
 
-## 参考：Git操作
+## Reference: Git Operations
 
-> ⚠️ **跨平台**：commit message必须用双引号`"`，避免多行，路径用`/`
+> ⚠️ **Cross-platform**: Use double quotes `"` for commit message, single-line only, use `/` for paths
 
 ```bash
 git checkout main
 git pull origin main
-git checkout -b issue-[编号]
-# 修改代码...
+git checkout -b issue-[number]
+# Modify code...
 git add .
-git commit -m "Fix #[编号]: [简短描述]"
-git log -1 --format="%H"  # 获取commit hash
+git commit -m "Fix #[number]: [short description]"
+git log -1 --format="%H"  # Get commit hash
 ```
 
 ---
 
-## 参考：质量标准
+## Reference: Quality Standards
 
-### ✅ 优秀方案
-- 解决根因，不绕过
-- 参考相似实现
-- 使用SDK现有功能
-- 代码更简洁
-- **修改范围与Issue一致**
+### ✅ Excellent Solutions
+- Solve root cause, don't work around
+- Reference similar implementations
+- Use existing SDK functionality
+- Simpler code
+- **Modification scope matches Issue**
 
-### ❌ 常见错误
-- 只增加轮询/延迟（治标）
-- 自己写正则/验证（重复造轮子）
-- 代码更复杂（增加分支、新函数）
-- **过度工程化**：修复Issue未要求的问题
-- **超出范围**：Issue指向文件A，却修改文件B
-- **错误假设**：假设问题已被其他PR修复
-- Schema用Computed代替Default
-- 有格式要求但不加ValidateFunc
-- CustomizeDiff用硬编码而非API调用
-- 改了Schema但不更新文档
+### ❌ Common Mistakes
+- Only adding polling/delays (treating symptoms)
+- Writing own regex/validation (reinventing the wheel)
+- More complex code (adding branches, new functions)
+- **Over-engineering**: Fixing issues not requested by Issue
+- **Scope creep**: Issue points to file A, but modifying file B
+- **Wrong assumptions**: Assuming issue has been fixed by another PR
+- Using Computed instead of Default in Schema
+- Not adding ValidateFunc when format requirements exist
+- Using hardcoding instead of API calls in CustomizeDiff
+- Changed Schema but didn't update documentation

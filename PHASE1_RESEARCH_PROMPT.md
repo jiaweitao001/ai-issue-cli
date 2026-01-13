@@ -1,171 +1,171 @@
-# 阶段1：深度调研
+# Phase 1: Deep Research
 
-## 核心任务
+## Core Task
 
-对Issue进行**全面技术调研**，为阶段2提供坚实基础。
+Conduct **comprehensive technical research** on the Issue to provide a solid foundation for Phase 2.
 
-⚠️ **本阶段禁止提出解决方案**，只做信息收集和分析。
+⚠️ **No solutions should be proposed in this phase** - only information gathering and analysis.
 
-## 独立思考要求
+## Independent Thinking Requirements
 
-- ❌ **不能查看Issue的评论区（comments）** - 评论可能包含答案
-- ❌ 不能查看修复该Issue的PR代码（如果存在）
-- ❌ 不能查看Issue评论区中直接给出的解决方案
-- ✅ 只能查看Issue的原始描述（title + body）
-- ✅ 可以查看代码仓库进行调研
+- ❌ **Do not look at Issue comments** - Comments may contain answers
+- ❌ Do not look at the PR code that fixes this Issue (if it exists)
+- ❌ Do not look at solutions directly given in Issue comments
+- ✅ Can only view the original Issue description (title + body)
+- ✅ Can review the code repository for research
 
-## 关键原则
+## Key Principles
 
-⚠️ **堆栈≠根因** - 不要只看错误堆栈指向的函数，必须全面检查所有相关函数(CRUD)和调用链
+⚠️ **Stack trace ≠ Root cause** - Don't just look at the function pointed to by the error stack, must comprehensively check all related functions (CRUD) and call chains
 
-⚠️ **精准定位** - Issue指向哪个文件/行号，调研重点就放在那里，不要发散到"相关"文件
+⚠️ **Precise targeting** - Focus your research on the exact file/line number the Issue points to, don't diverge to "related" files
 
-⚠️ **不做假设** - 不要假设问题已被其他PR修复，不要基于错误日志表象推断根因
+⚠️ **No assumptions** - Don't assume the issue has been fixed by another PR, don't infer root cause from error log surface symptoms
 
 ---
 
-## 强制调研清单
+## Mandatory Research Checklist
 
-### 1. 找相似实现 ⭐⭐⭐（最关键）
+### 1. Find Similar Implementations ⭐⭐⭐ (Most Critical)
 
 ```bash
-# 同目录查找类似资源
+# Find similar resources in the same directory
 ls -la path/to/resource/directory/
 
-# 例如：pim_eligible → 找 pim_active
-# 对比两者差异，理解为何其他资源没此问题
+# Example: pim_eligible → find pim_active
+# Compare differences between them, understand why other resources don't have this issue
 ```
 
-**必须记录**：
-- 相似资源文件路径
-- 关键实现差异
-- 为何它没问题
-- **字段精确命名**（查SDK struct，注意`_id`/`_name`/`_type`后缀）
+**Must document**:
+- Similar resource file paths
+- Key implementation differences
+- Why it doesn't have the problem
+- **Exact field naming** (check SDK struct, note `_id`/`_name`/`_type` suffixes)
 
-### 2. 搜SDK工具 ⭐⭐
+### 2. Search SDK Tools ⭐⭐
 
 ```bash
-# 搜索验证函数
+# Search for validation functions
 grep -r "Validate.*ID\|Parse.*ID" vendor/
 
-# 检查已导入的SDK包
+# Check already imported SDK packages
 ```
 
-**必须记录**：
-- 找到的SDK函数名称和路径
-- 是否适用当前场景
+**Must document**:
+- Found SDK function names and paths
+- Whether applicable to current scenario
 
-### 3. 查代码历史 ⭐
+### 3. Check Code History ⭐
 
 ```bash
-# 查找最近修改
+# Find recent changes
 git log --oneline -20 -- path/to/file.go
 
-# 搜索特定字段变更
+# Search specific field changes
 git log -p -S "field_name" -- path/to/file.go
 ```
 
-**必须记录**：
-- 最近3个月相关commits
-- 问题可能引入的时间点
+**Must document**:
+- Relevant commits from last 3 months
+- When the issue was likely introduced
 
-### 4. 识别全局影响
+### 4. Identify Global Impact
 
 ```bash
-# 搜索字段所有使用位置
+# Search all usage locations of the field
 grep -r "field_name" internal/services/
 ```
 
-**必须记录**：
-- Create/Update/Read/Delete函数位置
-- 相关资源（嵌套配置等）
-- 需要同步修改的位置
+**Must document**:
+- Create/Update/Read/Delete function locations
+- Related resources (nested configurations, etc.)
+- Locations that need synchronized modifications
 
-### 5. 官方文档
+### 5. Official Documentation
 
-- 查Azure/AWS文档的推荐做法
-- 确认API的预期行为
+- Check Azure/AWS documentation for recommended practices
+- Confirm expected API behavior
 
 ---
 
-## 输出要求
+## Output Requirements
 
-⚠️ **只创建 `issue-[编号]-research.md`，完成前删除其他所有临时文件**
+⚠️ **Only create `issue-[number]-research.md` - delete all other temporary files before finishing**
 
 ```markdown
-# Issue #[编号] 调研报告
+# Issue #[number] Research Report
 
-## 问题分类 ⭐⭐⭐
+## Problem Classification ⭐⭐⭐
 
-**类型**: 🔧 CODE_CHANGE / 📖 GUIDANCE
+**Type**: 🔧 CODE_CHANGE / 📖 GUIDANCE
 
-**判定依据**: [简述为什么是这个分类]
+**Justification**: [Brief explanation of why this classification]
 
-### 分类标准
-- 🔧 CODE_CHANGE: Bug修复、缺失功能（已GA）、验证问题、SDK未映射等需要修改代码的情况
+### Classification Criteria
+- 🔧 CODE_CHANGE: Bug fixes, missing features (already GA), validation issues, SDK not mapped, etc. that require code changes
 - 📖 GUIDANCE: 
-  - 用户配置错误
-  - 设计如此（预期行为）
-  - 需升级provider版本
-  - **功能处于preview/public preview阶段** - 告知用户等GA后处理
-  - 提供workaround即可
-  - **Issue信息不足** - 无法定位问题根因，需要用户补充信息（如：缺少复现配置、错误日志不完整、版本信息不明确等）
+  - User configuration error
+  - By design (expected behavior)
+  - Needs provider version upgrade
+  - **Feature is in preview/public preview stage** - Inform user to wait for GA
+  - Workaround is sufficient
+  - **Insufficient Issue information** - Cannot identify root cause, need user to provide more details (e.g., missing reproduction config, incomplete error logs, unclear version info, etc.)
 
-## 问题概述
-[简述问题、涉及资源、错误信息]
+## Problem Overview
+[Brief description of the problem, affected resources, error messages]
 
-## 初步假设
-1. 假设A - 待验证
-2. 假设B - 待验证
+## Initial Hypotheses
+1. Hypothesis A - To be verified
+2. Hypothesis B - To be verified
 
-## 代码定位
-- 主要文件：[路径]
-- 关键函数：[名称] (行号)
+## Code Location
+- Main file: [path]
+- Key function: [name] (line number)
 
-## 相似实现对比 ⭐
-- 相似资源：[文件路径]
-- 关键差异：[它用X，当前用Y]
-- 为何没问题：[原因]
+## Similar Implementation Comparison ⭐
+- Similar resource: [file path]
+- Key difference: [It uses X, current uses Y]
+- Why no problem: [reason]
 
-## SDK工具 ⭐
-- 函数：`XXX.ValidateYYY` 
-- 路径：[包路径]
-- 适用性：是/否，[原因]
+## SDK Tools ⭐
+- Function: `XXX.ValidateYYY` 
+- Path: [package path]
+- Applicability: Yes/No, [reason]
 
-## 历史分析
-- Commit [hash]: [说明]
-- 问题引入时间：[估计]
+## History Analysis
+- Commit [hash]: [description]
+- Issue introduction time: [estimate]
 
-## 全局影响
-- [ ] Create函数 (路径:行)
-- [ ] Update函数 (路径:行)
-- [ ] Read函数 (路径:行)
-- [ ] Delete函数 (路径:行)
-- [ ] 相关资源：[名称]
+## Global Impact
+- [ ] Create function (path:line)
+- [ ] Update function (path:line)
+- [ ] Read function (path:line)
+- [ ] Delete function (path:line)
+- [ ] Related resources: [name]
 
-## 关键发现 ⭐
-1. [最重要的发现]
-2. [第二重要]
-3. [第三重要]
+## Key Findings ⭐
+1. [Most important finding]
+2. [Second most important]
+3. [Third most important]
 
-## 下一步建议
-- [ ] 优先验证假设[X]
-- [ ] 参考[相似实现]
-- [ ] 使用SDK函数[名称]
-- [ ] 修改所有[位置列表]
+## Next Steps Recommendations
+- [ ] Prioritize verifying hypothesis [X]
+- [ ] Reference [similar implementation]
+- [ ] Use SDK function [name]
+- [ ] Modify all [location list]
 ```
 
 ---
 
-## 质量检查
+## Quality Check
 
-完成前确认：
-- [ ] 找到至少1个相似实现
-- [ ] 搜索了SDK工具函数
-- [ ] 查看了git历史
-- [ ] 识别了Issue指向的具体位置（文件/行号）
-- [ ] 读了官方文档
-- [ ] **没有假设问题已被其他PR修复**
-- [ ] **调研范围与Issue描述一致，没有发散**
-- [ ] **确认了字段的精确命名**（SDK struct字段名 → Terraform字段名）
-- [ ] **查看了相似字段的测试模式**
+Confirm before completion:
+- [ ] Found at least 1 similar implementation
+- [ ] Searched for SDK utility functions
+- [ ] Reviewed git history
+- [ ] Identified specific location (file/line number) pointed to by Issue
+- [ ] Read official documentation
+- [ ] **Did not assume the issue has been fixed by another PR**
+- [ ] **Research scope is consistent with Issue description, no divergence**
+- [ ] **Confirmed exact field naming** (SDK struct field name → Terraform field name)
+- [ ] **Reviewed test patterns for similar fields**

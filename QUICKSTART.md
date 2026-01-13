@@ -180,21 +180,15 @@ cli/
 │       ├── batch.js                     # batch command
 │       ├── config-cmd.js                # config command
 │       └── check.js                     # check command
-├── PHASE1_RESEARCH_PROMPT_EN.md          # Phase 1: Research prompt (English) ★
-├── PHASE2_SOLUTION_PROMPT_EN.md          # Phase 2: Solution prompt (English) ★
-├── PHASE2_GUIDANCE_PROMPT_EN.md          # Phase 2: Guidance prompt (English) ★ NEW
-├── MANUAL_EVALUATION_PROMPT_EN.md        # Phase 3: Evaluation prompt (English) ★
-├── PHASE1_RESEARCH_PROMPT.md             # Phase 1: Research prompt (Chinese)
-├── PHASE2_SOLUTION_PROMPT.md             # Phase 2: Solution prompt (Chinese)
-├── PHASE2_GUIDANCE_PROMPT.md             # Phase 2: Guidance prompt (Chinese) NEW
-├── MANUAL_EVALUATION_PROMPT.md           # Phase 3: Evaluation prompt (Chinese)
+├── PHASE1_RESEARCH_PROMPT.md          # Phase 1: Research prompt
+├── PHASE2_SOLUTION_PROMPT.md          # Phase 2: Solution prompt
+├── PHASE2_GUIDANCE_PROMPT.md          # Phase 2: Guidance prompt
+├── MANUAL_EVALUATION_PROMPT.md        # Phase 3: Evaluation prompt
 ├── TWO_PHASE_APPROACH.md                 # Two-phase methodology doc
 ├── STRUCTURE.md                          # Project structure doc
 ├── README.md                             # Complete documentation
 └── QUICKSTART.md                         # This file
 ```
-
-★ = Used by code (English versions)
 
 ## 9. Next Steps
 

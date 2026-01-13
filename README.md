@@ -95,10 +95,10 @@ cli/
 │   ├── config.js                        # Configuration management
 │   ├── copilot.js                       # Copilot executor
 │   └── commands/                        # Command implementations
-├── PHASE1_RESEARCH_PROMPT_EN.md          # Phase 1: Research prompt
-├── PHASE2_SOLUTION_PROMPT_EN.md          # Phase 2: Solution prompt (CODE_CHANGE)
-├── PHASE2_GUIDANCE_PROMPT_EN.md          # Phase 2: Guidance prompt (GUIDANCE)
-└── MANUAL_EVALUATION_PROMPT_EN.md        # Evaluation prompt
+├── PHASE1_RESEARCH_PROMPT.md          # Phase 1: Research prompt
+├── PHASE2_SOLUTION_PROMPT.md          # Phase 2: Solution prompt (CODE_CHANGE)
+├── PHASE2_GUIDANCE_PROMPT.md          # Phase 2: Guidance prompt (GUIDANCE)
+└── MANUAL_EVALUATION_PROMPT.md        # Evaluation prompt
 ```
 
 ## Troubleshooting

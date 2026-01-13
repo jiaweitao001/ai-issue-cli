@@ -1,133 +1,134 @@
-# 阶段2：指导解释
+````markdown
+# Phase 2: Guidance Explanation
 
-基于阶段1调研，为用户提供清晰、有帮助的解释和指导。
-
----
-
-## 核心任务
-
-此Issue**不需要代码修改**，需要：
-- 清晰解释问题原因
-- 提供可行的解决方案或workaround
-- 撰写专业友好的回复
-
-## 常见场景
-
-### 1. 用户配置错误
-- 指出配置中的问题
-- 提供正确的配置示例
-- 解释为什么需要这样配置
-
-### 2. 设计如此（预期行为）
-- 解释当前行为是设计决策
-- 说明设计背后的原因
-- 如有替代方案，提供建议
-
-### 3. 需要升级版本
-- 指出问题已在某版本修复
-- 提供升级步骤
-- 说明版本变更的影响
-
-### 4. 提供Workaround
-- 解释为何当前无法直接支持
-- 提供临时解决方案
-- 说明workaround的局限性
+Based on Phase 1 research, provide clear and helpful explanations and guidance to users.
 
 ---
 
-## 输出要求
+## Core Task
 
-⚠️ **只创建 `issue-[编号]-analysis-and-solution.md`，完成前删除其他所有临时文件**
+This Issue **does not require code changes**, it needs:
+- Clear explanation of the problem cause
+- Provide feasible solutions or workarounds
+- Write professional and friendly replies
 
-**使用以下格式**：
+## Common Scenarios
+
+### 1. User Configuration Error
+- Point out the issue in the configuration
+- Provide correct configuration examples
+- Explain why this configuration is needed
+
+### 2. By Design (Expected Behavior)
+- Explain that the current behavior is a design decision
+- Explain the reasoning behind the design
+- If there are alternatives, provide suggestions
+
+### 3. Version Upgrade Required
+- Point out that the issue was fixed in a certain version
+- Provide upgrade steps
+- Explain the impact of version changes
+
+### 4. Provide Workaround
+- Explain why direct support is currently not available
+- Provide temporary solutions
+- Explain the limitations of the workaround
+
+---
+
+## Output Requirements
+
+⚠️ **Only create `issue-[number]-analysis-and-solution.md` - delete all other temporary files before finishing**
+
+**Using the following format**:
 
 ```markdown
-# Issue #[编号] 分析报告
+# Issue #[number] Analysis Report
 
-## 1. 问题分析
+## 1. Problem Analysis
 
-### 问题现象
-[用户遇到的具体问题]
+### Problem Symptoms
+[Specific problem the user encountered]
 
-### 根本原因
-[为什么会出现这个问题]
+### Root Cause
+[Why this problem occurs]
 
-### 分类
-📖 GUIDANCE - [具体类型：配置错误/预期行为/需升级版本/Workaround]
+### Classification
+📖 GUIDANCE - [Specific type: Configuration Error/Expected Behavior/Version Upgrade Required/Workaround]
 
-## 2. 解决方案
+## 2. Solution
 
-### 推荐方案
-[详细说明解决步骤]
+### Recommended Approach
+[Detailed explanation of solution steps]
 
-### 配置示例（如适用）
+### Configuration Example (If Applicable)
 ```hcl
-# 正确的配置方式
+# Correct configuration approach
 resource "azurerm_xxx" "example" {
   # ...
 }
 ```
 
-### 注意事项
-- [需要注意的点1]
-- [需要注意的点2]
+### Notes
+- [Point to note 1]
+- [Point to note 2]
 
-## 3. 补充说明
+## 3. Additional Information
 
-### 相关文档
-- [官方文档链接]
-- [相关Issue/PR]
+### Related Documentation
+- [Official documentation link]
+- [Related Issue/PR]
 
-### 未来展望（如适用）
-[如果是功能限制，说明是否有计划支持]
+### Future Outlook (If Applicable)
+[If it's a feature limitation, explain if there are plans to support it]
 
-## 4. Issue 回复
+## 4. Issue Reply
 
-> 用于直接回复Issue的内容，英文撰写，专业友好
+> Content for directly replying to the Issue, written in English, professional and friendly
 
 ```
 Thank you for raising this issue!
 
-[问题确认和共情]
+[Problem acknowledgment and empathy]
 
-[原因解释]
+[Explanation of the cause]
 
-[解决方案]
+[Solution]
 
-[示例代码，如适用]
+[Example code, if applicable]
 
-[结束语]
+[Closing remarks]
 ```
 ```
 
 ---
 
-## 回复原则
+## Reply Principles
 
-### ✅ 好的回复
-- 先确认理解用户的问题
-- 清晰解释原因，不用过于技术化的术语
-- 提供可直接使用的解决方案
-- 包含代码示例（如适用）
-- 语气专业友好
+### ✅ Good Replies
+- First confirm understanding of the user's problem
+- Clearly explain the cause without overly technical jargon
+- Provide solutions that can be used directly
+- Include code examples (if applicable)
+- Professional and friendly tone
 
-### ❌ 避免
-- 直接说"这不是bug"而不解释
-- 只给链接不做解释
-- 使用责备的语气
-- 过于简短敷衍
+### ❌ Avoid
+- Directly saying "this is not a bug" without explanation
+- Only giving links without explanation
+- Using a blaming tone
+- Being too brief or dismissive
 
 ---
 
-## 示例回复模板
+## Example Reply Templates
 
-### 配置错误类
+### Configuration Error Type
 
 ```
 Thank you for raising this issue!
 
 I've investigated this and found that the issue is related to the configuration. 
-The `xxx` attribute requires [具体要求].
+The `xxx` attribute requires [specific requirement].
 
 Here's the corrected configuration:
 
@@ -141,14 +142,14 @@ resource "azurerm_xxx" "example" {
 Please let me know if this resolves your issue!
 ```
 
-### 预期行为类
+### Expected Behavior Type
 
 ```
 Thank you for raising this issue!
 
-This is actually the expected behavior. The reason is [解释原因].
+This is actually the expected behavior. The reason is [explain reason].
 
-If you need [用户想要的效果], you can use [替代方案]:
+If you need [what the user wants], you can use [alternative approach]:
 
 \`\`\`hcl
 # Alternative approach
@@ -158,7 +159,7 @@ If you need [用户想要的效果], you can use [替代方案]:
 I hope this helps clarify the behavior. Feel free to ask if you have any questions!
 ```
 
-### 需升级版本类
+### Version Upgrade Required Type
 
 ```
 Thank you for raising this issue!
@@ -180,3 +181,5 @@ terraform {
 
 Let me know if you encounter any issues after upgrading!
 ```
+
+````

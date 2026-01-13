@@ -1,122 +1,123 @@
-# AI Issue 解决方案评估指南
+# AI Issue Solution Evaluation Guide
 
-## 评估任务
+## Evaluation Task
 
-对比分析 AI 解决方案与标准答案（PR）的准确性和质量。
+Comparative analysis of AI solutions against standard answers (PR) for accuracy and quality.
 
-## 评估维度与评分
+## Evaluation Dimensions and Scoring
 
-### 评分标准（0-5分）
-- **5分**: 完全正确，与标准答案等价或更优
-- **4分**: 基本正确，核心思路对，有小瑕疵
-- **3分**: 部分正确，识别了部分问题但不完整
-- **2分**: 思路错误，解决方向有问题
-- **1分**: 完全错误，方案不可行
-- **0分**: 未作答或完全无关
+### Scoring Criteria (0-5 points)
+- **5 points**: Completely correct, equivalent to or better than the standard answer
+- **4 points**: Basically correct, core approach is right with minor flaws
+- **3 points**: Partially correct, identified some issues but incomplete
+- **2 points**: Wrong approach, incorrect solution direction
+- **1 point**: Completely wrong, solution is not feasible
+- **0 points**: No answer or completely irrelevant
 
-### 加权评分维度
+### Weighted Scoring Dimensions
 
-| 维度 | 权重 | 评分要点 |
-|------|------|---------|
-| **核心思路** | 30% | 解决思路是否一致，技术手段是否相似 |
-| **功能等价性** | 25% | 是否能达到相同效果，边界情况处理是否一致 |
-| **实现方式** | 20% | 代码修改位置、API使用、代码复杂度 |
-| **完整性** | 15% | 是否包含代码、测试、文档 |
-| **代码质量** | 10% | 代码正确性、清晰度、可维护性 |
+| Dimension | Weight | Scoring Points |
+|-----------|--------|----------------|
+| **Core Approach** | 30% | Whether the solution approach is consistent, whether technical means are similar |
+| **Functional Equivalence** | 25% | Whether it can achieve the same effect, whether edge case handling is consistent |
+| **Implementation Method** | 20% | Code modification locations, API usage, code complexity |
+| **Completeness** | 15% | Whether it includes code, tests, documentation |
+| **Code Quality** | 10% | Code correctness, clarity, maintainability |
 
-### 评估建议分级
+### Evaluation Recommendation Levels
 
-| 评分范围 | 建议 | 说明 |
-|---------|------|------|
-| 4.5-5.0 | ✅ Accept | 可直接使用 |
-| 3.5-4.4 | 🔍 Review | 需要审核改进 |
-| 0-3.4 | ❌ Reject | 需要重做 |
+| Score Range | Recommendation | Description |
+|-------------|----------------|-------------|
+| 4.5-5.0 | ✅ Accept | Can be used directly |
+| 3.5-4.4 | 🔍 Review | Needs review and improvement |
+| 0-3.4 | ❌ Reject | Needs to be redone |
 
 
-## 评估流程
+## Evaluation Process
 
-### 1. 获取对比材料
-- 从 GitHub PR 获取标准答案
-- 读取 AI 生成的分析报告
-- **如有 Commit Hash，用 `git show <hash>` 查看实际代码，基于真实代码评估**
+### 1. Obtain Comparison Materials
+- Get standard answer from GitHub PR
+- Read AI-generated analysis report
+- **If Commit Hash exists, use `git show <hash>` to view actual code and evaluate based on real code**
 
-### 2. 核心对比
+### 2. Core Comparison
 
-| 维度 | AI 解决方案 | 标准答案 (PR) |
-|------|------------|---------------|
-| 问题定位 | ... | ... |
-| 修改文件 | ... | ... |
-| 核心修改 | ... | ... |
-| 测试用例 | ... | ... |
+| Dimension | AI Solution | Standard Answer (PR) |
+|-----------|-------------|----------------------|
+| Problem Identification | ... | ... |
+| Modified Files | ... | ... |
+| Core Modifications | ... | ... |
+| Test Cases | ... | ... |
 
-### 3. 分析差异
+### 3. Analyze Differences
 
-**✅ 相似点**：列出一致的部分
+**✅ Similarities**: List consistent parts
 
-**⚠️ 差异点**：列出关键差异及影响
+**⚠️ Differences**: List key differences and their impact
 
-**❌ 缺失点**：指出遗漏的重要内容
+**❌ Missing Points**: Point out important missing content
 
-### 4. 计算评分
+### 4. Calculate Score
 
-| 评估维度 | 得分 | 权重 | 加权得分 |
-|---------|------|------|----------|
-| 核心思路 | X/5 | 30% | X.XX |
-| 功能等价性 | X/5 | 25% | X.XX |
-| 实现方式 | X/5 | 20% | X.XX |
-| 完整性 | X/5 | 15% | X.XX |
-| 代码质量 | X/5 | 10% | X.XX |
+| Evaluation Dimension | Score | Weight | Weighted Score |
+|---------------------|-------|--------|----------------|
+| Core Approach | X/5 | 30% | X.XX |
+| Functional Equivalence | X/5 | 25% | X.XX |
+| Implementation Method | X/5 | 20% | X.XX |
+| Completeness | X/5 | 15% | X.XX |
+| Code Quality | X/5 | 10% | X.XX |
 
-**加权总分**: X.XX / 5.0
+**Weighted Total Score**: X.XX / 5.0
 
-## 评估报告模板
+## Evaluation Report Template
 
 ```markdown
-# Issue #XXXXX 评估报告
+# Issue #XXXXX Evaluation Report
 
-## 核心对比
+## Core Comparison
 
-| 维度 | AI 方案 | 标准答案 |
-|------|---------|----------|
-| 问题定位 | ... | ... |
-| 修改文件 | ... | ... |
-| 核心修改 | ... | ... |
+| Dimension | AI Solution | Standard Answer |
+|-----------|-------------|-----------------|
+| Problem Identification | ... | ... |
+| Modified Files | ... | ... |
+| Core Modifications | ... | ... |
 
-## 分析
+## Analysis
 
-**✅ 相似点**: ...
-**⚠️ 差异点**: ...
-**❌ 缺失点**: ...
+**✅ Similarities**: ...
+**⚠️ Differences**: ...
+**❌ Missing Points**: ...
 
-## 评分
+## Scoring
 
-| 维度 | 得分 | 加权得分 |
-|------|------|----------|
-| 核心思路 (30%) | X/5 | X.XX |
-| 功能等价性 (25%) | X/5 | X.XX |
-| 实现方式 (20%) | X/5 | X.XX |
-| 完整性 (15%) | X/5 | X.XX |
-| 代码质量 (10%) | X/5 | X.XX |
+| Dimension | Score | Weighted Score |
+|-----------|-------|----------------|
+| Core Approach (30%) | X/5 | X.XX |
+| Functional Equivalence (25%) | X/5 | X.XX |
+| Implementation Method (20%) | X/5 | X.XX |
+| Completeness (15%) | X/5 | X.XX |
+| Code Quality (10%) | X/5 | X.XX |
 
-**总分**: X.XX / 5.0
+**Total Score**: X.XX / 5.0
 
-## 结论
+## Conclusion
 
-- **功能等价**: ✅ 是 / ❌ 否
-- **建议**: ✅ Accept / 🔍 Review / ❌ Reject
-- **改进建议**: ...
+- **Functional Equivalence**: ✅ Yes / ❌ No
+- **Recommendation**: ✅ Accept / 🔍 Review / ❌ Reject
+- **Improvement Suggestions**: ...
 ```
 
-## 注意事项
+## Important Notes
 
-### 评估原则
-- 关注功能等价性而非实现细节
-- 如果 AI 方案更优应该认可
-- 边界情况和错误处理同样重要
-- 保持客观，避免主观臆断
+### Evaluation Principles
+- Focus on functional equivalence rather than implementation details
+- Should acknowledge if AI solution is better
+- Edge cases and error handling are equally important
+- Remain objective, avoid subjective speculation
 
-### 常见误区
-- ❌ 仅因实现方式不同就扣分
-- ❌ 忽略细节（边界情况、错误处理）
-- ❌ 过于宽松（思路对就给高分）
-- ✅ 基于客观标准和实际效果评估
+### Common Pitfalls
+- ❌ Deducting points solely because implementation differs
+- ❌ Ignoring details (edge cases, error handling)
+- ❌ Being too lenient (giving high scores just for right approach)
+- ✅ Evaluate based on objective criteria and actual effectiveness
+
