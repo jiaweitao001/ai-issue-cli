@@ -23,65 +23,23 @@ A command-line tool based on GitHub Copilot CLI that automates the resolution an
 - ✅ **Detailed Logging** - Complete execution log recording
 - ✅ **Professional CLI** - Full command-line tool experience
 
-## Installation
+## Quick Start
 
-### Prerequisites
-
-- Node.js >= 14.0.0
-- GitHub Copilot CLI >= 0.0.342
-- GitHub Copilot subscription
-
-### Quick Installation
+See [QUICKSTART.md](QUICKSTART.md) for detailed installation and usage instructions.
 
 ```bash
-# 1. Clone or download the code
-cd /path/to/cli
-
-# 2. Run the installation script
-chmod +x install.sh
+# 1. Install
 ./install.sh
 
-# 3. Choose installation method
-#    Option 1: Global installation (recommended)
-#    Option 2: Local link (development mode)
-```
-
-### Manual Installation
-
-```bash
-# Global installation
-npm install -g .
-
-# Or use npm link (development mode)
-npm link
-```
-
-### Install GitHub Copilot CLI
-
-```bash
-npm install -g @github/copilot
-```
-
-## Configuration
-
-### First-time Use
-
-```bash
-# 1. Initialize configuration
+# 2. Configure
 ai-issue init
+ai-issue config set repoPath /path/to/terraform-provider-azurerm
 
-# 2. Configure required paths
-ai-issue config set repoPath /path/to/your/repo
-ai-issue config set issueBaseUrl https://github.com/owner/repo/issues
-
-# 3. Check environment
-ai-issue check
-
-# 4. View configuration
-ai-issue config show
+# 3. Run
+ai-issue solve 30340
 ```
 
-### Configuration Options
+## Configuration Options
 
 | Option | Description | Default |
 |--------|-------------|--------|
@@ -91,356 +49,78 @@ ai-issue config show
 | `model` | AI model | `claude-sonnet-4.5` |
 | `logLevel` | Log level | `info` |
 
-### Environment Variables
-
-You can override configuration with environment variables:
-
-```bash
-export AI_ISSUE_REPO_PATH="/path/to/repo"
-export AI_ISSUE_REPORT_PATH="/path/to/reports"
-export AI_ISSUE_MODEL="gpt-5"
-export AI_ISSUE_LOG_LEVEL="debug"
-```
-
-## Usage
-
-### Basic Commands
-
-```bash
-# Solve a single Issue (Two-Phase: Research → Solution → Evaluation)
-ai-issue solve 30340
-
-# Solve only, skip evaluation
-ai-issue solve 30340 --no-eval
-
-# Evaluate a solved Issue separately
-ai-issue evaluate 30340
-
-# Batch processing (default: 3 concurrent)
-ai-issue batch 30340 31316 31500
-
-# Custom concurrency
-ai-issue batch 30340 31316 31500 --concurrency 5
-
-# Batch with options (concurrency >5 may hit rate limits)
-ai-issue batch 30049 30340 30360 30384 30437 --concurrency 5 --no-eval
-
-# Specify AI model
-ai-issue solve 30340 --model gpt-5
-```
-
-### Configuration Management
-
-```bash
-# Show all configurations
-ai-issue config show
-
-# Set configuration
-ai-issue config set repoPath /new/path
-ai-issue config set model gpt-5
-
-# Get configuration
-ai-issue config get model
-
-# Reset configuration
-ai-issue config reset
-```
-
-### Environment Check
-
-```bash
-# Check environment configuration
-ai-issue check
-```
-
-### Other Commands
-
-```bash
-# Initialize configuration (first-time setup)
-ai-issue init
-
-# Show version
-ai-issue --version
-
-# Show help
-ai-issue --help
-```
-
 ## Workflow
 
-### Single Issue Processing Flow
-
 ```
 ai-issue solve 30340
         ↓
 ┌─────────────────────┐
-│ Copilot Session 1   │
-│ (Solve Issue)       │
-├─────────────────────┤
-│ • Get Issue details │
-│ • Analyze code      │
-│ • Create Git branch │
-│ • Modify code       │
-│ • Update tests      │
-│ • Update docs       │
-│ • Commit changes    │
-│ • Generate analysis │
+│ Phase 1: Research   │
+│ • Find similar impl │
+│ • Search SDK tools  │
+│ • Analyze history   │
 └─────────────────────┘
-        ↓
-   Wait for completion
         ↓
 ┌─────────────────────┐
-│ Copilot Session 2   │
-│ (Evaluate) Isolated │
-├─────────────────────┤
-│ • Read analysis    │
-│ • Evaluate by std   │
-│ • Generate eval.md  │
+│ Phase 2: Solution   │
+│ • Design fix        │
+│ • Modify code       │
+│ • Commit changes    │
 └─────────────────────┘
         ↓
-      Done!
+┌─────────────────────┐
+│ Phase 3: Evaluate   │
+│ • Compare with std  │
+│ • Generate report   │
+└─────────────────────┘
 ```
 
 ## Output Files
 
 ```
 reportPath/
-├── issue-30340-research.md      # Research report (Phase 1, deleted after Phase 2)
-├── issue-30340-analysis-and-solution.md      # Analysis and solution report (Phase 2)
-├── issue-30340-evaluation.md    # Evaluation report (Phase 3)
+├── issue-30340-research.md               # Research report (Phase 1, deleted after Phase 2)
+├── issue-30340-analysis-and-solution.md  # Analysis and solution report (Phase 2)
+├── issue-30340-evaluation.md             # Evaluation report (Phase 3)
 └── logs/
-    └── issue-30340-*.log         # Detailed logs
+    └── issue-30340-*.log                 # Detailed logs
+```
 
-cli/ (Tool directory)
+## Project Structure
+
+```
+cli/
+├── ai-issue.js                           # Main entry point
+├── lib/                                  # Library modules
+│   ├── config.js                        # Configuration management
+│   ├── copilot.js                       # Copilot executor
+│   └── commands/                        # Command implementations
 ├── PHASE1_RESEARCH_PROMPT_EN.md          # Phase 1: Research prompt
 ├── PHASE2_SOLUTION_PROMPT_EN.md          # Phase 2: Solution prompt (CODE_CHANGE)
 ├── PHASE2_GUIDANCE_PROMPT_EN.md          # Phase 2: Guidance prompt (GUIDANCE)
-└── MANUAL_EVALUATION_PROMPT_EN.md        # Phase 3: Evaluation prompt
-```
-
-## Examples
-
-### Example 1: Process Single Issue
-
-```bash
-$ ai-issue solve 30340
-
-🚀 AI Issue Solver (Two-Phase Approach)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-ℹ️  Processing Issue #30340
-
-📚 Phase 1: Deep Research
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[Copilot executing...]
-
-✅ Research report generated
-ℹ️  Issue type: 🔧 CODE_CHANGE
-
-🔧 Phase 2: Solution Implementation
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[Copilot executing...]
-
-✅ Analysis and solution report generated
-ℹ️  File: /path/to/issue-30340-analysis-and-solution.md
-
-📊 Phase 3: Evaluate Solution
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[Copilot executing...]
-
-✅ Evaluation report generated
-ℹ️  File: /path/to/issue-30340-evaluation.md
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ Issue #30340 processing completed!
-```
-
-### Example 2: Batch Processing
-
-```bash
-$ ai-issue batch 30340 31316 31500
-
-📦 Batch Processing Mode
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-ℹ️  Total 3 Issues to process
-
-[1/3] Processing Issue #30340
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[Processing...]
-
-✅ Issue #30340 processed successfully
-
-[2/3] Processing Issue #31316
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[Processing...]
-
-✅ Issue #31316 processed successfully
-
-[3/3] Processing Issue #31500
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[Processing...]
-
-✅ Issue #31500 processed successfully
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 Batch Processing Statistics
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Total: 3
-Success: 3
-Failed: 0
-```
-
-### Example 3: Configuration Management
-
-```bash
-$ ai-issue config show
-
-⚙️  Current Configuration
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-repoPath: /Users/user/Work/terraform-provider-azurerm
-reportPath: /Users/user/Work/AI_Issue_Experiment
-model: claude-sonnet-4.5
-logLevel: info
-issueBaseUrl: https://github.com/hashicorp/terraform-provider-azurerm/issues
-
-ℹ️  Config file: /Users/user/.ai-issue/config.json
+└── MANUAL_EVALUATION_PROMPT_EN.md        # Evaluation prompt
 ```
 
 ## Troubleshooting
 
-### 1. Copilot CLI version too old
-
+### Copilot CLI version too old
 ```bash
 npm update -g @github/copilot
 ai-issue check
 ```
 
-### 2. Configuration file corrupted
-
+### Configuration file corrupted
 ```bash
 ai-issue config reset
 ai-issue config set repoPath /your/path
 ```
 
-### 3. Analysis report not generated
-
-Check logs:
-```bash
-cat ~/Work/AI_Issue_Experiment/logs/issue-*-*.log
-```
-
-### 4. Git operations failed
-
+### Git operations failed
 ```bash
 cd /path/to/repo
 git status
 git checkout main
 ```
-
-## Development
-
-### Project Structure
-
-```
-cli/
-├── ai-issue.js                           # Main entry point
-├── package.json                          # npm configuration
-├── install.sh                            # Installation script
-├── lib/                                  # Library modules
-│   ├── config.js                        # Configuration management
-│   ├── logger.js                        # Logging utilities
-│   ├── environment.js                   # Environment checks
-│   ├── copilot.js                       # Copilot executor
-│   ├── help.js                          # Help text
-│   └── commands/                        # Command implementations
-│       ├── solve.js                     # solve command
-│       ├── evaluate.js                  # evaluate command
-│       ├── batch.js                     # batch command
-│       ├── config-cmd.js                # config command
-│       └── check.js                     # check command
-├── PHASE1_RESEARCH_PROMPT_EN.md          # Phase 1: Research prompt
-├── PHASE2_SOLUTION_PROMPT_EN.md          # Phase 2: Solution prompt
-├── PHASE2_GUIDANCE_PROMPT_EN.md          # Phase 2: Guidance prompt (NEW)
-├── MANUAL_EVALUATION_PROMPT_EN.md        # Evaluation prompt
-├── README.md                             # Complete documentation
-├── QUICKSTART.md                         # Quick start guide
-└── STRUCTURE.md                          # Project structure doc
-```
-
-### Local Development
-
-```bash
-# Clone code
-cd cli/
-
-# Link globally
-npm link
-
-# Changes take effect immediately
-vi ai-issue.js
-
-# Test
-ai-issue check
-```
-
-### Uninstall
-
-```bash
-# Global installation
-npm uninstall -g ai-issue-cli
-
-# npm link method
-npm unlink -g ai-issue-cli
-```
-
-## Advanced Usage
-
-### Custom Prompts
-
-Prompt file locations (built-in with CLI):
-- Phase 1 Research: `PHASE1_RESEARCH_PROMPT_EN.md`
-- Phase 2 Solution (CODE_CHANGE): `PHASE2_SOLUTION_PROMPT_EN.md`
-- Phase 2 Guidance (GUIDANCE): `PHASE2_GUIDANCE_PROMPT_EN.md`
-- Evaluation: `MANUAL_EVALUATION_PROMPT_EN.md`
-
-Issue types are automatically detected from Phase 1 research:
-- 🔧 **CODE_CHANGE**: Bug fixes, missing features, validation issues
-- 📖 **GUIDANCE**: User configuration errors, expected behavior, version upgrades
-
-These files are distributed with the tool, no additional configuration needed.
-
-### Debug Mode
-
-```bash
-# Enable debug logging
-ai-issue solve 30340 --model claude-sonnet-4.5
-export DEBUG=1
-
-# View detailed logs
-ai-issue config set logLevel debug
-```
-
-### Integration with Other Tools
-
-```bash
-# Use in scripts
-for issue in 30340 31316 31500; do
-    ai-issue solve $issue --no-eval || echo "Issue $issue failed"
-done
-
-# Combine with jq to process GitHub API
-gh api repos/owner/repo/issues | jq '.[].number' | xargs ai-issue batch
-```
-
 
 ## Acknowledgments
 
