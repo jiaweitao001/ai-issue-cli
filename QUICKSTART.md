@@ -59,7 +59,6 @@ ai-issue help
 ```bash
 # Core commands (v2.0)
 ai-issue solve <number>           # Two-phase: Research → Solution → Evaluation
-ai-issue evaluate <number>        # Evaluate separately
 ai-issue batch <n1> <n2> ...      # Parallel batch processing (default: 3 concurrent)
 ai-issue batch <n1> <n2> --concurrency 5  # Custom concurrency
 
