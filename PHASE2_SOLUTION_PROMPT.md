@@ -64,6 +64,7 @@
 - 📐 **最小修改** - 只修复Issue明确指出的问题（见上方约束）
 - 🔐 **动态验证** - CustomizeDiff使用API调用而非硬编码
 - 📝 **Schema严谨** - Optional用Default而非Computed；有格式要求加ValidateFunc
+- 🚫 **不要发明方案** - 修改框架/SDK代码前，必须先搜索代码库中解决**同类问题**的现有实现，照着它的模式来
 
 ## 独立思考要求
 

@@ -109,6 +109,7 @@ grep -r "field_name" internal/services/
   - Needs provider version upgrade
   - **Feature is in preview/public preview stage** - Inform user to wait for GA
   - Workaround is sufficient
+  - **Insufficient Issue information** - Cannot identify root cause, need user to provide more details (e.g., missing reproduction config, incomplete error logs, unclear version info, etc.)
 
 ## Problem Overview
 [Brief description of the problem, affected resources, error messages]

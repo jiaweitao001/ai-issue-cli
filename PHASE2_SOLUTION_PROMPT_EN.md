@@ -64,6 +64,7 @@ Based on Phase 1 research, design and implement a high-quality solution.
 - 📐 **Minimal modification** - Only fix issues explicitly stated (see constraints above)
 - 🔐 **Dynamic validation** - CustomizeDiff uses API calls instead of hardcoding
 - 📝 **Rigorous Schema** - Optional uses Default not Computed; add ValidateFunc for format requirements
+- 🚫 **Don't invent solutions** - Before modifying framework/SDK code, must first search the codebase for existing implementations that solve **similar problems**, then follow that pattern
 
 ## Independent Thinking Requirements
 

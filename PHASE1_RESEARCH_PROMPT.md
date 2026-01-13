@@ -109,6 +109,7 @@ grep -r "field_name" internal/services/
   - 需升级provider版本
   - **功能处于preview/public preview阶段** - 告知用户等GA后处理
   - 提供workaround即可
+  - **Issue信息不足** - 无法定位问题根因，需要用户补充信息（如：缺少复现配置、错误日志不完整、版本信息不明确等）
 
 ## 问题概述
 [简述问题、涉及资源、错误信息]
