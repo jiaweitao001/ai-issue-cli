@@ -1,8 +1,6 @@
 # 🚀 Quick Start Guide
 
-**Version 2.0.0** - Two-Phase Approach
-
-## What's New
+## What's New in v2.0
 
 ✨ **Two-Phase Resolution**:
 - Phase 1: Deep Research (find similar implementations, SDK tools, code history)
@@ -23,15 +21,18 @@ cd /path/to/ai-issue-cli
 
 Choose **Option 2 (Local Link)** for development mode installation.
 
-## 2. Configuration
+## 2. Initialize & Configure
 
 ```bash
-# Configuration has automatically detected default paths, but you can verify:
-ai-issue config show
+# Initialize configuration file
+ai-issue init
 
-# If you need to modify:
-ai-issue config set repoPath /path/to/terraform-provider-azurerm
-ai-issue config set reportPath /path/to/AI_Issue_Experiment
+# Set required configurations
+ai-issue config set repoPath /path/to/your/repo
+ai-issue config set issueBaseUrl https://github.com/owner/repo/issues
+
+# View configuration
+ai-issue config show
 ```
 
 ## 3. Environment Check

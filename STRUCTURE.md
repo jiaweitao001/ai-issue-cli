@@ -7,14 +7,14 @@
 ```
 ai-issue-cli/
 ├── ai-issue.js              # 主入口文件（精简版，只负责路由）
-├── ai-issue.js.backup       # 原始文件备份
+├── package.json             # 项目配置
 ├── lib/                     # 库文件目录
 │   ├── config.js           # 配置管理（加载/保存配置）
 │   ├── logger.js           # 日志工具（颜色输出）
 │   ├── environment.js      # 环境检查
 │   ├── copilot.js          # Copilot执行器
-│   ├── help.js             # 帮助文本
 │   └── commands/           # 命令实现目录
+│       ├── init.js         # init命令（初始化配置）
 │       ├── solve.js        # solve命令（两阶段解决方案）
 │       ├── evaluate.js     # evaluate命令
 │       ├── batch.js        # batch命令（批处理）
@@ -58,13 +58,14 @@ ai-issue-cli/
   - Copilot CLI 执行器
   - 处理进程spawn和错误
   - 统一的Copilot调用接口
-
-- **lib/help.js**
-  - 帮助文本内容
-  - 使用说明
-  - 示例命令
+  - 跨平台支持（Windows/Unix）
 
 ### 命令模块
+
+- **lib/commands/init.js**
+  - 初始化配置文件
+  - 创建报告目录
+  - 首次使用时的引导
 
 - **lib/commands/solve.js**
   - 实现两阶段解决方案流程
@@ -110,17 +111,9 @@ ai-issue-cli/
 使用方式与之前完全相同：
 
 ```bash
+ai-issue init
 ai-issue solve 30340
 ai-issue batch 30340 31316 31500 --concurrency 5
 ai-issue config show
 ai-issue check
-```
-
-## 回退方案
-
-如果需要回退到原始版本：
-
-```bash
-mv ai-issue.js ai-issue-new.js
-mv ai-issue.js.backup ai-issue.js
 ```

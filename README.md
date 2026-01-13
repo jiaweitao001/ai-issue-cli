@@ -67,14 +67,17 @@ npm install -g @github/copilot
 ### First-time Use
 
 ```bash
-# 1. Check environment
+# 1. Initialize configuration
+ai-issue init
+
+# 2. Configure required paths
+ai-issue config set repoPath /path/to/your/repo
+ai-issue config set issueBaseUrl https://github.com/owner/repo/issues
+
+# 3. Check environment
 ai-issue check
 
-# 2. Configure paths
-ai-issue config set repoPath /path/to/your/repo
-ai-issue config set reportPath /path/to/reports
-
-# 3. View configuration
+# 4. View configuration
 ai-issue config show
 ```
 
@@ -82,11 +85,11 @@ ai-issue config show
 
 | Option | Description | Default |
 |--------|-------------|--------|
-| `repoPath` | Repository path | `~/Work/terraform-provider-azurerm` |
-| `reportPath` | Report output path | `~/Work/AI_Issue_Experiment` |
+| `repoPath` | Repository path | *(required, must be set)* |
+| `issueBaseUrl` | Issue URL prefix | *(required, must be set)* |
+| `reportPath` | Report output path | `~/.ai-issue/reports` |
 | `model` | AI model | `claude-sonnet-4.5` |
 | `logLevel` | Log level | `info` |
-| `issueBaseUrl` | Issue URL prefix | GitHub URL |
 
 ### Environment Variables
 
@@ -153,11 +156,14 @@ ai-issue check
 ### Other Commands
 
 ```bash
+# Initialize configuration (first-time setup)
+ai-issue init
+
 # Show version
-ai-issue version
+ai-issue --version
 
 # Show help
-ai-issue help
+ai-issue --help
 ```
 
 ## Workflow
