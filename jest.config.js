@@ -6,7 +6,6 @@ module.exports = {
   testMatch: ['**/tests/**/*.test.js'],
   collectCoverageFrom: [
     'lib/**/*.js',
-    'ai-issue.js',
     '!**/node_modules/**'
   ],
   coverageDirectory: 'coverage',
