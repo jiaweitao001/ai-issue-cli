@@ -7,7 +7,9 @@
     "ai-issue": "./ai-issue.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "keywords": [
     "ai",
@@ -36,5 +38,8 @@
   "dependencies": {
     "chalk": "^4.1.2",
     "commander": "^14.0.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   }
 }
