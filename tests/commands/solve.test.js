@@ -28,7 +28,7 @@ jest.mock('../../lib/logger', () => ({
   warning: jest.fn(),
   highlight: jest.fn(s => s),
   chalk: {
-    bold: { 
+    bold: {
       cyan: jest.fn(s => s),
       blue: jest.fn(s => s),
       green: jest.fn(s => s),
@@ -49,7 +49,7 @@ describe('commands/solve', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    
+
     // Default mock setup
     fs.existsSync.mockReturnValue(true);
     fs.readFileSync.mockImplementation((path) => {
@@ -72,14 +72,14 @@ describe('commands/solve', () => {
         return '# Phase 2 Guidance Prompt';
       }
       if (path.includes('research.md')) {
-        return '# Research Report\n\n**类型**: 🔧 CODE_CHANGE';
+        return '# Research Report\n\n**Type**: 🔧 CODE_CHANGE';
       }
       return '';
     });
     fs.mkdirSync.mockReturnValue(undefined);
     fs.unlinkSync.mockReturnValue(undefined);
     fs.writeFileSync.mockReturnValue(undefined);
-    
+
     runCopilot.mockResolvedValue(undefined);
     cmdEvaluate.mockResolvedValue(undefined);
   });
@@ -93,14 +93,14 @@ describe('commands/solve', () => {
       if (path.includes('reports') && !path.includes('.md')) return false;
       return true;
     });
-    
+
     const promise = cmdSolve('12345', { noEval: true });
-    
+
     // Fast-forward timers for waitForFile
     jest.advanceTimersByTime(1000);
-    
+
     await promise;
-    
+
     expect(fs.mkdirSync).toHaveBeenCalledWith(
       expect.stringContaining('reports'),
       expect.objectContaining({ recursive: true })
@@ -111,7 +111,7 @@ describe('commands/solve', () => {
     const promise = cmdSolve('12345', { noEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
-    
+
     expect(runCopilot).toHaveBeenCalledWith(
       expect.stringContaining('Phase 1 Research'),
       expect.any(Object),
@@ -125,7 +125,7 @@ describe('commands/solve', () => {
       if (path.includes('PHASE1_RESEARCH_PROMPT.md')) return false;
       return true;
     });
-    
+
     await expect(cmdSolve('12345', {}))
       .rejects.toThrow('Phase 1 prompt file not found');
   });
@@ -135,15 +135,15 @@ describe('commands/solve', () => {
       if (path.includes('research.md')) return false;
       return true;
     });
-    
+
     const promise = cmdSolve('12345', {});
-    
+
     // Fast-forward past the timeout (10 seconds + buffer)
     for (let i = 0; i < 25; i++) {
       jest.advanceTimersByTime(500);
       await Promise.resolve(); // Allow pending promises to settle
     }
-    
+
     await expect(promise).rejects.toThrow('Research report not generated');
   }, 15000);
 
@@ -159,7 +159,7 @@ describe('commands/solve', () => {
         });
       }
       if (path.includes('research.md')) {
-        return '# Research Report\n\n**类型**: 📖 GUIDANCE';
+        return '# Research Report\n\n**Type**: 📖 GUIDANCE';
       }
       if (path.includes('PHASE1_RESEARCH_PROMPT.md')) {
         return '# Phase 1';
@@ -169,11 +169,11 @@ describe('commands/solve', () => {
       }
       return '';
     });
-    
+
     const promise = cmdSolve('12345', { noEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
-    
+
     // Should use GUIDANCE prompt
     expect(runCopilot).toHaveBeenCalledWith(
       expect.stringContaining('Phase 2 Guidance'),
@@ -187,7 +187,7 @@ describe('commands/solve', () => {
     const promise = cmdSolve('12345', { noEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
-    
+
     expect(fs.unlinkSync).toHaveBeenCalledWith(
       expect.stringContaining('research.md')
     );
@@ -197,7 +197,7 @@ describe('commands/solve', () => {
     const promise = cmdSolve('12345', {});
     jest.advanceTimersByTime(1000);
     await promise;
-    
+
     expect(cmdEvaluate).toHaveBeenCalledWith('12345', expect.any(Object));
   });
 
@@ -205,7 +205,7 @@ describe('commands/solve', () => {
     const promise = cmdSolve('12345', { noEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
-    
+
     expect(cmdEvaluate).not.toHaveBeenCalled();
   });
 
@@ -213,7 +213,7 @@ describe('commands/solve', () => {
     const promise = cmdSolve('12345', { silent: true, noEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
-    
+
     expect(runCopilot).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(Object),
@@ -224,10 +224,10 @@ describe('commands/solve', () => {
 
   it('should throw error when copilot execution fails', async () => {
     runCopilot.mockRejectedValue(new Error('Copilot failed'));
-    
+
     await expect(cmdSolve('12345', {}))
       .rejects.toThrow('Copilot failed');
-    
+
     expect(error).toHaveBeenCalledWith(expect.stringContaining('Execution failed'));
   });
 });
