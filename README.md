@@ -94,6 +94,8 @@ cli/
 ├── lib/                                  # Library modules
 │   ├── config.js                        # Configuration management
 │   ├── copilot.js                       # Copilot executor
+│   ├── logger.js                        # Logging utilities
+│   ├── environment.js                   # Environment checks
 │   └── commands/                        # Command implementations
 ├── PHASE1_RESEARCH_PROMPT.md          # Phase 1: Research prompt
 ├── PHASE2_SOLUTION_PROMPT.md          # Phase 2: Solution prompt (CODE_CHANGE)

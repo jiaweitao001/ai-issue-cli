@@ -105,8 +105,9 @@ ai-issue batch 30049 30340 30360 30384 30437 31120 31180 --concurrency 5
 
 # Phase 3: Evaluation report
 ~/Work/AI_Issue_Experiment/issue-30340-evaluation.md
+```
 
-# LoUnderstanding Two-Phase Approach
+### Understanding Two-Phase Approach
 
 **Phase 1: Deep Research (141 lines prompt)**
 - Find similar implementations in codebase
@@ -128,32 +129,12 @@ ai-issue batch 30049 30340 30360 30384 30437 31120 31180 --concurrency 5
 - Uses shorter, focused prompts (was 617 lines total)
 - ~60% accuracy improvement in testing
 
-### Batch process Issues from file
-```bash
-# Create issues.txt
-echo "30340" > issues.txt
-echo "31316" >> issues.txt
-echo "31500" >> issues.txt
-
-# Batch process with custom concurrency
-ai-issue batch $(cat issues.txt) --concurrency 5
 ### Q: How to uninstall?
 ```bash
 npm unlink -g ai-issue-cli
 ```
 
 ## 7. Advanced Usage
-
-### Batch process Issues from file
-```bash
-# Create issues.txt
-echo "30340" > issues.txt
-echo "31316" >> issues.txt
-echo "31500" >> issues.txt
-
-# Batch process
-cat issues.txt | xargs ai-issue batch
-```
 
 ### Combine with GitHub CLI
 ```bash
