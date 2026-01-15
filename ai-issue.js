@@ -6,8 +6,9 @@
  */
 
 const { program } = require('commander');
-const { VERSION, loadConfig, isConfigured } = require('./lib/config');
+const { VERSION, loadConfig, isConfigured, validateConfig, CONFIG_FILE } = require('./lib/config');
 const { info, error, chalk } = require('./lib/logger');
+const fs = require('fs');
 const { cmdSolve } = require('./lib/commands/solve');
 const { cmdEvaluate } = require('./lib/commands/evaluate');
 const { cmdBatch } = require('./lib/commands/batch');
@@ -30,8 +31,20 @@ program
 
 // Check configuration for relevant commands
 function ensureConfig() {
-  if (!isConfigured()) {
-    error('CLI is not configured. Please run "ai-issue init" first and set repoPath/issueBaseUrl.');
+  if (!fs.existsSync(CONFIG_FILE)) {
+    error('Configuration file not found.');
+    error('Please run: ai-issue init');
+    process.exit(1);
+  }
+  
+  const config = loadConfig();
+  const { valid, errors } = validateConfig(config);
+  
+  if (!valid) {
+    error('Configuration validation failed:');
+    errors.forEach(err => error(`  - ${err}`));
+    info('\nFix with: ai-issue config set <key> <value>');
+    info('Example: ai-issue config set repoPath /path/to/repo');
     process.exit(1);
   }
 }

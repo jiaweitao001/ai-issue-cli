@@ -21,6 +21,7 @@ jest.mock('../../lib/logger', () => ({
   success: jest.fn(),
   info: jest.fn(),
   warning: jest.fn(),
+  debug: jest.fn(),
   highlight: jest.fn(s => s),
   chalk: {
     bold: jest.fn(s => s),
@@ -86,7 +87,8 @@ describe('commands/evaluate', () => {
       expect.stringContaining('Issue #12345'),
       expect.any(Object),
       expect.any(Array),
-      expect.any(Boolean)
+      expect.any(Boolean),
+      expect.any(Boolean) // debugMode
     );
   });
 
@@ -123,7 +125,8 @@ describe('commands/evaluate', () => {
       expect.any(String),
       expect.any(Object),
       expect.any(Array),
-      true
+      true, // silent mode
+      expect.any(Boolean) // debugMode
     );
   });
 

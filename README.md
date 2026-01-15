@@ -49,6 +49,17 @@ ai-issue solve 30340
 | `model` | AI model | `claude-sonnet-4.5` |
 | `logLevel` | Log level | `info` |
 
+## Command Options
+
+| Option | Description | Usage |
+|--------|-------------|-------|
+| `--debug` | Enable debug mode (detailed logging) | `ai-issue solve 30340 --debug` |
+| `--no-eval` | Skip evaluation phase | `ai-issue solve 30340 --no-eval` |
+| `--model <model>` | Override AI model | `ai-issue solve 30340 --model gpt-4` |
+| `--concurrency <n>` | Set parallel instances for batch | `ai-issue batch 30340 31316 --concurrency 5` |
+
+**Debug Mode**: Shows detailed execution information including config values, file paths, copilot commands, and sets log level to `debug`. Useful for troubleshooting.
+
 ## Workflow
 
 ```

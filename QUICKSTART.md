@@ -59,6 +59,7 @@ ai-issue help
 ```bash
 # Core commands (v2.0)
 ai-issue solve <number>           # Two-phase: Research → Solution → Evaluation
+ai-issue solve <number> --debug   # Enable debug mode (detailed logging)
 ai-issue batch <n1> <n2> ...      # Parallel batch processing (default: 3 concurrent)
 ai-issue batch <n1> <n2> --concurrency 5  # Custom concurrency
 
@@ -70,6 +71,18 @@ ai-issue help                     # Help information
 ```
 
 ## 6. FAQ
+
+### Q: How to enable debug mode?
+```bash
+# Enable detailed logging for troubleshooting
+ai-issue solve 30340 --debug
+
+# Shows:
+# - Configuration details
+# - File paths being used
+# - Copilot command details
+# - Execution flow tracking
+```
 
 ### Q: How to skip evaluation?
 ```bash
