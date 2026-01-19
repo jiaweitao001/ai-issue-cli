@@ -83,6 +83,8 @@ Before writing code, must read and follow the azurerm project's code style guide
 
 ⚠️ **Only create `issue-[number]-analysis-and-solution.md` - delete all other temporary files before finishing**
 
+⚠️ **Strictly output ONLY the 4 sections below - do NOT add extra sections like "Code Changes Summary", "Before/After Comparison", etc.**
+
 **Using the following format**:
 
 ```markdown
