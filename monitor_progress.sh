@@ -2,11 +2,17 @@
 # monitor_progress.sh - Monitor AI Issue processing progress
 
 ISSUE_NUMBER=$1
-REPORT_PATH="/Users/jiaweitao/Downloads/AI_Issue_Experiment"
+REPORT_PATH="${AI_ISSUE_REPORT_PATH:-$HOME/.ai-issue/reports}"
+REPO_PATH="${AI_ISSUE_REPO_PATH:-}"
 
 if [ -z "$ISSUE_NUMBER" ]; then
-    echo "Usage: $0 <issue_number>"
+    echo "Usage: $0 <issue_number> [repo_path]"
+    echo "Optional env vars: AI_ISSUE_REPORT_PATH, AI_ISSUE_REPO_PATH"
     exit 1
+fi
+
+if [ -n "$2" ]; then
+    REPO_PATH="$2"
 fi
 
 ANALYSIS_FILE="$REPORT_PATH/issue-$ISSUE_NUMBER-analysis-and-solution.md"
@@ -41,14 +47,18 @@ while true; do
     
     echo ""
     
-    # Check Git branch
-    cd /Users/jiaweitao/Work/terraform-provider-azurerm 2>/dev/null
-    if git rev-parse --verify "issue-$ISSUE_NUMBER" &>/dev/null; then
-        echo "✅ Git branch: issue-$ISSUE_NUMBER created"
-        COMMITS=$(git rev-list --count "issue-$ISSUE_NUMBER" ^main 2>/dev/null || echo "0")
-        echo "   Commits: $COMMITS"
+    # Check Git branch (optional)
+    if [ -n "$REPO_PATH" ] && [ -d "$REPO_PATH/.git" ]; then
+        cd "$REPO_PATH" 2>/dev/null
+        if git rev-parse --verify "issue-$ISSUE_NUMBER" &>/dev/null; then
+            echo "✅ Git branch: issue-$ISSUE_NUMBER created"
+            COMMITS=$(git rev-list --count "issue-$ISSUE_NUMBER" ^main 2>/dev/null || echo "0")
+            echo "   Commits: $COMMITS"
+        else
+            echo "⏳ Git branch: Not created yet"
+        fi
     else
-        echo "⏳ Git branch: Not created yet"
+        echo "ℹ️  Git repo path not set or not a git repo, skipping branch check"
     fi
     
     echo ""
