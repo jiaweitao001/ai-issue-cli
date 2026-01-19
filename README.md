@@ -5,20 +5,15 @@
 
 A command-line tool based on GitHub Copilot CLI that automates the resolution and evaluation of GitHub Issues.
 
-## ✨ What's New in v2.0
-
-- 🔬 **Two-Phase Approach** - Separate research and solution phases for better accuracy
-- 📊 **60% Accuracy Improvement** - Forced deep research before implementation
-- ⚡ **Parallel Processing** - Configurable concurrency for batch operations (recommended ≤5 to avoid rate limits)
-- 🎯 **Simplified Prompts** - Phase 1: 141 lines, Phase 2: 143 lines (from 617 lines)
-- 🔍 **Independent Thinking** - Prevents peeking at PR solutions
-
 ## Features
 
 - ✅ **Two-Phase Resolution** - Phase 1: Deep research, Phase 2: Implementation
+- ✅ **Accuracy Focus** - Forced deep research before implementation
 - ✅ **Fully Automated** - Complete Issue analysis, code modification, testing, and evaluation
 - ✅ **Context Isolation** - Resolution and evaluation use separate AI sessions
 - ✅ **Parallel Batch Processing** - Process multiple Issues concurrently (configurable)
+- ✅ **Simplified Prompts** - Phase 1: 141 lines, Phase 2: 143 lines (from 617 lines)
+- ✅ **Independent Thinking** - Prevents peeking at PR solutions
 - ✅ **Configuration Management** - Flexible configuration system
 - ✅ **Detailed Logging** - Complete execution log recording
 - ✅ **Professional CLI** - Full command-line tool experience
