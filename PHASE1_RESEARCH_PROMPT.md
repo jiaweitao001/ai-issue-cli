@@ -92,68 +92,87 @@ grep -r "field_name" internal/services/
 
 ⚠️ **Only create `issue-[number]-research.md` - delete all other temporary files before finishing**
 
+⚠️ **COPY the template below EXACTLY and ONLY fill in the `[...]` placeholders. Do NOT add, remove, or rename any sections.**
+
+### Forbidden Sections (DO NOT ADD)
+
+- ❌ `## Summary`
+- ❌ `## Conclusion`
+- ❌ `## Recommendations`
+- ❌ `## Additional Notes`
+- ❌ Any section not in the template below
+
+---
+
+### ===== MANDATORY TEMPLATE START =====
+
 ```markdown
-# Issue #[number] Research Report
+# Issue #[NUMBER] Research Report
 
-## Problem Classification ⭐⭐⭐
+## Problem Classification
 
-**Type**: 🔧 CODE_CHANGE / 📖 GUIDANCE
+**Type**: [🔧 CODE_CHANGE / 📖 GUIDANCE]
 
-**Justification**: [Brief explanation of why this classification]
+**Justification**: [One sentence explaining why this classification]
 
-### Classification Criteria
-- 🔧 CODE_CHANGE: Bug fixes, missing features (already GA), validation issues, SDK not mapped, etc. that require code changes
-- 📖 GUIDANCE: 
-  - User configuration error
-  - By design (expected behavior)
-  - Needs provider version upgrade
-  - **Feature is in preview/public preview stage** - Inform user to wait for GA
-  - Workaround is sufficient
-  - **Insufficient Issue information** - Cannot identify root cause, need user to provide more details (e.g., missing reproduction config, incomplete error logs, unclear version info, etc.)
+### Classification Criteria Reference
+- 🔧 CODE_CHANGE: Bug fixes, missing features (already GA), validation issues, SDK not mapped, etc.
+- 📖 GUIDANCE: User error, by design, needs upgrade, feature in preview, workaround sufficient, insufficient info
 
 ## Problem Overview
-[Brief description of the problem, affected resources, error messages]
+
+[2-3 sentences: what is the problem, affected resources, error messages]
 
 ## Initial Hypotheses
-1. Hypothesis A - To be verified
-2. Hypothesis B - To be verified
+
+1. [Hypothesis A] - To be verified
+2. [Hypothesis B] - To be verified
 
 ## Code Location
-- Main file: [path]
-- Key function: [name] (line number)
 
-## Similar Implementation Comparison ⭐
-- Similar resource: [file path]
-- Key difference: [It uses X, current uses Y]
-- Why no problem: [reason]
+- Main file: `[path/to/file.go]`
+- Key function: `[FunctionName]` (line [N])
 
-## SDK Tools ⭐
-- Function: `XXX.ValidateYYY` 
-- Path: [package path]
-- Applicability: Yes/No, [reason]
+## Similar Implementation Comparison
+
+- Similar resource: `[path/to/similar_resource.go]`
+- Key difference: [What it does differently]
+- Why no problem: [Explanation]
+
+## SDK Tools
+
+- Function: `[package.FunctionName]`
+- Path: `[vendor/path/to/package]`
+- Applicability: [Yes/No] - [Reason]
 
 ## History Analysis
-- Commit [hash]: [description]
-- Issue introduction time: [estimate]
+
+- Commit `[hash]`: [Description]
+- Issue likely introduced: [Date or version estimate]
 
 ## Global Impact
-- [ ] Create function (path:line)
-- [ ] Update function (path:line)
-- [ ] Read function (path:line)
-- [ ] Delete function (path:line)
-- [ ] Related resources: [name]
 
-## Key Findings ⭐
+- [ ] Create function: `[path:line]`
+- [ ] Update function: `[path:line]`
+- [ ] Read function: `[path:line]`
+- [ ] Delete function: `[path:line]`
+- [ ] Related resources: `[resource_name]`
+
+## Key Findings
+
 1. [Most important finding]
-2. [Second most important]
-3. [Third most important]
+2. [Second most important finding]
+3. [Third most important finding]
 
-## Next Steps Recommendations
-- [ ] Prioritize verifying hypothesis [X]
-- [ ] Reference [similar implementation]
-- [ ] Use SDK function [name]
-- [ ] Modify all [location list]
+## Next Steps
+
+- [ ] Verify hypothesis: [Which one]
+- [ ] Reference implementation: `[file path]`
+- [ ] Use SDK function: `[function name]`
+- [ ] Modify locations: [List]
 ```
+
+### ===== MANDATORY TEMPLATE END =====
 
 ---
 

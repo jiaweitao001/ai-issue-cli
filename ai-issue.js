@@ -15,6 +15,7 @@ const { cmdBatch } = require('./lib/commands/batch');
 const { cmdConfig } = require('./lib/commands/config-cmd');
 const { cmdCheck } = require('./lib/commands/check');
 const { cmdInit } = require('./lib/commands/init');
+const { cmdValidate } = require('./lib/commands/validate');
 
 // Basic metadata
 program
@@ -107,6 +108,18 @@ program
   .description('Check environment configuration')
   .action(() => {
     cmdCheck();
+  });
+
+// Command: validate
+program
+  .command('validate [target]')
+  .description('Validate report format (target: issue number or file path)')
+  .option('--no-warnings', 'Hide warnings, show only errors')
+  .action(async (target, options) => {
+    const result = await cmdValidate(target, { showWarnings: options.warnings });
+    if (!result.allValid) {
+      process.exit(1);
+    }
   });
 
 // Error handling

@@ -83,54 +83,76 @@ Before writing code, must read and follow the azurerm project's code style guide
 
 ⚠️ **Only create `issue-[number]-analysis-and-solution.md` - delete all other temporary files before finishing**
 
-⚠️ **Strictly output ONLY the 4 sections below - do NOT add extra sections like "Code Changes Summary", "Before/After Comparison", etc.**
+⚠️ **COPY the template below EXACTLY and ONLY fill in the `[...]` placeholders. Do NOT add, remove, or rename any sections.**
 
-**Using the following format**:
+### Forbidden Sections (DO NOT ADD)
+
+- ❌ `## Technical Implementation`
+- ❌ `## Solution Summary`
+- ❌ `## Issue Information`
+- ❌ `## Files Changed`
+- ❌ `## Verification`
+- ❌ `## Usage Example`
+- ❌ `## API Reference`
+- ❌ `## Notes`
+- ❌ `## Import`
+- ❌ Any section not in the template below
+
+---
+
+### ===== MANDATORY TEMPLATE START =====
 
 ```markdown
-# Issue #[number] Solution
+# Issue #[NUMBER] Solution
 
 ## 1. Problem Analysis
-- Problem symptoms
-- Root cause
-- Impact scope
-- Swagger link (if supporting new feature)
+
+- **Problem symptoms**: [One sentence describing the symptoms]
+- **Root cause**: [One sentence describing the root cause]
+- **Impact scope**: [Affected resources/users/scenarios]
+- **Swagger link**: [URL or N/A if not applicable]
 
 ## 2. Git Operation Record
 
 ### Branch Info
-- Branch name: issue-XXX
-- Commit Hash: [hash]
+- Branch name: [branch-name]
+- Commit Hash: [40-character hash]
 
 ### Modified Files
-- `path/to/file.go` - Modification description
+- `[path/to/file1]` - [Brief description of changes]
+- `[path/to/file2]` - [Brief description of changes]
 
 ### Commit Message
 ```
-[Fix #XXX: Complete commit message]
+[Complete commit message, e.g., "Fix #12345: Add validation for X field"]
 ```
 
-## 3. Pre-submission Checklist (Required) ⚠️
+## 3. Pre-submission Checklist
 
 | Check Item | Yes/No | Notes |
 |------------|--------|-------|
-| Modified files match Issue target? | | |
-| Modification scope within Issue description? | | |
-| No new functions/abstractions introduced? | | |
-| No logs added that Issue didn't request? | | |
-| Reasonable code line changes? (+/- lines) | | |
-| Referenced similar PR fix styles? | | |
-| **Field names exactly match SDK struct?** | | Exact to `_name`/`_id` suffix |
-| **New fields have acceptance tests?** | | "Too simple" is not an acceptable reason |
+| Modified files match Issue target? | [Yes/No] | [Brief note] |
+| Modification scope within Issue description? | [Yes/No] | [Brief note] |
+| No new functions/abstractions introduced? | [Yes/No] | [Brief note] |
+| No logs added that Issue didn't request? | [Yes/No] | [Brief note] |
+| Reasonable code line changes? | [Yes/No] | [e.g., +50/-10 lines] |
+| Referenced similar PR fix styles? | [Yes/No] | [PR reference if any] |
+| Field names exactly match SDK struct? | [Yes/No] | [Field names verified] |
+| New fields have acceptance tests? | [Yes/No] | [Test file if applicable] |
 
 ## 4. Issue Reply
 
-> Start with "Thank you for raising the issue.", write in English, briefly describe root cause and solution.
+```
+Thank you for raising the issue.
 
+[2-3 paragraphs in English explaining:
+1. What the root cause was
+2. What the solution does
+3. Any usage notes or examples if needed]
 ```
-[Fill in here]
 ```
-```
+
+### ===== MANDATORY TEMPLATE END =====
 
 ---
 
