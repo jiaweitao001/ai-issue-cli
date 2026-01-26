@@ -115,7 +115,7 @@ describe('commands/evaluate', () => {
     await cmdEvaluate('12345', { skipHeader: true });
     
     // Should not log the header
-    expect(log).not.toHaveBeenCalledWith(expect.stringContaining('Phase 2: Evaluate'));
+    expect(log).not.toHaveBeenCalledWith(expect.stringContaining('Phase 3: Evaluate'));
   });
 
   it('should use silent mode when silent option is true', async () => {
