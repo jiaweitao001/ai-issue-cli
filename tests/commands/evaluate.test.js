@@ -88,7 +88,8 @@ describe('commands/evaluate', () => {
       expect.any(Object),
       expect.any(Array),
       expect.any(Boolean),
-      expect.any(Boolean) // debugMode
+      expect.any(Boolean), // debugMode
+      expect.objectContaining({ phase: 'evaluate' }) // phase option
     );
   });
 
@@ -126,7 +127,8 @@ describe('commands/evaluate', () => {
       expect.any(Object),
       expect.any(Array),
       true, // silent mode
-      expect.any(Boolean) // debugMode
+      expect.any(Boolean), // debugMode
+      expect.any(Object) // phase option
     );
   });
 

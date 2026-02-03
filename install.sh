@@ -45,6 +45,12 @@ case $choice in
     npm install -g .
     
     echo ""
+    echo "📦 Installing skills dependencies..."
+    cd "$SCRIPT_DIR/skills/github-issue-fetcher" && npm install --silent
+    cd "$SCRIPT_DIR/skills/code-similarity-finder" && npm install --silent
+    echo "✅ Skills installed"
+    
+    echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "✅ Installation completed!"
     echo ""
@@ -60,6 +66,12 @@ case $choice in
     echo "🔗 Linking ai-issue locally..."
     cd "$SCRIPT_DIR"
     npm link
+    
+    echo ""
+    echo "📦 Installing skills dependencies..."
+    cd "$SCRIPT_DIR/skills/github-issue-fetcher" && npm install --silent
+    cd "$SCRIPT_DIR/skills/code-similarity-finder" && npm install --silent
+    echo "✅ Skills installed"
     
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

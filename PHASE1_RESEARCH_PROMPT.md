@@ -6,13 +6,31 @@ Conduct **comprehensive technical research** on the Issue to provide a solid fou
 
 ⚠️ **No solutions should be proposed in this phase** - only information gathering and analysis.
 
-## Independent Thinking Requirements
+## Available Skills (Use These First)
 
-- ❌ **Do not look at Issue comments** - Comments may contain answers
-- ❌ Do not look at the PR code that fixes this Issue (if it exists)
-- ❌ Do not look at solutions directly given in Issue comments
-- ✅ Can only view the original Issue description (title + body)
-- ✅ Can review the code repository for research
+You have access to specialized tools to accelerate research:
+
+### `get_issue_context` - Fetch Issue Details
+```json
+{
+  "repo": "hashicorp/terraform-provider-azurerm",
+  "number": 30340,
+  "include": ["comments", "timeline", "linked_prs"]
+}
+```
+Use this FIRST to get structured issue data including comments and linked PRs.
+
+### `find_similar_implementations` - Find Similar Code
+```json
+{
+  "file_path": "/path/to/target_resource.go",
+  "scope": "service",
+  "limit": 5
+}
+```
+Use this to automatically find similar resource implementations instead of manual `ls` and `grep`.
+
+---
 
 ## Key Principles
 
@@ -28,6 +46,9 @@ Conduct **comprehensive technical research** on the Issue to provide a solid fou
 
 ### 1. Find Similar Implementations ⭐⭐⭐ (Most Critical)
 
+**Preferred**: Use `find_similar_implementations` tool with scope "service" or "directory"
+
+**Alternative** (if tool unavailable):
 ```bash
 # Find similar resources in the same directory
 ls -la path/to/resource/directory/

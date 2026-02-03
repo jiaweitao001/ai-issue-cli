@@ -55,6 +55,17 @@ ai-issue solve 30340
 
 **Debug Mode**: Shows detailed execution information including config values, file paths, copilot commands, and sets log level to `debug`. Useful for troubleshooting.
 
+## Skills (MCP Servers)
+
+AI Issue CLI includes built-in skills powered by MCP (Model Context Protocol) to enhance issue resolution:
+
+| Skill | Description | Used In |
+|-------|-------------|--------|
+| `github-issue-fetcher` | Fetch structured issue data from GitHub | Phase 1, 2, Evaluate |
+| `code-similarity-finder` | Find similar code implementations | Phase 1 |
+
+Skills are automatically installed when you run `./install.sh`.
+
 ## Workflow
 
 ```

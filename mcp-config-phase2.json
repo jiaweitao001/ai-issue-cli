@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "github-issue-fetcher": {
+      "command": "node",
+      "args": ["./skills/github-issue-fetcher/index.js"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  }
+}

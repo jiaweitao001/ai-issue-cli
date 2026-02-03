@@ -1,0 +1,15 @@
+{
+  "name": "code-similarity-finder",
+  "version": "1.0.0",
+  "description": "MCP Server for finding similar code implementations",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "author": "",
+  "license": "MIT"
+}
