@@ -141,6 +141,7 @@ describe('copilot', () => {
         os.platform.mockReturnValue('win32');
         fs.writeFileSync.mockReturnValue(undefined);
         fs.existsSync.mockReturnValue(true);
+        fs.readFileSync.mockReturnValue(JSON.stringify({ mcpServers: {} }));
         fs.unlinkSync.mockReturnValue(undefined);
       });
 

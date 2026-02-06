@@ -3,13 +3,15 @@
     "github-issue-fetcher": {
       "command": "node",
       "args": ["./skills/github-issue-fetcher/index.js"],
+      "tools": ["*"],
       "env": {
         "GITHUB_TOKEN": "${GITHUB_TOKEN}"
       }
     },
     "code-similarity-finder": {
       "command": "node",
-      "args": ["./skills/code-similarity-finder/index.js"]
+      "args": ["./skills/code-similarity-finder/index.js"],
+      "tools": ["*"]
     }
   }
 }
