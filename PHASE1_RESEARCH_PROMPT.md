@@ -30,6 +30,25 @@ Use this FIRST to get structured issue data including comments and linked PRs.
 ```
 Use this to automatically find similar resource implementations instead of manual `ls` and `grep`.
 
+### `find_similar_issues` - Find Similar Historical Issues
+```json
+{
+  "repo": "hashicorp/terraform-provider-azurerm",
+  "issue_number": 30340,
+  "include_solutions": true
+}
+```
+Use this to search for historically similar issues and extract solutions from their comments.
+
+### `check_existing_research` - Check Existing Team Research
+```json
+{
+  "repo": "hashicorp/terraform-provider-azurerm",
+  "issue_number": 30340
+}
+```
+Use this FIRST to check if teammates have already researched this or a similar issue. Avoid duplicating work.
+
 ---
 
 ## Key Principles
@@ -43,6 +62,47 @@ Use this to automatically find similar resource implementations instead of manua
 ---
 
 ## Mandatory Research Checklist
+
+### -1. Check Existing Team Research ⭐⭐⭐ (VERY FIRST — Before Everything)
+
+Use `check_existing_research` to see if your teammates have already researched this or a similar issue:
+```json
+{
+  "repo": "hashicorp/terraform-provider-azurerm",
+  "issue_number": <ISSUE_NUMBER>
+}
+```
+
+**If relevant research is found**:
+- Read the report summary and key findings
+- Use it as your starting point — DON'T redo analysis that's already been done
+- Focus your research on verifying whether findings still apply and filling gaps
+- Reference the previous research in your report
+
+**If no research is found**:
+- Proceed with the standard research checklist below
+
+### 0. Check Similar Historical Issues ⭐⭐⭐ (FIRST — Before Code Research)
+
+Use `find_similar_issues` to check if this problem has been reported and solved before:
+```json
+{
+  "repo": "hashicorp/terraform-provider-azurerm",
+  "issue_number": <ISSUE_NUMBER>,
+  "include_solutions": true
+}
+```
+
+**Must document in report**:
+- Similar issues found (score, title, URL, state)
+- Whether solutions from similar issues are applicable
+- If a previously-fixed issue reappeared → note as potential regression
+- If no similar issues found → note "No historical matches"
+
+**How to use the results**:
+- If a similar issue was fixed by a PR → examine that PR's approach as a strong reference
+- If solutions were extracted → validate them against the current codebase state
+- Cross-reference with the code research you do in subsequent steps
 
 ### 1. Find Similar Implementations ⭐⭐⭐ (Most Critical)
 
@@ -148,6 +208,16 @@ grep -r "field_name" internal/services/
 
 1. [Hypothesis A] - To be verified
 2. [Hypothesis B] - To be verified
+
+## Similar Historical Issues
+
+| Score | Issue | State | Applicable? |
+|-------|-------|-------|---------|
+| [0.XX] | [#NNNNN - Title](URL) | [open/closed] | [Yes/No - reason] |
+
+**Extracted Solutions**: [Summary of solutions from similar issues, or "No applicable solutions found"]
+
+**Regression Check**: [Is this a regression of a previously fixed issue? Yes/No]
 
 ## Code Location
 

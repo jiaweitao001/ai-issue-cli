@@ -1,0 +1,15 @@
+{
+  "name": "similar-issue-finder",
+  "version": "1.0.0",
+  "description": "MCP server for finding similar GitHub issues via ai-issue-service",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "author": "",
+  "license": "MIT"
+}

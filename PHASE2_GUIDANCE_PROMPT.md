@@ -56,7 +56,15 @@ This Issue **does not require code changes**, it needs:
 ### Classification
 📖 GUIDANCE - [Specific type: Configuration Error/Expected Behavior/Version Upgrade Required/Workaround]
 
-## 2. Solution
+## 2. Similar Historical Issues
+
+| Score | Issue | State | Relevant? |
+|-------|-------|-------|-----------|
+| [0.XX] | [#NNNNN - Title](URL) | [open/closed] | [Yes/No - brief note] |
+
+> Copy top results from Phase 1's `find_similar_issues` output. If none found, write: "No similar historical issues found."
+
+## 3. Solution
 
 ### Recommended Approach
 [Detailed explanation of solution steps]
@@ -73,7 +81,7 @@ resource "azurerm_xxx" "example" {
 - [Point to note 1]
 - [Point to note 2]
 
-## 3. Additional Information
+## 4. Additional Information
 
 ### Related Documentation
 - [Official documentation link]
@@ -82,7 +90,7 @@ resource "azurerm_xxx" "example" {
 ### Future Outlook (If Applicable)
 [If it's a feature limitation, explain if there are plans to support it]
 
-## 4. Issue Reply
+## 5. Issue Reply
 
 > Content for directly replying to the Issue, written in English, professional and friendly
 
