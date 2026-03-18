@@ -35,10 +35,13 @@ Use this to automatically find similar resource implementations instead of manua
 {
   "repo": "hashicorp/terraform-provider-azurerm",
   "issue_number": 30340,
+  "title": "<ISSUE_TITLE>",
+  "body": "<ISSUE_BODY>",
   "include_solutions": true
 }
 ```
 Use this to search for historically similar issues and extract solutions from their comments.
+**Important**: Always include `title` and `body` — the backend needs them to compute similarity when the issue has no pre-computed embedding.
 
 ### `check_existing_research` - Check Existing Team Research
 ```json
@@ -89,6 +92,8 @@ Use `find_similar_issues` to check if this problem has been reported and solved 
 {
   "repo": "hashicorp/terraform-provider-azurerm",
   "issue_number": <ISSUE_NUMBER>,
+  "title": "<ISSUE_TITLE>",
+  "body": "<ISSUE_BODY>",
   "include_solutions": true
 }
 ```

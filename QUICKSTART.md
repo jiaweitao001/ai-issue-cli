@@ -50,6 +50,10 @@ export GITHUB_TOKEN="ghp_..."              # GitHub PAT (read access to issues/P
 # Optional - Backend service for team knowledge sharing
 export AI_ISSUE_SERVICE_URL="https://your-service.example.com"
 export AI_ISSUE_SERVICE_API_KEY="your-api-key"
+
+# Optional - post-Phase2 terraform AI review automation
+export AI_ISSUE_AUTO_REVIEW_AFTER_PHASE2="true"
+export AI_ISSUE_REVIEW_TOOL_INSTALLER_PATH="$HOME/.terraform-azurerm-ai-installer"
 ```
 
 Without `AI_ISSUE_SERVICE_URL`, the tool works standalone using only GitHub API and local code analysis.
@@ -154,6 +158,7 @@ ai-issue batch 30049 30340 30360 30384 30437 31120 31180 --concurrency 5
 - Follow similar implementations
 - Use SDK functions (not reinvent)
 - Ensure completeness (all CRUD operations)
+- For CODE_CHANGE: auto-commit solution, then run terraform AI review and address review comments (auto-skip if review tool not installed)
 - Output: `issue-XXX-analysis-and-solution.md`
 
 **Why Two-Phase?**

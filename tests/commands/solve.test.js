@@ -2,8 +2,12 @@
  * Tests for commands/solve.js
  */
 const fs = require('fs');
+const { execSync } = require('child_process');
 
 jest.mock('fs');
+jest.mock('child_process', () => ({
+  execSync: jest.fn()
+}));
 jest.mock('os', () => ({
   ...jest.requireActual('os'),
   homedir: jest.fn(() => '/mock/home')
@@ -33,11 +37,13 @@ jest.mock('../../lib/logger', () => ({
       cyan: jest.fn(s => s),
       blue: jest.fn(s => s),
       green: jest.fn(s => s),
+      magenta: jest.fn(s => s),
       grey: jest.fn(s => s)
     },
     cyan: jest.fn(s => s),
     blue: jest.fn(s => s),
-    green: jest.fn(s => s)
+    green: jest.fn(s => s),
+    magenta: jest.fn(s => s)
   }
 }));
 
@@ -83,6 +89,19 @@ describe('commands/solve', () => {
     
     runCopilot.mockResolvedValue(undefined);
     cmdEvaluate.mockResolvedValue(undefined);
+
+    execSync.mockImplementation((command) => {
+      if (command.includes('git status --porcelain')) {
+        return ' M lib/some-file.go\n';
+      }
+      if (command.includes('git add -A')) {
+        return '';
+      }
+      if (command.includes('git commit -m')) {
+        return '[test-branch abc123] commit\n';
+      }
+      return '';
+    });
   });
 
   afterEach(() => {
@@ -219,6 +238,60 @@ describe('commands/solve', () => {
     await promise;
     
     expect(cmdEvaluate).not.toHaveBeenCalled();
+  });
+
+  it('should auto commit and run terraform review when tool is installed', async () => {
+    fs.existsSync.mockImplementation((path) => {
+      if (path.includes('code-review-committed-changes.prompt.md')) return true;
+      return true;
+    });
+
+    let statusCall = 0;
+    execSync.mockImplementation((command) => {
+      if (command.includes('git status --porcelain')) {
+        statusCall += 1;
+        return statusCall === 1 ? ' M lib/some-file.go\n' : '';
+      }
+      if (command.includes('git add -A')) return '';
+      if (command.includes('git commit -m "Fix #12345: AI-generated solution"')) return 'ok';
+      return '';
+    });
+
+    const promise = cmdSolve('12345', { noEval: true });
+    jest.advanceTimersByTime(1000);
+    await promise;
+
+    expect(execSync).toHaveBeenCalledWith(
+      expect.stringContaining('git commit -m "Fix #12345: AI-generated solution"'),
+      expect.objectContaining({ cwd: '/test/repo' })
+    );
+    expect(runCopilot).toHaveBeenCalledWith(
+      expect.stringContaining('/code-review-committed-changes'),
+      expect.any(Object),
+      expect.any(Array),
+      expect.any(Boolean),
+      expect.any(Boolean),
+      expect.objectContaining({ phase: 'phase2' })
+    );
+  });
+
+  it('should gracefully skip terraform review when tool is not installed', async () => {
+    fs.existsSync.mockImplementation((path) => {
+      if (path.includes('code-review-committed-changes.prompt.md')) return false;
+      if (path.includes('code-review-local-changes.prompt.md')) return false;
+      if (path.includes('code-review-committed-changes.chatmode.md')) return false;
+      if (path.includes('.terraform-azurerm-ai-installer')) return false;
+      return true;
+    });
+
+    const promise = cmdSolve('12345', { noEval: true });
+    jest.advanceTimersByTime(1000);
+    await promise;
+
+    const reviewCall = runCopilot.mock.calls.find(call =>
+      typeof call[0] === 'string' && call[0].includes('/code-review-committed-changes')
+    );
+    expect(reviewCall).toBeUndefined();
   });
 
   it('should use silent mode when silent option is true', async () => {
