@@ -9,7 +9,7 @@
 
 🔍 **Backend Service Integration** (optional):
 - Search historical similar issues via vector similarity (PostgreSQL + pgvector)
-- Auto-upload research reports for team knowledge sharing
+- Knowledge base built from verified resolved issues (server-side scan)
 - Check if teammates have already researched a similar issue
 
 ⚡ **Parallel Batch Processing**:
@@ -21,7 +21,7 @@
 
 ```bash
 cd /path/to/ai-issue-cli
-./install.sh
+./scripts/install.sh
 ```
 
 Choose **Option 2 (Local Link)** for development mode installation.
@@ -151,7 +151,7 @@ ai-issue batch 30049 30340 30360 30384 30437 31120 31180 --concurrency 5
 - Fetch issue context from GitHub (comments, timeline, linked PRs)
 - Search for existing SDK tools
 - Analyze code history with git
-- Output: `issue-XXX-research.md` (auto-uploaded to backend)
+- Output: `issue-XXX-research.md` (temporary, used by Phase 2)
 
 **Phase 2: Solution Implementation (143 lines prompt)**
 - Design solution based on research findings
@@ -187,14 +187,13 @@ gh issue list --limit 5 --json number --jq '.[].number' | xargs ai-issue batch
 ai-issue-cli/
 │
 │── ai-issue.js                          # CLI entry point
-│── install.sh                           # Installation script
 │
 ├── lib/                                 # Core library
 │   ├── config.js                        #   Configuration management
 │   ├── copilot.js                       #   Copilot CLI executor
 │   ├── logger.js                        #   Logging utilities
 │   └── commands/                        #   Command handlers
-│       ├── solve.js                     #     Two-phase resolve + backend upload
+│       ├── solve.js                     #     Two-phase resolve
 │       ├── batch.js                     #     Parallel multi-issue processing
 │       ├── evaluate.js                  #     Standalone evaluation
 │       └── ...                          #     init, check, config, validate
@@ -204,16 +203,22 @@ ai-issue-cli/
 │   ├── code-similarity-finder/          #   Local → Go code structural analysis
 │   └── similar-issue-finder/            #   Backend → similar issues & research
 │
-├── mcp-config-phase1.json               # Research phase: all 3 skills
-├── mcp-config-phase2.json               # Solution phase: github-issue-fetcher only
-├── mcp-config-evaluate.json             # Evaluate phase: github-issue-fetcher only
+├── config/                              # MCP configuration files
+│   ├── mcp-config-phase1.json           #   Research phase: all 3 skills
+│   ├── mcp-config-phase2.json           #   Solution phase: github-issue-fetcher only
+│   └── mcp-config-evaluate.json         #   Evaluate phase: github-issue-fetcher only
 │
-├── PHASE1_RESEARCH_PROMPT.md            # Prompt templates
-├── PHASE2_SOLUTION_PROMPT.md
-├── PHASE2_GUIDANCE_PROMPT.md
-├── MANUAL_EVALUATION_PROMPT.md
+├── prompts/                             # Prompt templates
+│   ├── PHASE1_RESEARCH_PROMPT.md
+│   ├── PHASE2_SOLUTION_PROMPT.md
+│   ├── PHASE2_GUIDANCE_PROMPT.md
+│   └── MANUAL_EVALUATION_PROMPT.md
 │
-├── docs/                                # Backend service design specs
+├── scripts/                             # Utility scripts
+│   ├── install.sh                       #   Installation script
+│   └── monitor_progress.sh              #   Real-time progress monitor
+│
+├── docs/                                # Design specs & guides
 └── tests/                               # Jest unit tests
 ```
 

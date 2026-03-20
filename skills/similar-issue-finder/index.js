@@ -82,36 +82,6 @@ When to use:
         required: ['repo'],
       },
     },
-    {
-      name: 'check_existing_research',
-      description: `Check if team members have already researched this or similar issues.
-Returns previous research reports that may be relevant, including problem analysis,
-code locations, and key findings.
-
-Use this BEFORE starting your own research to avoid duplicating work.`,
-      inputSchema: {
-        type: 'object',
-        properties: {
-          repo: {
-            type: 'string',
-            description: 'GitHub repo (e.g., "hashicorp/terraform-provider-azurerm")',
-          },
-          issue_number: {
-            type: 'integer',
-            description: 'Issue number to check',
-          },
-          title: {
-            type: 'string',
-            description: 'Issue title',
-          },
-          body: {
-            type: 'string',
-            description: 'Issue body text',
-          },
-        },
-        required: ['repo'],
-      },
-    },
   ],
 }));
 
@@ -162,40 +132,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     } catch (error) {
       return {
         content: [{ type: 'text', text: `⚠️ Similar issue search failed: ${error.message}\nProceeding without historical issue context.` }],
-        isError: true,
-      };
-    }
-  }
-
-  if (toolName === 'check_existing_research') {
-    try {
-      const result = await callService('/research/find', {
-        repo: args.repo,
-        issue_number: args.issue_number,
-        title: args.title,
-        body: args.body,
-        top_k: 3,
-      });
-
-      let output = '';
-      if (result.related_research.length === 0) {
-        output = 'No existing research found for this or similar issues.\n';
-      } else {
-        output = `## Existing Team Research Found: ${result.related_research.length}\n\n`;
-        for (const r of result.related_research) {
-          output += `### Issue #${r.issue} (relevance: ${r.score})\n`;
-          output += `- **Type**: ${r.issue_type || 'unknown'}\n`;
-          output += `- **Researched by**: ${r.created_by}\n`;
-          output += `- **Matched finding**: ${r.matched_finding}\n`;
-          output += `- **Summary**:\n${r.report_summary}\n\n`;
-        }
-        output += `\n> Use these findings as a starting point. Verify they still apply to the current issue.\n`;
-      }
-
-      return { content: [{ type: 'text', text: output }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `⚠️ Research lookup failed: ${error.message}\nProceeding without existing research context.` }],
         isError: true,
       };
     }

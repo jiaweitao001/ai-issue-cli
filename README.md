@@ -17,7 +17,7 @@ A command-line tool based on GitHub Copilot CLI that automates the resolution an
 - ✅ **Configuration Management** - Flexible configuration system
 - ✅ **Detailed Logging** - Complete execution log recording
 - ✅ **Professional CLI** - Full command-line tool experience
-- ✅ **Team Knowledge Sharing** - Research reports auto-uploaded to team backend for reuse
+- ✅ **Team Knowledge Sharing** - Knowledge base built from verified resolved issues (server-side scan)
 - ✅ **Similar Issue Search** - Vector-based historical issue retrieval via backend service
 
 ## Quick Start
@@ -26,7 +26,7 @@ See [QUICKSTART.md](QUICKSTART.md) for detailed installation and usage instructi
 
 ```bash
 # 1. Install
-./install.sh
+./scripts/install.sh
 
 # 2. Configure
 ai-issue init
@@ -67,17 +67,17 @@ AI Issue CLI includes built-in skills powered by MCP (Model Context Protocol) to
 |-------|-------|-------------|--------|
 | `github-issue-fetcher` | `get_issue_context` | Fetch structured issue data from GitHub (comments, timeline, linked PRs) | Phase 1, 2, Evaluate |
 | `code-similarity-finder` | `find_similar_implementations` | Find similar Go code implementations by structural analysis | Phase 1 |
-| `similar-issue-finder` | `find_similar_issues`, `check_existing_research` | Search historical similar issues and team research reports via backend service | Phase 1 |
+| `similar-issue-finder` | `find_similar_issues`, `check_existing_research` | Search historical similar issues and verified solutions via backend service | Phase 1 |
 
 Phase-specific MCP configs control which skills are available at each stage:
 
 | Config File | Phase | Skills |
 |-------------|-------|--------|
-| `mcp-config-phase1.json` | Research | All 3 skills |
-| `mcp-config-phase2.json` | Solution | `github-issue-fetcher` only |
-| `mcp-config-evaluate.json` | Evaluation | `github-issue-fetcher` only |
+| `config/mcp-config-phase1.json` | Research | All 3 skills |
+| `config/mcp-config-phase2.json` | Solution | `github-issue-fetcher` only |
+| `config/mcp-config-evaluate.json` | Evaluation | `github-issue-fetcher` only |
 
-Skills are automatically installed when you run `./install.sh`.
+Skills are automatically installed when you run `./scripts/install.sh`.
 
 ## Workflow
 
@@ -90,7 +90,6 @@ ai-issue solve 30340
 │ • Search similar historical issues│
 │ • Find similar code impl         │
 │ • Fetch issue context from GitHub│
-│ • Upload research to backend     │
 └──────────────────────────────────┘
         ↓
 ┌──────────────────────────────────┐
@@ -127,7 +126,7 @@ reportPath/
 AI Issue CLI can optionally integrate with `ai-issue-service` (a separate FastAPI backend) for team knowledge sharing:
 
 - **Similar issue search** — Vector-based retrieval of historical issues via PostgreSQL + pgvector
-- **Research report caching** — Auto-upload Phase 1 reports so team members can reuse findings
+- **Knowledge base** — Server-side weekly scan of resolved GitHub issues builds a verified knowledge base
 - **Existing research lookup** — Check if teammates have already researched a similar issue
 
 ### Environment Variables
@@ -146,7 +145,6 @@ When `AI_ISSUE_SERVICE_URL` is not set, the tool works without backend features 
 ai-issue-cli/
 │
 │── ai-issue.js                          # CLI entry point (Commander.js)
-│── install.sh                           # Installation script
 │── package.json
 │
 ├── lib/                                 # Core library
@@ -156,7 +154,7 @@ ai-issue-cli/
 │   ├── environment.js                   # Environment checks
 │   ├── report-validator.js              # Report template validation
 │   └── commands/                        # Command handlers
-│       ├── solve.js                     # solve — two-phase resolution + backend upload
+│       ├── solve.js                     # solve — two-phase resolution
 │       ├── evaluate.js                  # evaluate — standalone evaluation
 │       ├── batch.js                     # batch — parallel multi-issue processing
 │       ├── init.js                      # init — create config file
@@ -169,20 +167,24 @@ ai-issue-cli/
 │   ├── code-similarity-finder/          # → find_similar_implementations (local Go analysis)
 │   └── similar-issue-finder/            # → find_similar_issues, check_existing_research (backend)
 │
-├── mcp-config-phase1.json               # Phase 1: all 3 skills
-├── mcp-config-phase2.json               # Phase 2: github-issue-fetcher only
-├── mcp-config-evaluate.json             # Evaluate: github-issue-fetcher only
-├── mcp-config.json                      # Default fallback config
+├── config/                              # MCP configuration files
+│   ├── mcp-config-phase1.json           # Phase 1: all 3 skills
+│   ├── mcp-config-phase2.json           # Phase 2: github-issue-fetcher only
+│   ├── mcp-config-evaluate.json         # Evaluate: github-issue-fetcher only
+│   └── mcp-config.json                  # Default fallback config
 │
-├── PHASE1_RESEARCH_PROMPT.md            # Phase 1 prompt template
-├── PHASE2_SOLUTION_PROMPT.md            # Phase 2 prompt (CODE_CHANGE)
-├── PHASE2_GUIDANCE_PROMPT.md            # Phase 2 prompt (GUIDANCE)
-├── MANUAL_EVALUATION_PROMPT.md          # Evaluation prompt template
+├── prompts/                             # Prompt templates
+│   ├── PHASE1_RESEARCH_PROMPT.md        # Phase 1 prompt template
+│   ├── PHASE2_SOLUTION_PROMPT.md        # Phase 2 prompt (CODE_CHANGE)
+│   ├── PHASE2_GUIDANCE_PROMPT.md        # Phase 2 prompt (GUIDANCE)
+│   └── MANUAL_EVALUATION_PROMPT.md      # Evaluation prompt template
 │
-├── docs/                                # Design specs
-│   ├── PHASE1_SPEC.md                   # Backend Phase 1: similar issue search
-│   ├── PHASE2_SPEC.md                   # Backend Phase 2: research report caching
-│   └── PHASE3_SPEC.md                   # Backend Phase 3: feedback loop
+├── scripts/                             # Utility scripts
+│   ├── install.sh                       # Installation script
+│   ├── monitor_progress.sh              # Real-time progress monitor
+│   └── test-skills.js                   # MCP skills verification
+│
+├── QUICKSTART.md                        # Quick start guide
 │
 └── tests/                               # Jest unit tests
     ├── commands/                        # Command handler tests
