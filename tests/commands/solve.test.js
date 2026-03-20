@@ -91,8 +91,11 @@ describe('commands/solve', () => {
     cmdEvaluate.mockResolvedValue(undefined);
 
     execSync.mockImplementation((command) => {
+      if (command.includes('git rev-parse HEAD')) {
+        return 'aaa111\n';
+      }
       if (command.includes('git status --porcelain')) {
-        return ' M lib/some-file.go\n';
+        return '';
       }
       if (command.includes('git add -A')) {
         return '';
@@ -246,14 +249,19 @@ describe('commands/solve', () => {
       return true;
     });
 
-    let statusCall = 0;
+    let revParseCall = 0;
     execSync.mockImplementation((command) => {
-      if (command.includes('git status --porcelain')) {
-        statusCall += 1;
-        return statusCall === 1 ? ' M lib/some-file.go\n' : '';
+      if (command.includes('git rev-parse HEAD')) {
+        revParseCall += 1;
+        // First call (before Phase 2) returns old HEAD, second call (after Phase 2) returns new HEAD
+        return revParseCall === 1 ? 'aaa111\n' : 'bbb222\n';
       }
+      if (command.includes('git status --porcelain')) {
+        return '';
+      }
+      if (command.includes('git stash')) return '';
       if (command.includes('git add -A')) return '';
-      if (command.includes('git commit -m "Fix #12345: AI-generated solution"')) return 'ok';
+      if (command.includes('git commit')) return 'ok';
       return '';
     });
 
@@ -261,10 +269,6 @@ describe('commands/solve', () => {
     jest.advanceTimersByTime(1000);
     await promise;
 
-    expect(execSync).toHaveBeenCalledWith(
-      expect.stringContaining('git commit -m "Fix #12345: AI-generated solution"'),
-      expect.objectContaining({ cwd: '/test/repo' })
-    );
     expect(runCopilot).toHaveBeenCalledWith(
       expect.stringContaining('/code-review-committed-changes'),
       expect.any(Object),
@@ -282,6 +286,17 @@ describe('commands/solve', () => {
       if (path.includes('code-review-committed-changes.chatmode.md')) return false;
       if (path.includes('.terraform-azurerm-ai-installer')) return false;
       return true;
+    });
+
+    let revParseCall = 0;
+    execSync.mockImplementation((command) => {
+      if (command.includes('git rev-parse HEAD')) {
+        revParseCall += 1;
+        return revParseCall === 1 ? 'aaa111\n' : 'bbb222\n';
+      }
+      if (command.includes('git status --porcelain')) return '';
+      if (command.includes('git stash')) return '';
+      return '';
     });
 
     const promise = cmdSolve('12345', { noEval: true });
