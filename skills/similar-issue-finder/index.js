@@ -32,12 +32,51 @@ async function callService(endpoint, body) {
 }
 
 const server = new Server(
-  { name: 'similar-issue-finder', version: '1.0.0' },
+  { name: 'similar-issue-finder', version: '2.0.0' },
   { capabilities: { tools: {} } }
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
+    {
+      name: 'check_existing_research',
+      description: `Check the knowledge base for verified historical solutions from merged PRs.
+
+Use this as the VERY FIRST step in research to see if similar issues have been solved before.
+Returns solutions that are verified — they come from actual merged PRs, not AI guesses.
+
+When to use:
+- As the first step before any other research
+- To find proven fix patterns for similar problems
+- To identify which files were changed in similar fixes`,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          repo: {
+            type: 'string',
+            description: 'GitHub repo (e.g., "hashicorp/terraform-provider-azurerm")',
+          },
+          issue_number: {
+            type: 'integer',
+            description: 'Current issue number (excluded from results)',
+          },
+          title: {
+            type: 'string',
+            description: 'Issue title for semantic search',
+          },
+          body: {
+            type: 'string',
+            description: 'Issue body text for semantic search',
+          },
+          top_k: {
+            type: 'integer',
+            description: 'Number of results to return (default: 3)',
+            default: 3,
+          },
+        },
+        required: ['repo', 'title'],
+      },
+    },
     {
       name: 'find_similar_issues',
       description: `Search historical GitHub issues to find similar problems and their solutions.
@@ -88,6 +127,39 @@ When to use:
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const toolName = request.params.name;
   const args = request.params.arguments;
+
+  if (toolName === 'check_existing_research') {
+    try {
+      const result = await callService('/knowledge/find', {
+        repo: args.repo,
+        issue_number: args.issue_number,
+        title: args.title,
+        body: args.body,
+        top_k: args.top_k || 3,
+      });
+
+      let output = '';
+      if (result.length === 0) {
+        output = 'No verified historical solutions found for similar issues.\n';
+      } else {
+        output = `## Verified Historical Solutions Found: ${result.length}\n\n`;
+        for (const r of result) {
+          output += `### Issue #${r.issue}: ${r.issue_title} (relevance: ${r.score})\n`;
+          output += `- **PR**: ${r.pr_url}\n`;
+          output += `- **Changed files**: ${r.changed_files.join(', ')}\n`;
+          output += `- **Matched on**: ${r.matched_text}\n\n`;
+        }
+        output += `\n> These are verified solutions from merged PRs. Use them as reference for your implementation.\n`;
+      }
+
+      return { content: [{ type: 'text', text: output }] };
+    } catch (error) {
+      return {
+        content: [{ type: 'text', text: `⚠️ Knowledge base search failed: ${error.message}\nProceeding without historical knowledge.` }],
+        isError: true,
+      };
+    }
+  }
 
   if (toolName === 'find_similar_issues') {
     try {
