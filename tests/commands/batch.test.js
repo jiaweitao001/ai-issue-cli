@@ -99,6 +99,15 @@ describe('commands/batch', () => {
     expect(success).toHaveBeenCalled();
   });
 
+  it('should override config model when --model option is specified', async () => {
+    await cmdBatch(['12345'], { model: 'claude-opus-4.5', concurrency: 1 });
+
+    expect(cmdSolve).toHaveBeenCalledWith(
+      '12345',
+      expect.objectContaining({ model: 'claude-opus-4.5' })
+    );
+  });
+
   it('should continue processing after failure', async () => {
     cmdSolve.mockRejectedValueOnce(new Error('Failed'));
     cmdSolve.mockResolvedValueOnce(undefined);

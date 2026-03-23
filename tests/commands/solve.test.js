@@ -332,4 +332,27 @@ describe('commands/solve', () => {
     
     expect(error).toHaveBeenCalledWith(expect.stringContaining('Execution failed'));
   });
+
+  it('should override config model when --model option is specified', async () => {
+    const promise = cmdSolve('12345', { model: 'claude-opus-4.5', noEval: true });
+    jest.advanceTimersByTime(1000);
+    await promise;
+
+    // Both Phase 1 and Phase 2 calls should use the overridden model
+    for (const call of runCopilot.mock.calls) {
+      const configArg = call[1];
+      expect(configArg.model).toBe('claude-opus-4.5');
+    }
+  });
+
+  it('should use config file model when --model option is not specified', async () => {
+    const promise = cmdSolve('12345', { noEval: true });
+    jest.advanceTimersByTime(1000);
+    await promise;
+
+    for (const call of runCopilot.mock.calls) {
+      const configArg = call[1];
+      expect(configArg.model).toBe('gpt-4');
+    }
+  });
 });
