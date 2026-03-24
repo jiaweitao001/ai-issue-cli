@@ -139,7 +139,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       });
 
       let output = '';
-      if (result.length === 0) {
+      if (!Array.isArray(result) || result.length === 0) {
         output = 'No verified historical solutions found for similar issues.\n';
       } else {
         output = `## Verified Historical Solutions Found: ${result.length}\n\n`;

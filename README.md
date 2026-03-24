@@ -45,8 +45,6 @@ ai-issue solve 30340
 | `reportPath` | Report output path | `~/.ai-issue/reports` |
 | `model` | AI model | `claude-sonnet-4.5` |
 | `logLevel` | Log level | `info` |
-| `autoReviewAfterPhase2` | Auto run terraform AI review after Phase 2 code commit | `true` |
-| `reviewToolInstallerPath` | terraform AI installer directory used for install detection | `~/.terraform-azurerm-ai-installer` |
 
 ## Command Options
 
@@ -98,7 +96,7 @@ ai-issue solve 30340
 │ • Modify code & commit           │
 │ • (CODE_CHANGE only) Auto run    │
 │   terraform AI review + address  │
-│   review comments (if installed) │
+│   review comments                │
 │ • Generate analysis report       │
 └──────────────────────────────────┘
         ↓
