@@ -24,6 +24,13 @@ jest.mock('../../lib/commands/evaluate', () => ({
   cmdEvaluate: jest.fn()
 }));
 
+// Mock service-client (Phase 3)
+jest.mock('../../lib/service-client', () => ({
+  serviceRequest: jest.fn().mockResolvedValue({ status: 200, data: [] }),
+  getServiceUrl: jest.fn(() => ''),
+  getServiceApiKey: jest.fn(() => ''),
+}));
+
 // Mock logger
 jest.mock('../../lib/logger', () => ({
   log: jest.fn(),

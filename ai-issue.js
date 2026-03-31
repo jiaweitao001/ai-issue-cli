@@ -16,6 +16,9 @@ const { cmdConfig } = require('./lib/commands/config-cmd');
 const { cmdCheck } = require('./lib/commands/check');
 const { cmdInit } = require('./lib/commands/init');
 const { cmdValidate } = require('./lib/commands/validate');
+const { cmdTriage } = require('./lib/commands/triage');
+const { cmdWatch } = require('./lib/commands/watch');
+const { cmdPipeline } = require('./lib/commands/pipeline');
 
 // Basic metadata
 program
@@ -62,12 +65,15 @@ program
 program
   .command('solve <issue_number>')
   .description('Solve specified Issue (2-phase: research + solution)')
-  .action(async (issueNumber) => {
+  .option('--branch', 'Create a git branch fix/issue-<N> before solving')
+  .option('--push-fork', 'Push branch to fork remote after solving')
+  .option('--force', 'Override triage SKIP/NEEDS_HUMAN recommendation')
+  .action(async (issueNumber, cmdOpts) => {
     ensureConfig();
-    const options = program.opts();
+    const options = { ...program.opts(), ...cmdOpts };
     await cmdSolve(issueNumber, {
       ...options,
-      concurrency: parseInt(options.concurrency)
+      concurrency: parseInt(options.concurrency || '3')
     });
   });
 
@@ -120,6 +126,44 @@ program
     if (!result.allValid) {
       process.exit(1);
     }
+  });
+
+// Command: triage
+program
+  .command('triage <issue_number>')
+  .description('View or trigger triage for an issue via ai-issue-service')
+  .action(async (issueNumber) => {
+    await cmdTriage(issueNumber, program.opts());
+  });
+
+// Command: pipeline
+program
+  .command('pipeline')
+  .description('View issue pipeline status from ai-issue-service')
+  .option('--owner <owner>', 'Filter by assigned owner')
+  .option('--status <status>', 'Filter by status (triaged, queued, solving, solved, failed)')
+  .option('--limit <number>', 'Max entries to return', '20')
+  .action(async (cmdOpts) => {
+    const options = { ...program.opts(), ...cmdOpts };
+    await cmdPipeline({
+      ...options,
+      limit: parseInt(options.limit || '20'),
+    });
+  });
+
+// Command: watch
+program
+  .command('watch')
+  .description('Watch daemon: auto-solve queued issues assigned to you')
+  .requiredOption('--owner <owner>', 'Your owner identifier (as configured in resource_owners)')
+  .option('--interval <seconds>', 'Poll interval in seconds', '300')
+  .option('--push-fork', 'Push branches to fork remote after solving')
+  .action(async (cmdOpts) => {
+    const options = { ...program.opts(), ...cmdOpts };
+    await cmdWatch({
+      ...options,
+      interval: parseInt(options.interval || '300'),
+    });
   });
 
 // Error handling
