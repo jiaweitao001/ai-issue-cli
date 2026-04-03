@@ -140,4 +140,18 @@ describe('commands/evaluate', () => {
     
     expect(error).toHaveBeenCalledWith(expect.stringContaining('Execution failed'));
   });
+
+  it('should override config model when --model option is specified', async () => {
+    await cmdEvaluate('12345', { model: 'claude-opus-4.5' });
+
+    const configArg = runCopilot.mock.calls[0][1];
+    expect(configArg.model).toBe('claude-opus-4.5');
+  });
+
+  it('should use config file model when --model option is not specified', async () => {
+    await cmdEvaluate('12345', {});
+
+    const configArg = runCopilot.mock.calls[0][1];
+    expect(configArg.model).toBe('gpt-4');
+  });
 });

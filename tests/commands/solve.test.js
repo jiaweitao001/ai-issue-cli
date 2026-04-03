@@ -2,8 +2,13 @@
  * Tests for commands/solve.js
  */
 const fs = require('fs');
+const { execSync, execFileSync } = require('child_process');
 
 jest.mock('fs');
+jest.mock('child_process', () => ({
+  execSync: jest.fn(),
+  execFileSync: jest.fn()
+}));
 jest.mock('os', () => ({
   ...jest.requireActual('os'),
   homedir: jest.fn(() => '/mock/home')
@@ -17,6 +22,13 @@ jest.mock('../../lib/copilot', () => ({
 // Mock evaluate command
 jest.mock('../../lib/commands/evaluate', () => ({
   cmdEvaluate: jest.fn()
+}));
+
+// Mock service-client (Phase 3)
+jest.mock('../../lib/service-client', () => ({
+  serviceRequest: jest.fn().mockResolvedValue({ status: 200, data: [] }),
+  getServiceUrl: jest.fn(() => ''),
+  getServiceApiKey: jest.fn(() => ''),
 }));
 
 // Mock logger
@@ -33,11 +45,13 @@ jest.mock('../../lib/logger', () => ({
       cyan: jest.fn(s => s),
       blue: jest.fn(s => s),
       green: jest.fn(s => s),
+      magenta: jest.fn(s => s),
       grey: jest.fn(s => s)
     },
     cyan: jest.fn(s => s),
     blue: jest.fn(s => s),
-    green: jest.fn(s => s)
+    green: jest.fn(s => s),
+    magenta: jest.fn(s => s)
   }
 }));
 
@@ -83,6 +97,22 @@ describe('commands/solve', () => {
     
     runCopilot.mockResolvedValue(undefined);
     cmdEvaluate.mockResolvedValue(undefined);
+
+    execSync.mockImplementation((command) => {
+      if (command.includes('git rev-parse HEAD')) {
+        return 'aaa111\n';
+      }
+      if (command.includes('git status --porcelain')) {
+        return '';
+      }
+      if (command.includes('git add -A')) {
+        return '';
+      }
+      if (command.includes('git commit -m')) {
+        return '[test-branch abc123] commit\n';
+      }
+      return '';
+    });
   });
 
   afterEach(() => {
@@ -221,6 +251,160 @@ describe('commands/solve', () => {
     expect(cmdEvaluate).not.toHaveBeenCalled();
   });
 
+  it('should auto commit and run terraform review when tool is installed', async () => {
+    fs.existsSync.mockImplementation((path) => {
+      if (path.includes('code-review-committed-changes.prompt.md')) return true;
+      return true;
+    });
+
+    let revParseCall = 0;
+    execSync.mockImplementation((command) => {
+      if (command.includes('git rev-parse HEAD')) {
+        revParseCall += 1;
+        // First call (before Phase 2) returns old HEAD, second call (after Phase 2) returns new HEAD
+        return revParseCall === 1 ? 'aaa111\n' : 'bbb222\n';
+      }
+      if (command.includes('git status --porcelain')) {
+        return '';
+      }
+      if (command.includes('git stash')) return '';
+      if (command.includes('git add -A')) return '';
+      if (command.includes('git commit')) return 'ok';
+      return '';
+    });
+
+    const promise = cmdSolve('12345', { noEval: true });
+    jest.advanceTimersByTime(1000);
+    await promise;
+
+    expect(runCopilot).toHaveBeenCalledWith(
+      expect.stringContaining('/code-review-committed-changes'),
+      expect.any(Object),
+      expect.any(Array),
+      expect.any(Boolean),
+      expect.any(Boolean),
+      expect.objectContaining({ phase: 'phase2' })
+    );
+  });
+
+  it('should auto-install review tool when installer script exists but tool not in repo', async () => {
+    // Simulate: tool not in repo initially, installer script exists, tool in repo after install
+    let installRan = false;
+    fs.existsSync.mockImplementation((p) => {
+      if (p.includes('code-review-committed-changes.prompt.md')) return installRan;
+      if (p.includes('code-review-local-changes.prompt.md')) return false;
+      if (p.includes('code-review-committed-changes.chatmode.md')) return false;
+      if (p.includes('install-copilot-setup.sh')) return true;
+      return true;
+    });
+
+    let revParseCall = 0;
+    execSync.mockImplementation((command) => {
+      if (command.includes('git rev-parse HEAD')) {
+        revParseCall += 1;
+        return revParseCall === 1 ? 'aaa111\n' : 'bbb222\n';
+      }
+      if (command.includes('git status --porcelain')) return '';
+      if (command.includes('git stash')) return '';
+      if (command.includes('git add -A')) return '';
+      if (command.includes('git commit')) return 'ok';
+      return '';
+    });
+
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'bash' && args[0].includes('install-copilot-setup')) {
+        installRan = true;
+        return '';
+      }
+      return '';
+    });
+
+    const promise = cmdSolve('12345', { noEval: true });
+    jest.advanceTimersByTime(1000);
+    await promise;
+
+    // Verify installer was executed via execFileSync
+    expect(execFileSync).toHaveBeenCalledWith(
+      'bash',
+      expect.arrayContaining([expect.stringContaining('install-copilot-setup.sh')]),
+      expect.any(Object)
+    );
+
+    // Verify review was run after install
+    expect(runCopilot).toHaveBeenCalledWith(
+      expect.stringContaining('/code-review-committed-changes'),
+      expect.any(Object),
+      expect.any(Array),
+      expect.any(Boolean),
+      expect.any(Boolean),
+      expect.objectContaining({ phase: 'phase2' })
+    );
+  });
+
+  it('should auto-clone and install review tool when not present locally', async () => {
+    let cloneRan = false;
+    let installRan = false;
+    fs.existsSync.mockImplementation((p) => {
+      if (p.includes('code-review-committed-changes.prompt.md')) return installRan;
+      if (p.includes('code-review-local-changes.prompt.md')) return false;
+      if (p.includes('code-review-committed-changes.chatmode.md')) return false;
+      if (p.includes('install-copilot-setup.sh')) return cloneRan;
+      if (p.includes('install-copilot-setup.ps1')) return false;
+      // Installer directory doesn't exist before clone
+      if (p.includes('.terraform-azurerm-ai-installer') && !p.includes('install-copilot-setup')) return false;
+      return true;
+    });
+
+    let revParseCall = 0;
+    execSync.mockImplementation((command) => {
+      if (command.includes('git rev-parse HEAD')) {
+        revParseCall += 1;
+        return revParseCall === 1 ? 'aaa111\n' : 'bbb222\n';
+      }
+      if (command.includes('git status --porcelain')) return '';
+      if (command.includes('git stash')) return '';
+      if (command.includes('git add -A')) return '';
+      if (command.includes('git commit')) return 'ok';
+      return '';
+    });
+
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === 'clone') {
+        cloneRan = true;
+        return '';
+      }
+      if (cmd === 'bash' && args[0].includes('install-copilot-setup')) {
+        installRan = true;
+        return '';
+      }
+      return '';
+    });
+
+    const promise = cmdSolve('12345', { noEval: true });
+    jest.advanceTimersByTime(1000);
+    await promise;
+
+    // Verify clone was called with the hardcoded repo URL via execFileSync
+    expect(execFileSync).toHaveBeenCalledWith(
+      'git',
+      expect.arrayContaining([
+        'clone', '--depth', '1',
+        'https://github.com/WodansSon/terraform-azurerm-ai-assisted-development.git'
+      ]),
+      expect.any(Object)
+    );
+
+    // Verify review was run
+    expect(runCopilot).toHaveBeenCalledWith(
+      expect.stringContaining('/code-review-committed-changes'),
+      expect.any(Object),
+      expect.any(Array),
+      expect.any(Boolean),
+      expect.any(Boolean),
+      expect.objectContaining({ phase: 'phase2' })
+    );
+  });
+
   it('should use silent mode when silent option is true', async () => {
     const promise = cmdSolve('12345', { silent: true, noEval: true });
     jest.advanceTimersByTime(1000);
@@ -243,5 +427,28 @@ describe('commands/solve', () => {
       .rejects.toThrow('Copilot failed');
     
     expect(error).toHaveBeenCalledWith(expect.stringContaining('Execution failed'));
+  });
+
+  it('should override config model when --model option is specified', async () => {
+    const promise = cmdSolve('12345', { model: 'claude-opus-4.5', noEval: true });
+    jest.advanceTimersByTime(1000);
+    await promise;
+
+    // Both Phase 1 and Phase 2 calls should use the overridden model
+    for (const call of runCopilot.mock.calls) {
+      const configArg = call[1];
+      expect(configArg.model).toBe('claude-opus-4.5');
+    }
+  });
+
+  it('should use config file model when --model option is not specified', async () => {
+    const promise = cmdSolve('12345', { noEval: true });
+    jest.advanceTimersByTime(1000);
+    await promise;
+
+    for (const call of runCopilot.mock.calls) {
+      const configArg = call[1];
+      expect(configArg.model).toBe('gpt-4');
+    }
   });
 });

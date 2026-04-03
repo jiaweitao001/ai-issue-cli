@@ -112,7 +112,16 @@ Before writing code, must read and follow the azurerm project's code style guide
 - **Impact scope**: [Affected resources/users/scenarios]
 - **Swagger link**: [URL or N/A if not applicable]
 
-## 2. Git Operation Record
+## 2. Similar Historical Issues
+
+| Score | Issue | State | Helped? |
+|-------|-------|-------|---------|
+| [0.XX] | [#NNNNN - Title](URL) | [open/closed] | [Yes/No - how it helped or why not] |
+
+> If `find_similar_issues` was used in Phase 1, copy the top results here. Note which ones informed the solution.
+> If no similar issues were found, write: "No similar historical issues found."
+
+## 3. Git Operation Record
 
 ### Branch Info
 - Branch name: [branch-name]
@@ -127,7 +136,7 @@ Before writing code, must read and follow the azurerm project's code style guide
 [Complete commit message, e.g., "Fix #12345: Add validation for X field"]
 ```
 
-## 3. Pre-submission Checklist
+## 4. Pre-submission Checklist
 
 | Check Item | Yes/No | Notes |
 |------------|--------|-------|
@@ -140,7 +149,7 @@ Before writing code, must read and follow the azurerm project's code style guide
 | Field names exactly match SDK struct? | [Yes/No] | [Field names verified] |
 | New fields have acceptance tests? | [Yes/No] | [Test file if applicable] |
 
-## 4. Issue Reply
+## 5. Issue Reply
 
 ```
 Thank you for raising the issue.

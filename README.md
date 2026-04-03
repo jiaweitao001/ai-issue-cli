@@ -17,6 +17,11 @@ A command-line tool based on GitHub Copilot CLI that automates the resolution an
 - ✅ **Configuration Management** - Flexible configuration system
 - ✅ **Detailed Logging** - Complete execution log recording
 - ✅ **Professional CLI** - Full command-line tool experience
+- ✅ **Team Knowledge Sharing** - Knowledge base built from verified resolved issues (server-side scan)
+- ✅ **Similar Issue Search** - Vector-based historical issue retrieval via backend service
+- ✅ **Smart Triage** - LLM-based issue classification, duplicate detection, and resource owner routing
+- ✅ **Watch Daemon** - Auto-poll queued issues and solve them locally
+- ✅ **Git Branch + Push** - Create branches and push to fork after solving
 
 ## Quick Start
 
@@ -24,7 +29,7 @@ See [QUICKSTART.md](QUICKSTART.md) for detailed installation and usage instructi
 
 ```bash
 # 1. Install
-./install.sh
+./scripts/install.sh
 
 # 2. Configure
 ai-issue init
@@ -43,6 +48,10 @@ ai-issue solve 30340
 | `reportPath` | Report output path | `~/.ai-issue/reports` |
 | `model` | AI model | `claude-sonnet-4.5` |
 | `logLevel` | Log level | `info` |
+| `serviceUrl` | ai-issue-service URL | *(env: AI_ISSUE_SERVICE_URL)* |
+| `serviceApiKey` | Service API key | *(env: AI_ISSUE_SERVICE_API_KEY)* |
+| `repo` | GitHub repo (owner/name) | *(from issueBaseUrl)* |
+| `forkRemote` | Git remote for `--push-fork` | `origin` |
 
 ## Command Options
 
@@ -52,6 +61,9 @@ ai-issue solve 30340
 | `--no-eval` | Skip evaluation phase | `ai-issue solve 30340 --no-eval` |
 | `--model <model>` | Override AI model | `ai-issue solve 30340 --model gpt-4` |
 | `--concurrency <n>` | Set parallel instances for batch | `ai-issue batch 30340 31316 --concurrency 5` |
+| `--branch` | Create git branch `fix/issue-<N>` before solving | `ai-issue solve 30340 --branch` |
+| `--push-fork` | Push branch to fork remote after solving | `ai-issue solve 30340 --branch --push-fork` |
+| `--force` | Override triage SKIP/NEEDS_HUMAN recommendation | `ai-issue solve 30340 --force` |
 
 **Debug Mode**: Shows detailed execution information including config values, file paths, copilot commands, and sets log level to `debug`. Useful for troubleshooting.
 
@@ -59,37 +71,70 @@ ai-issue solve 30340
 
 AI Issue CLI includes built-in skills powered by MCP (Model Context Protocol) to enhance issue resolution:
 
-| Skill | Description | Used In |
-|-------|-------------|--------|
-| `github-issue-fetcher` | Fetch structured issue data from GitHub | Phase 1, 2, Evaluate |
-| `code-similarity-finder` | Find similar code implementations | Phase 1 |
+| Skill | Tools | Description | Used In |
+|-------|-------|-------------|--------|
+| `github-issue-fetcher` | `get_issue_context` | Fetch structured issue data from GitHub (comments, timeline, linked PRs) | Phase 1, 2, Evaluate |
+| `code-similarity-finder` | `find_similar_implementations` | Find similar Go code implementations by structural analysis | Phase 1 |
+| `similar-issue-finder` | `find_similar_issues`, `check_existing_research` | Search historical similar issues and verified solutions via backend service | Phase 1 |
 
-Skills are automatically installed when you run `./install.sh`.
+Phase-specific MCP configs control which skills are available at each stage:
+
+| Config File | Phase | Skills |
+|-------------|-------|--------|
+| `config/mcp-config-phase1.json` | Research | All 3 skills |
+| `config/mcp-config-phase2.json` | Solution | `github-issue-fetcher` only |
+| `config/mcp-config-evaluate.json` | Evaluation | `github-issue-fetcher` only |
+
+Skills are automatically installed when you run `./scripts/install.sh`.
 
 ## Workflow
 
 ```
 ai-issue solve 30340
         ↓
-┌─────────────────────┐
-│ Phase 1: Research   │
-│ • Find similar impl │
-│ • Search SDK tools  │
-│ • Analyze history   │
-└─────────────────────┘
+┌──────────────────────────────────┐
+│ Phase 1: Research                │
+│ • Check existing team research   │
+│ • Search similar historical issues│
+│ • Find similar code impl         │
+│ • Fetch issue context from GitHub│
+└──────────────────────────────────┘
         ↓
-┌─────────────────────┐
-│ Phase 2: Solution   │
-│ • Design fix        │
-│ • Modify code       │
-│ • Commit changes    │
-└─────────────────────┘
+┌──────────────────────────────────┐
+│ Phase 2: Solution                │
+│ • Design fix (or guidance)       │
+│ • Modify code & commit           │
+│ • (CODE_CHANGE only) Auto run    │
+│   terraform AI review + address  │
+│   review comments                │
+│ • Generate analysis report       │
+└──────────────────────────────────┘
         ↓
-┌─────────────────────┐
-│ Phase 3: Evaluate   │
-│ • Compare with std  │
-│ • Generate report   │
-└─────────────────────┘
+┌──────────────────────────────────┐
+│ Phase 3: Evaluate                │
+│ • Find reference PR              │
+│ • Compare & score (5 dimensions) │
+│ • Generate evaluation report     │
+└──────────────────────────────────┘
+```
+
+### Automated Triage + Watch Workflow (with ai-issue-service)
+
+```
+[Server] Issue Watcher (cron, every 30 min)
+  ├─ Poll new issues from upstream repo
+  ├─ POST /triage → LLM classify + duplicate detect + owner match
+  ├─ Write to pipeline (status: queued / triaged)
+  └─ Notify owner via webhook
+
+[Local] ai-issue watch --owner alice
+  ├─ Poll GET /pipeline?owner=alice&status=queued
+  ├─ Auto: ai-issue solve <N> --branch --push-fork
+  └─ Report pipeline status=solved
+
+[Local] Manual alternative
+  ├─ ai-issue triage 31984        # View triage result
+  └─ ai-issue solve 31984 --branch --push-fork
 ```
 
 ## Output Files
@@ -103,21 +148,80 @@ reportPath/
     └── issue-30340-*.log                 # Detailed logs
 ```
 
+## Backend Service Integration (Optional)
+
+AI Issue CLI can optionally integrate with `ai-issue-service` (a separate FastAPI backend) for team knowledge sharing:
+
+- **Similar issue search** — Vector-based retrieval of historical issues via PostgreSQL + pgvector
+- **Knowledge base** — Server-side weekly scan of resolved GitHub issues builds a verified knowledge base
+- **Existing research lookup** — Check if teammates have already researched a similar issue
+
+### Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `AI_ISSUE_SERVICE_URL` | Backend service URL (e.g., `https://your-service.example.com`) | For backend features |
+| `AI_ISSUE_SERVICE_API_KEY` | API key for backend authentication | For backend features |
+| `GITHUB_TOKEN` | GitHub personal access token (read access to issues/PRs) | Yes |
+
+When `AI_ISSUE_SERVICE_URL` is not set, the tool works without backend features — using only GitHub API and local code analysis.
+
 ## Project Structure
 
 ```
-cli/
-├── ai-issue.js                           # Main entry point
-├── lib/                                  # Library modules
-│   ├── config.js                        # Configuration management
-│   ├── copilot.js                       # Copilot executor
+ai-issue-cli/
+│
+│── ai-issue.js                          # CLI entry point (Commander.js)
+│── package.json
+│
+├── lib/                                 # Core library
+│   ├── config.js                        # Configuration management (~/.ai-issue/config.json)
+│   ├── copilot.js                       # Copilot CLI executor (phase-aware MCP config)
 │   ├── logger.js                        # Logging utilities
 │   ├── environment.js                   # Environment checks
-│   └── commands/                        # Command implementations
-├── PHASE1_RESEARCH_PROMPT.md          # Phase 1: Research prompt
-├── PHASE2_SOLUTION_PROMPT.md          # Phase 2: Solution prompt (CODE_CHANGE)
-├── PHASE2_GUIDANCE_PROMPT.md          # Phase 2: Guidance prompt (GUIDANCE)
-└── MANUAL_EVALUATION_PROMPT.md        # Evaluation prompt
+│   ├── report-validator.js              # Report template validation
+│   └── commands/                        # Command handlers
+│       ├── solve.js                     # solve — two-phase resolution
+│       ├── evaluate.js                  # evaluate — standalone evaluation
+│       ├── batch.js                     # batch — parallel multi-issue processing
+│       ├── triage.js                    # triage — view/trigger issue triage
+│       ├── watch.js                     # watch — daemon for auto-solving queued issues
+│       ├── init.js                      # init — create config file
+│       ├── check.js                     # check — environment verification
+│       ├── config-cmd.js                # config — show/set/get/reset config
+│       └── validate.js                  # validate — report template validation
+│
+├── lib/service-client.js                # HTTP client for ai-issue-service
+│
+├── skills/                              # MCP Servers (stdio-based)
+│   ├── github-issue-fetcher/            # → get_issue_context (GitHub API)
+│   ├── code-similarity-finder/          # → find_similar_implementations (local Go analysis)
+│   └── similar-issue-finder/            # → find_similar_issues, check_existing_research (backend)
+│
+├── config/                              # MCP configuration files
+│   ├── mcp-config-phase1.json           # Phase 1: all 3 skills
+│   ├── mcp-config-phase2.json           # Phase 2: github-issue-fetcher only
+│   ├── mcp-config-evaluate.json         # Evaluate: github-issue-fetcher only
+│   └── mcp-config.json                  # Default fallback config
+│
+├── prompts/                             # Prompt templates
+│   ├── PHASE1_RESEARCH_PROMPT.md        # Phase 1 prompt template
+│   ├── PHASE2_SOLUTION_PROMPT.md        # Phase 2 prompt (CODE_CHANGE)
+│   ├── PHASE2_GUIDANCE_PROMPT.md        # Phase 2 prompt (GUIDANCE)
+│   └── MANUAL_EVALUATION_PROMPT.md      # Evaluation prompt template
+│
+├── scripts/                             # Utility scripts
+│   ├── install.sh                       # Installation script
+│   ├── monitor_progress.sh              # Real-time progress monitor
+│   └── test-skills.js                   # MCP skills verification
+│
+├── QUICKSTART.md                        # Quick start guide
+│
+└── tests/                               # Jest unit tests
+    ├── commands/                        # Command handler tests
+    ├── config.test.js
+    ├── copilot.test.js
+    └── ...
 ```
 
 ## Troubleshooting

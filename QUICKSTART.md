@@ -7,6 +7,11 @@
 - Phase 2: Solution Implementation (based on research findings)
 - Result: ~60% accuracy improvement!
 
+🔍 **Backend Service Integration** (optional):
+- Search historical similar issues via vector similarity (PostgreSQL + pgvector)
+- Knowledge base built from verified resolved issues (server-side scan)
+- Check if teammates have already researched a similar issue
+
 ⚡ **Parallel Batch Processing**:
 - Process multiple issues concurrently
 - Configurable concurrency (default: 3, recommended ≤5 to avoid rate limits)
@@ -16,7 +21,7 @@
 
 ```bash
 cd /path/to/ai-issue-cli
-./install.sh
+./scripts/install.sh
 ```
 
 Choose **Option 2 (Local Link)** for development mode installation.
@@ -35,6 +40,19 @@ ai-issue config set repoPath /path/to/your/repo
 # View configuration
 ai-issue config show
 ```
+
+### Environment Variables
+
+```bash
+# Required
+export GITHUB_TOKEN="ghp_..."              # GitHub PAT (read access to issues/PRs)
+
+# Optional - Backend service for team knowledge sharing
+export AI_ISSUE_SERVICE_URL="https://your-service.example.com"
+export AI_ISSUE_SERVICE_API_KEY="your-api-key"
+```
+
+Without `AI_ISSUE_SERVICE_URL`, the tool works standalone using only GitHub API and local code analysis.
 
 ## 3. Environment Check
 
@@ -123,22 +141,26 @@ ai-issue batch 30049 30340 30360 30384 30437 31120 31180 --concurrency 5
 ### Understanding Two-Phase Approach
 
 **Phase 1: Deep Research (141 lines prompt)**
-- Find similar implementations in codebase
+- Check existing team research (via backend, if configured)
+- Search similar historical issues (via backend vector search)
+- Find similar code implementations (local Go AST analysis)
+- Fetch issue context from GitHub (comments, timeline, linked PRs)
 - Search for existing SDK tools
 - Analyze code history with git
-- Identify all affected locations
-- Output: `issue-XXX-research.md`
+- Output: `issue-XXX-research.md` (temporary, used by Phase 2)
 
 **Phase 2: Solution Implementation (143 lines prompt)**
 - Design solution based on research findings
 - Follow similar implementations
 - Use SDK functions (not reinvent)
 - Ensure completeness (all CRUD operations)
+- For CODE_CHANGE: auto-commit solution, then run terraform AI review and address review comments
 - Output: `issue-XXX-analysis-and-solution.md`
 
 **Why Two-Phase?**
 - Prevents "quick fix" without understanding root cause
 - Forces AI to find similar implementations first
+- Leverages team knowledge from historical issues and prior research
 - Uses shorter, focused prompts (was 617 lines total)
 - ~60% accuracy improvement in testing
 
@@ -158,30 +180,42 @@ gh issue list --limit 5 --json number --jq '.[].number' | xargs ai-issue batch
 ## 8. Directory Structure
 
 ```
-cli/
-├── ai-issue.js                           # Main program v2.0 (executable)
-├── package.json                          # npm configuration
-├── install.sh                            # Installation script (executable)
-├── lib/                                  # Library modules
-│   ├── config.js                        # Configuration management
-│   ├── logger.js                        # Logging utilities
-│   ├── environment.js                   # Environment checks
-│   ├── copilot.js                       # Copilot executor
-│   ├── help.js                          # Help text
-│   └── commands/                        # Command implementations
-│       ├── solve.js                     # solve command (two-phase)
-│       ├── evaluate.js                  # evaluate command
-│       ├── batch.js                     # batch command
-│       ├── config-cmd.js                # config command
-│       └── check.js                     # check command
-├── PHASE1_RESEARCH_PROMPT.md          # Phase 1: Research prompt
-├── PHASE2_SOLUTION_PROMPT.md          # Phase 2: Solution prompt
-├── PHASE2_GUIDANCE_PROMPT.md          # Phase 2: Guidance prompt
-├── MANUAL_EVALUATION_PROMPT.md        # Phase 3: Evaluation prompt
-├── TWO_PHASE_APPROACH.md                 # Two-phase methodology doc
-├── STRUCTURE.md                          # Project structure doc
-├── README.md                             # Complete documentation
-└── QUICKSTART.md                         # This file
+ai-issue-cli/
+│
+│── ai-issue.js                          # CLI entry point
+│
+├── lib/                                 # Core library
+│   ├── config.js                        #   Configuration management
+│   ├── copilot.js                       #   Copilot CLI executor
+│   ├── logger.js                        #   Logging utilities
+│   └── commands/                        #   Command handlers
+│       ├── solve.js                     #     Two-phase resolve
+│       ├── batch.js                     #     Parallel multi-issue processing
+│       ├── evaluate.js                  #     Standalone evaluation
+│       └── ...                          #     init, check, config, validate
+│
+├── skills/                              # MCP Servers (Copilot CLI tools)
+│   ├── github-issue-fetcher/            #   GitHub API → issue context
+│   ├── code-similarity-finder/          #   Local → Go code structural analysis
+│   └── similar-issue-finder/            #   Backend → similar issues & research
+│
+├── config/                              # MCP configuration files
+│   ├── mcp-config-phase1.json           #   Research phase: all 3 skills
+│   ├── mcp-config-phase2.json           #   Solution phase: github-issue-fetcher only
+│   └── mcp-config-evaluate.json         #   Evaluate phase: github-issue-fetcher only
+│
+├── prompts/                             # Prompt templates
+│   ├── PHASE1_RESEARCH_PROMPT.md
+│   ├── PHASE2_SOLUTION_PROMPT.md
+│   ├── PHASE2_GUIDANCE_PROMPT.md
+│   └── MANUAL_EVALUATION_PROMPT.md
+│
+├── scripts/                             # Utility scripts
+│   ├── install.sh                       #   Installation script
+│   └── monitor_progress.sh              #   Real-time progress monitor
+│
+├── docs/                                # Design specs & guides
+└── tests/                               # Jest unit tests
 ```
 
 ## 9. Next Steps
