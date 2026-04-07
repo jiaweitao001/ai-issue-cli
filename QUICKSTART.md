@@ -86,6 +86,14 @@ ai-issue config show              # View configuration
 ai-issue config set <k> <v>       # Set configuration
 ai-issue check                    # Environment check
 ai-issue help                     # Help information
+
+# Phase 3: Server-backed commands (require AI_ISSUE_SERVICE_URL)
+ai-issue triage <number>          # View triage result for an issue
+ai-issue pipeline                 # View pipeline status (--owner, --status)
+ai-issue watch --owner <name>     # Auto-solve daemon
+
+# Phase 4: Trello Dashboard commands
+ai-issue register --pat <token>   # Register GitHub PAT for PR creation
 ```
 
 ## 6. FAQ
@@ -176,6 +184,63 @@ npm unlink -g ai-issue-cli
 # Get latest open Issues and process
 gh issue list --limit 5 --json number --jq '.[].number' | xargs ai-issue batch
 ```
+
+### Phase 4: Trello Dashboard Setup
+
+Trello Dashboard 让团队通过看板可视化 issue 处理流程，拖拽卡片完成审批。
+
+#### 7.1 获取 Trello 凭据
+
+1. 打开 https://trello.com/power-ups/admin → 创建 Power-Up → 记下 **API Key**
+2. 浏览器访问（替换 YOUR_KEY）：
+   ```
+   https://trello.com/1/authorize?expiration=never&scope=read,write&response_type=token&key=YOUR_KEY
+   ```
+   授权后获得 **API Token**
+
+#### 7.2 创建经理 Board
+
+在 Trello 手动创建一个 Board，建 6 个 List（从左到右）：
+- Triaged → Queued → Solving → Review → Approved → Rejected
+
+记下 Board ID（Board URL 中的那串字符，如 `https://trello.com/b/BOARD_ID/...`）
+
+#### 7.3 配置部署
+
+```bash
+# 生成加密密钥
+python3 -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
+
+# 在 terraform.tfvars 中添加
+trello_api_key          = "你的 API Key"
+trello_api_token        = "你的 Token"
+trello_manager_board_id = "经理 Board ID"
+trello_webhook_secret   = "任意随机字符串"
+encryption_key          = "上面生成的密钥"
+fork_repo               = "your-org/terraform-provider-azurerm"
+
+# 部署
+cd infra && terraform apply
+```
+
+#### 7.4 注册工程师
+
+每个工程师在本地执行一次：
+
+```bash
+# 注册 GitHub PAT（用于以你的身份创建 PR）
+ai-issue register --pat ghp_xxxxxxxxxxxx
+
+# 如果有 Trello member ID（可选）
+ai-issue register --pat ghp_xxx --trello-member-id 5f8a...
+```
+
+注册后系统自动创建你的私有 Trello Board（只有你能看到）。
+
+#### 7.5 日常使用
+
+- **工程师**：打开你的私有 Board → 看到 Review 列中的 issue → 点 GitHub Compare 链接看 diff → 拖入 Approved 自动创建 PR
+- **经理**：打开 Manager Board → 查看全局 → 给 Triaged 列的卡片 Add Member 后拖入 Queued 分配工程师
 
 ## 8. Directory Structure
 
