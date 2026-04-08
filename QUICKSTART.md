@@ -187,60 +187,117 @@ gh issue list --limit 5 --json number --jq '.[].number' | xargs ai-issue batch
 
 ### Phase 4: Trello Dashboard Setup
 
-Trello Dashboard 让团队通过看板可视化 issue 处理流程，拖拽卡片完成审批。
+Trello Dashboard enables team-wide visualization of the issue processing pipeline, with drag-and-drop actions for approval and assignment.
 
-#### 7.1 获取 Trello 凭据
+#### 7.1 Get Trello Credentials
 
-1. 打开 https://trello.com/power-ups/admin → 创建 Power-Up → 记下 **API Key**
-2. 浏览器访问（替换 YOUR_KEY）：
+1. Go to https://trello.com/power-ups/admin → Create a new Power-Up → Note the **API Key**
+2. Visit the following URL in your browser (replace `YOUR_KEY`):
    ```
    https://trello.com/1/authorize?expiration=never&scope=read,write&response_type=token&key=YOUR_KEY
    ```
-   授权后获得 **API Token**
+   Click **Allow** → Copy the **API Token** shown on the page
 
-#### 7.2 创建经理 Board
+#### 7.2 Create Manager Board
 
-在 Trello 手动创建一个 Board，建 6 个 List（从左到右）：
+Create a Trello board manually with 6 lists (left to right):
 - Triaged → Queued → Solving → Review → Approved → Rejected
 
-记下 Board ID（Board URL 中的那串字符，如 `https://trello.com/b/BOARD_ID/...`）
+Note the Board ID from the URL: `https://trello.com/b/BOARD_ID/...`
 
-#### 7.3 配置部署
+#### 7.3 Configure and Deploy
 
 ```bash
-# 生成加密密钥
+# Generate encryption key
 python3 -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
 
-# 在 terraform.tfvars 中添加
-trello_api_key          = "你的 API Key"
-trello_api_token        = "你的 Token"
-trello_manager_board_id = "经理 Board ID"
-trello_webhook_secret   = "任意随机字符串"
-encryption_key          = "上面生成的密钥"
+# Add to terraform.tfvars
+trello_api_key          = "your API Key"
+trello_api_token        = "your Token"
+trello_manager_board_id = "manager Board ID"
+trello_webhook_secret   = "any random string"
+encryption_key          = "generated key above"
 fork_repo               = "your-org/terraform-provider-azurerm"
 
-# 部署
+# Deploy
 cd infra && terraform apply
 ```
 
-#### 7.4 注册工程师
+#### 7.4 Register Engineers
 
-每个工程师在本地执行一次：
+Each engineer runs this once locally:
 
 ```bash
-# 注册 GitHub PAT（用于以你的身份创建 PR）
+# Register GitHub PAT (used to create PRs on your behalf)
 ai-issue register --pat ghp_xxxxxxxxxxxx
 
-# 如果有 Trello member ID（可选）
+# With Trello member ID (optional)
 ai-issue register --pat ghp_xxx --trello-member-id 5f8a...
 ```
 
-注册后系统自动创建你的私有 Trello Board（只有你能看到）。
+After registration, the system automatically creates your private Trello board (visible only to you).
 
-#### 7.5 日常使用
+#### 7.5 Daily Usage
 
-- **工程师**：打开你的私有 Board → 看到 Review 列中的 issue → 点 GitHub Compare 链接看 diff → 拖入 Approved 自动创建 PR
-- **经理**：打开 Manager Board → 查看全局 → 给 Triaged 列的卡片 Add Member 后拖入 Queued 分配工程师
+##### Engineer Perspective
+
+```
+1. Start watch daemon at the beginning of your day (optional, maximum automation)
+   $ ai-issue watch --owner jiaweitao --push-fork
+
+   → Daemon auto-polls your queued issues → solve → push fork → report solved
+   → Your Trello board cards move automatically: Queued → Solving → Review
+
+2. See a card in the Review column (via email / Trello notification)
+
+3. Click the "View Diff" link on the card → review code on GitHub Compare page
+
+4. Approve: Drag the card to ✅ Approved
+   → System creates a PR using your PAT (author = you)
+   → Card comment: "✅ PR #123 created → [link]"
+
+5. Reject: Drag the card to ❌ Rejected
+   → System marks as rejected + prompts you to fill in rejection reason
+
+6. Other drag directions are automatically bounced back (e.g., Queued → Approved)
+```
+
+##### Manager Perspective
+
+```
+1. Open Manager Board (📊 AI Issue Pipeline) → see all issues across all engineers
+
+2. Triaged column: SKIP / NEEDS_HUMAN issues (not auto-assigned)
+   → Decide whether to process
+   → Add Member to the card (choose the responsible engineer)
+   → Drag card to Queued
+   → System creates a card on that engineer's private board + sends notification
+
+3. Monitor team throughput by card counts per column
+
+4. Use Trello's Filter by member / label to focus on a specific engineer
+
+5. To unassign: Drag Queued card back to Triaged → auto-deletes engineer board card
+```
+
+##### CLI Command Cheat Sheet
+
+```bash
+# View pipeline (my issues)
+ai-issue pipeline --owner jiaweitao
+
+# View all queued issues
+ai-issue pipeline --status queued
+
+# Manually triage an issue
+ai-issue triage 31984
+
+# Manually solve an issue (without watch daemon)
+ai-issue solve 31984 --branch --push-fork
+
+# Register / update GitHub PAT
+ai-issue register --pat ghp_xxx
+```
 
 ## 8. Directory Structure
 
@@ -253,10 +310,15 @@ ai-issue-cli/
 │   ├── config.js                        #   Configuration management
 │   ├── copilot.js                       #   Copilot CLI executor
 │   ├── logger.js                        #   Logging utilities
+│   ├── service-client.js                #   HTTP client for ai-issue-service
 │   └── commands/                        #   Command handlers
-│       ├── solve.js                     #     Two-phase resolve
+│       ├── solve.js                     #     Two-phase resolve + --branch/--push-fork
 │       ├── batch.js                     #     Parallel multi-issue processing
 │       ├── evaluate.js                  #     Standalone evaluation
+│       ├── triage.js                    #     View/trigger issue triage
+│       ├── pipeline.js                  #     View pipeline status (--owner/--status)
+│       ├── watch.js                     #     Watch daemon (auto-solve queued issues)
+│       ├── register.js                  #     Register GitHub PAT for PR creation
 │       └── ...                          #     init, check, config, validate
 │
 ├── skills/                              # MCP Servers (Copilot CLI tools)
