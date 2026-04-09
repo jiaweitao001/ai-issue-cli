@@ -22,6 +22,7 @@ A command-line tool based on GitHub Copilot CLI that automates the resolution an
 - ✅ **Smart Triage** - LLM-based issue classification, duplicate detection, and resource owner routing
 - ✅ **Watch Daemon** - Auto-poll queued issues and solve them locally
 - ✅ **Git Branch + Push** - Create branches and push to fork after solving
+- ✅ **Trello Dashboard** - Zero-code visual pipeline with N+1 boards, drag-to-approve PR creation, manager/engineer isolation
 
 ## Quick Start
 
@@ -264,6 +265,266 @@ ai-issue-cli/
     ├── config.test.js
     ├── copilot.test.js
     └── ...
+```
+
+## Trello Dashboard Guide
+
+The Trello Dashboard replaces a traditional web UI with zero frontend code. It provides a visual pipeline for the entire issue lifecycle — from triage to PR creation — using drag-and-drop on Trello boards.
+
+### Architecture: N+1 Boards
+
+The system uses **physically isolated boards** for data privacy:
+
+- **Manager Board** (1 board) — Visible only to the team manager. Shows **all** issues across all engineers. Used for monitoring, triage overrides, and task assignment.
+- **Engineer Board** (1 per engineer) — Visible only to that engineer + the bot. Shows only issues **assigned to them**. Used for reviewing solutions and approving/rejecting.
+
+### Issue State Machine
+
+Every issue has a `status` in the pipeline database. The state machine:
+
+```
+                    ┌─────────────────────────────────────────┐
+                    │              (requeue)                   │
+                    ▼                                         │
+┌─────────┐    ┌────────┐    ┌─────────┐    ┌────────┐    ┌──────────┐
+│ triaged │───▶│ queued │───▶│ solving │───▶│ solved │───▶│pr_created│
+└─────────┘    └────────┘    └─────────┘    └────────┘    └──────────┘
+  SKIP/              ▲            │              │
+  NEEDS_HUMAN        │            │              ▼
+                     └────────────┘         ┌──────────┐
+                       (requeue)            │ rejected │
+                          ▲                 └──────────┘
+                          │
+                      ┌────────┐
+                      │ failed │
+                      └────────┘
+```
+
+**State transitions and who triggers them:**
+
+| Transition | Triggered By | How |
+|------------|-------------|-----|
+| → `triaged` | Issue Watcher | Auto-triage (SKIP / NEEDS_HUMAN) |
+| → `queued` | Issue Watcher | Auto-triage (PROCEED) |
+| `triaged` → `queued` | Manager | Trello drag Triaged→Queued or API `/enqueue` |
+| `queued` → `triaged` | Manager | Trello drag Queued→Triaged or Remove Member or API `/dequeue` |
+| `queued` → `solving` | Watch daemon | API `/solving` (distributed lock) |
+| `solving` → `solved` | CLI | API `/solved` (solve completed) |
+| `solving` → `failed` | CLI | API `/failed` (solve error) |
+| `solved` → `pr_created` | Engineer | Trello drag Review→Approved or API `/approve` |
+| `solved` → `rejected` | Engineer | Trello drag Review→Rejected or API `/reject` |
+| `failed` → `queued` | Manager/API | API `/requeue` |
+
+**Mapping to Trello board columns:**
+
+| Pipeline Status | Manager Board | Engineer Board |
+|----------------|---------------|----------------|
+| `triaged` | 📥 Triaged | *(not shown)* |
+| `queued` | 🔄 Queued | 🔄 Queued |
+| `solving` | 🔨 Solving | 🔨 Solving |
+| `solved` | 👀 Review | 👀 Review |
+| `pr_created` | ✅ Approved | ✅ Approved |
+| `rejected` | ❌ Rejected | ❌ Rejected |
+| `failed` | ❌ Rejected | ❌ Rejected |
+
+> Note: `failed` and `rejected` share the Rejected column; the card comment indicates the reason.
+
+### Board Columns
+
+**Manager Board** has 6 columns:
+```
+📥 Triaged → 🔄 Queued → 🔨 Solving → 👀 Review → ✅ Approved → ❌ Rejected
+```
+
+**Engineer Board** has 5 columns (no Triaged — engineers don't see SKIP/NEEDS_HUMAN issues):
+```
+🔄 Queued → 🔨 Solving → 👀 Review → ✅ Approved → ❌ Rejected
+```
+
+### Card Anatomy
+
+Each card represents one GitHub issue:
+
+```
+🟢 #31984  azurerm_container_app crashes on read
+
+Labels:  [CODE_CHANGE] [MEDIUM] [AI-HIGH]
+Due:     2026-04-10 (if SLA configured)
+
+── Description ──
+Resource: azurerm_container_app
+Confidence: 85%
+Reasoning: Missing null check on flattenXxx()
+Branch: ai/issue-31984
+
+🔗 GitHub Issue → github.com/hashicorp/.../issues/31984
+🔗 View Diff   → github.com/your-fork/compare/main...ai/issue-31984
+
+── Comments ──
+[Bot] ✅ PR #123 created → github.com/.../pull/123
+```
+
+**Title emoji** — set at creation, indicates triage recommendation:
+
+| Emoji | Meaning | Triage Recommendation |
+|-------|---------|----------------------|
+| 🟢 | AI can handle this | `PROCEED` |
+| ⏭️ | Skip (question, non-code) | `SKIP` |
+| 🟡 | Needs human judgment | `NEEDS_HUMAN` |
+
+**Labels** — auto-assigned based on triage, 3 per card:
+
+| Color | Category | Possible Values |
+|-------|----------|----------------|
+| 🔵 Blue | Issue type | `CODE_CHANGE`, `BUG_REPORT`, `GUIDANCE`, `QUESTION`, `FEATURE_REQUEST` |
+| 🟡 Yellow | Complexity | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
+| 🟢 Green | AI solvability | `AI-HIGH`, `AI-MEDIUM`, `AI-LOW` |
+| ⚫ Black | Engineer (manager board only) | `👤alice`, `👤bob`, etc. |
+
+Use Trello's **Filter by label** to quickly find issues by type, complexity, or assignee.
+
+### Manager Workflow
+
+#### Step 1: Monitor the Pipeline
+
+Open the Manager Board. Cards automatically appear as Issue Watcher triages new issues:
+- **Triaged column** — Issues marked SKIP or NEEDS_HUMAN. Not auto-assigned.
+- **Queued column** — Issues marked PROCEED. Already assigned to an engineer by resource matching.
+- Other columns update automatically as engineers work.
+
+#### Step 2: Assign SKIP/NEEDS_HUMAN Issues (if needed)
+
+For issues in the Triaged column that you want an engineer to handle:
+
+1. Click the card → **Members** → Add the responsible engineer
+2. Drag the card from **Triaged → Queued**
+3. System automatically:
+   - Updates DB: status=queued, assigned_to=engineer
+   - Creates a card on the engineer's private board
+   - Sends notification to the engineer
+
+If you drag without adding a Member first, the card bounces back with a comment:
+> ⚠️ Please Add Member to assign an engineer before moving to Queued.
+
+#### Step 3: Unassign / Dequeue
+
+To take an issue back from an engineer:
+- **Option A**: Drag the card from **Queued → Triaged**
+- **Option B**: Remove the Member from a Queued card
+
+Both actions: dequeue the issue + delete the card from the engineer's board.
+
+#### Step 4: Filter and Track
+
+- Use **Filter by member** to see one engineer's workload
+- Use **Filter by label** to find all `CRITICAL` or `CODE_CHANGE` issues
+- Count cards per column for throughput metrics
+
+### Engineer Workflow
+
+#### Step 1: Initial Setup (one-time)
+
+```bash
+# Register your GitHub PAT for PR creation
+ai-issue register --pat ghp_xxxxxxxxxxxx --trello-member-id YOUR_TRELLO_ID
+```
+
+This encrypts your PAT on the server and creates your private Trello board.
+
+To find your Trello member ID, ask your admin or check in a browser:
+```
+https://trello.com/1/members/me?key=API_KEY&token=API_TOKEN
+```
+
+#### Step 2: Start Watch Daemon (optional, maximum automation)
+
+```bash
+ai-issue watch --owner YOUR_NAME --push-fork
+```
+
+The daemon auto-polls queued issues, solves them, and pushes to your fork. Cards move automatically: Queued → Solving → Review.
+
+#### Step 3: Review Solutions
+
+When a card appears in the **Review** column on your private board:
+
+1. Click the **View Diff** link on the card → opens GitHub Compare page
+2. Review the code changes
+3. Decision:
+
+**Approve** — Drag card from **Review → Approved**:
+- System creates a PR using your PAT (PR author = you)
+- Card comment: `✅ PR #123 created → [link]`
+- Manager board card syncs to Approved
+
+**Reject** — Drag card from **Review → Rejected**:
+- System marks as rejected
+- Card comment prompts: `Please fill in the rejection reason`
+- Manager board card syncs to Rejected
+
+#### Step 4: Check Pipeline Status
+
+```bash
+# See your current issues
+ai-issue pipeline --owner YOUR_NAME
+
+# See only queued issues
+ai-issue pipeline --status queued
+```
+
+### Allowed vs. Illegal Drags
+
+Only specific drag directions are allowed. All other drags are **automatically bounced back** to the original column with a comment.
+
+**Manager Board — allowed:**
+
+| Drag | What Happens |
+|------|-------------|
+| Triaged → Queued (with Member) | Assign + create engineer card |
+| Queued → Triaged | Dequeue + delete engineer card |
+
+**Engineer Board — allowed:**
+
+| Drag | What Happens |
+|------|-------------|
+| Review → Approved | Create PR (author = you) |
+| Review → Rejected | Record rejection |
+
+**Everything else** (e.g., Queued → Solving, Triaged → Review, Approved → Queued) is illegal and gets bounced back immediately.
+
+### Automatic Card Updates
+
+Cards move automatically in response to backend events — no manual dragging required for these:
+
+| Event | Card Movement |
+|-------|--------------|
+| Issue Watcher triages new issue (PROCEED) | Card created in Queued on both boards |
+| Issue Watcher triages new issue (SKIP/NEEDS_HUMAN) | Card created in Triaged on manager board only |
+| Watch daemon picks up issue | Queued → Solving |
+| CLI solve completes | Solving → Review (+ diff link added) |
+| CLI solve fails | → Rejected (+ error comment) |
+| Pipeline entry deleted | Card archived on both boards |
+
+### CLI Command Cheat Sheet
+
+```bash
+# View your pipeline
+ai-issue pipeline --owner YOUR_NAME
+
+# View all queued issues
+ai-issue pipeline --status queued
+
+# Manually triage an issue
+ai-issue triage 31984
+
+# Manually solve (without watch daemon)
+ai-issue solve 31984 --branch --push-fork
+
+# Register / update your GitHub PAT
+ai-issue register --pat ghp_xxx
+
+# Start auto-solve daemon
+ai-issue watch --owner YOUR_NAME --push-fork
 ```
 
 ## Troubleshooting
