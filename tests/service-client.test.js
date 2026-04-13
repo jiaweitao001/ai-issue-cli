@@ -15,19 +15,21 @@ jest.mock('child_process');
 const { mockCreateLogger } = require('./helpers/mock-logger');
 jest.mock('../lib/logger', () => mockCreateLogger());
 
+// Mock config module directly so loadConfig returns a clean, controllable config
+// This avoids pollution from real ~/.ai-issue/config.json and env vars
+const mockLoadConfig = jest.fn();
+jest.mock('../lib/config', () => ({
+  loadConfig: mockLoadConfig,
+  DEFAULT_CONFIG: {},
+  CONFIG_FILE: '/mock/home/.ai-issue/config.json',
+  saveConfig: jest.fn(),
+  isConfigured: jest.fn(),
+  validateConfig: jest.fn(),
+  VERSION: '0.0.0-test',
+}));
+
 const fs = require('fs');
 const { getServiceUrl, getServiceApiKey, serviceRequest } = require('../lib/service-client');
-
-function mockConfig(overrides = {}) {
-  const config = {
-    repoPath: '/test/repo',
-    reportPath: '/test/reports',
-    issueBaseUrl: 'https://github.com/test/repo/issues',
-    ...overrides,
-  };
-  fs.existsSync.mockReturnValue(true);
-  fs.readFileSync.mockReturnValue(JSON.stringify(config));
-}
 
 function mockHttpsRequest(statusCode, responseBody) {
   const mockRes = {
@@ -51,21 +53,41 @@ function mockHttpsRequest(statusCode, responseBody) {
   return { mockReq, mockRes };
 }
 
+/** Default empty config — no service URL, no API key */
+const EMPTY_CONFIG = {
+  repoPath: '/test/repo',
+  reportPath: '/test/reports',
+  issueBaseUrl: 'https://github.com/test/repo/issues',
+};
+
 describe('service-client', () => {
+  const savedEnv = {};
+
   beforeEach(() => {
     jest.clearAllMocks();
+    // Save and delete env vars to prevent leaking into tests
+    savedEnv.AI_ISSUE_SERVICE_URL = process.env.AI_ISSUE_SERVICE_URL;
+    savedEnv.AI_ISSUE_SERVICE_API_KEY = process.env.AI_ISSUE_SERVICE_API_KEY;
     delete process.env.AI_ISSUE_SERVICE_URL;
     delete process.env.AI_ISSUE_SERVICE_API_KEY;
-    fs.existsSync.mockReturnValue(false);
+    // Default: loadConfig returns empty config (no serviceUrl, no serviceApiKey)
+    mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG });
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
+    // Restore env vars
+    if (savedEnv.AI_ISSUE_SERVICE_URL !== undefined) {
+      process.env.AI_ISSUE_SERVICE_URL = savedEnv.AI_ISSUE_SERVICE_URL;
+    }
+    if (savedEnv.AI_ISSUE_SERVICE_API_KEY !== undefined) {
+      process.env.AI_ISSUE_SERVICE_API_KEY = savedEnv.AI_ISSUE_SERVICE_API_KEY;
+    }
   });
 
   describe('getServiceUrl', () => {
     it('should read from config', () => {
-      mockConfig({ serviceUrl: 'https://my-service.example.com' });
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://my-service.example.com' });
       expect(getServiceUrl()).toBe('https://my-service.example.com');
     });
 
@@ -81,7 +103,7 @@ describe('service-client', () => {
 
   describe('getServiceApiKey', () => {
     it('should read from config', () => {
-      mockConfig({ serviceApiKey: 'my-secret-key' });
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceApiKey: 'my-secret-key' });
       expect(getServiceApiKey()).toBe('my-secret-key');
     });
 
@@ -97,7 +119,7 @@ describe('service-client', () => {
     });
 
     it('should make HTTPS request with correct headers', async () => {
-      mockConfig({ serviceUrl: 'https://service.example.com', serviceApiKey: 'test-key' });
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://service.example.com', serviceApiKey: 'test-key' });
       mockHttpsRequest(200, { status: 'ok' });
 
       const result = await serviceRequest('GET', '/health');
@@ -109,7 +131,7 @@ describe('service-client', () => {
     });
 
     it('should send JSON body for POST requests', async () => {
-      mockConfig({ serviceUrl: 'https://service.example.com' });
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://service.example.com' });
       const { mockReq } = mockHttpsRequest(200, { ok: true });
 
       await serviceRequest('POST', '/triage', { issue_number: 123 });
@@ -120,7 +142,7 @@ describe('service-client', () => {
     });
 
     it('should append query params to URL', async () => {
-      mockConfig({ serviceUrl: 'https://service.example.com' });
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://service.example.com' });
 
       jest.spyOn(https, 'request').mockImplementation((url, opts, callback) => {
         expect(url.searchParams.get('owner')).toBe('alice');
@@ -141,7 +163,7 @@ describe('service-client', () => {
     });
 
     it('should skip empty query params', async () => {
-      mockConfig({ serviceUrl: 'https://service.example.com' });
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://service.example.com' });
 
       jest.spyOn(https, 'request').mockImplementation((url, opts, callback) => {
         expect(url.searchParams.has('empty')).toBe(false);
@@ -162,7 +184,7 @@ describe('service-client', () => {
     });
 
     it('should handle network errors', async () => {
-      mockConfig({ serviceUrl: 'https://service.example.com' });
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://service.example.com' });
 
       jest.spyOn(https, 'request').mockImplementation(() => {
         const mockReq = {
@@ -183,7 +205,7 @@ describe('service-client', () => {
     });
 
     it('should handle non-JSON responses', async () => {
-      mockConfig({ serviceUrl: 'https://service.example.com' });
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://service.example.com' });
       mockHttpsRequest(500, 'Internal Server Error');
 
       const result = await serviceRequest('GET', '/health');
