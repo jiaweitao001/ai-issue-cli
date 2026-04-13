@@ -19,6 +19,7 @@ const { cmdValidate } = require('./lib/commands/validate');
 const { cmdTriage } = require('./lib/commands/triage');
 const { cmdWatch } = require('./lib/commands/watch');
 const { cmdPipeline } = require('./lib/commands/pipeline');
+const { cmdRegister } = require('./lib/commands/register');
 
 // Basic metadata
 program
@@ -149,6 +150,18 @@ program
       ...options,
       limit: parseInt(options.limit || '20'),
     });
+  });
+
+// Command: register
+program
+  .command('register')
+  .description('Register your GitHub PAT with ai-issue-service for PR creation')
+  .requiredOption('--pat <token>', 'GitHub Personal Access Token (scope: repo)')
+  .option('--owner <owner>', 'Your owner identifier (defaults to $USER)')
+  .option('--trello-member-id <id>', 'Your Trello member ID (optional)')
+  .action(async (cmdOpts) => {
+    const options = { ...program.opts(), ...cmdOpts };
+    await cmdRegister(options);
   });
 
 // Command: watch

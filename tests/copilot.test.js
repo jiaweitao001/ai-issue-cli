@@ -145,7 +145,7 @@ describe('copilot', () => {
         fs.unlinkSync.mockReturnValue(undefined);
       });
 
-      it('should use shell on Windows', async () => {
+      it('should not use shell on Windows (standalone exe)', async () => {
         const promise = runCopilot('test prompt', mockConfig);
         
         mockProcess.emit('close', 0);
@@ -156,7 +156,7 @@ describe('copilot', () => {
           'copilot',
           expect.any(Array),
           expect.objectContaining({
-            shell: true
+            shell: false
           })
         );
       });

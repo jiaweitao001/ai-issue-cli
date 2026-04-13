@@ -86,6 +86,14 @@ ai-issue config show              # View configuration
 ai-issue config set <k> <v>       # Set configuration
 ai-issue check                    # Environment check
 ai-issue help                     # Help information
+
+# Phase 3: Server-backed commands (require AI_ISSUE_SERVICE_URL)
+ai-issue triage <number>          # View triage result for an issue
+ai-issue pipeline                 # View pipeline status (--owner, --status)
+ai-issue watch --owner <name>     # Auto-solve daemon
+
+# Phase 4: Trello Dashboard commands
+ai-issue register --pat <token>   # Register GitHub PAT for PR creation
 ```
 
 ## 6. FAQ
@@ -166,7 +174,11 @@ ai-issue batch 30049 30340 30360 30384 30437 31120 31180 --concurrency 5
 
 ### Q: How to uninstall?
 ```bash
+# Remove the CLI command
 npm unlink -g ai-issue-cli
+
+# Remove configuration and reports (optional)
+rm -rf ~/.ai-issue
 ```
 
 ## 7. Advanced Usage
@@ -175,6 +187,120 @@ npm unlink -g ai-issue-cli
 ```bash
 # Get latest open Issues and process
 gh issue list --limit 5 --json number --jq '.[].number' | xargs ai-issue batch
+```
+
+### Phase 4: Trello Dashboard Setup
+
+Trello Dashboard enables team-wide visualization of the issue processing pipeline, with drag-and-drop actions for approval and assignment.
+
+#### 7.1 Get Trello Credentials
+
+1. Go to https://trello.com/power-ups/admin → Create a new Power-Up → Note the **API Key**
+2. Visit the following URL in your browser (replace `YOUR_KEY`):
+   ```
+   https://trello.com/1/authorize?expiration=never&scope=read,write&response_type=token&key=YOUR_KEY
+   ```
+   Click **Allow** → Copy the **API Token** shown on the page
+
+#### 7.2 Create Manager Board
+
+Create a Trello board manually with 6 lists (left to right):
+- Triaged → Queued → Solving → Review → Approved → Rejected
+
+Note the Board ID from the URL: `https://trello.com/b/BOARD_ID/...`
+
+#### 7.3 Configure and Deploy
+
+```bash
+# Generate encryption key
+python3 -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
+
+# Add to terraform.tfvars
+trello_api_key          = "your API Key"
+trello_api_token        = "your Token"
+trello_manager_board_id = "manager Board ID"
+trello_webhook_secret   = "any random string"
+encryption_key          = "generated key above"
+fork_repo               = "your-org/terraform-provider-azurerm"
+
+# Deploy
+cd infra && terraform apply
+```
+
+#### 7.4 Register Engineers
+
+Each engineer runs this once locally:
+
+```bash
+# Register GitHub PAT (used to create PRs on your behalf)
+ai-issue register --pat ghp_xxxxxxxxxxxx
+
+# With Trello member ID (optional)
+ai-issue register --pat ghp_xxx --trello-member-id 5f8a...
+```
+
+After registration, the system automatically creates your private Trello board (visible only to you).
+
+#### 7.5 Daily Usage
+
+##### Engineer Perspective
+
+```
+1. Start watch daemon at the beginning of your day (optional, maximum automation)
+   $ ai-issue watch --owner jiaweitao --push-fork
+
+   → Daemon auto-polls your queued issues → solve → push fork → report solved
+   → Your Trello board cards move automatically: Queued → Solving → Review
+
+2. See a card in the Review column (via email / Trello notification)
+
+3. Click the "View Diff" link on the card → review code on GitHub Compare page
+
+4. Approve: Drag the card to ✅ Approved
+   → System creates a PR using your PAT (author = you)
+   → Card comment: "✅ PR #123 created → [link]"
+
+5. Reject: Drag the card to ❌ Rejected
+   → System marks as rejected + prompts you to fill in rejection reason
+
+6. Other drag directions are automatically bounced back (e.g., Queued → Approved)
+```
+
+##### Manager Perspective
+
+```
+1. Open Manager Board (📊 AI Issue Pipeline) → see all issues across all engineers
+
+2. Triaged column: SKIP / NEEDS_HUMAN issues (not auto-assigned)
+   → Decide whether to process
+   → Add Member to the card (choose the responsible engineer)
+   → Drag card to Queued
+   → System creates a card on that engineer's private board + sends notification
+
+3. Monitor team throughput by card counts per column
+
+4. Use Trello's Filter by member / label to focus on a specific engineer
+
+5. To unassign: Drag Queued card back to Triaged → auto-deletes engineer board card
+```
+
+##### CLI Command Cheat Sheet
+
+```bash
+# View pipeline (my issues)
+ai-issue pipeline --owner jiaweitao
+
+# View all queued issues
+ai-issue pipeline --status queued
+
+# Manually triage an issue
+ai-issue triage 31984
+
+# Manually solve an issue (without watch daemon)
+ai-issue solve 31984 --branch --push-fork
+
+# Register / update GitHub PAT
+ai-issue register --pat ghp_xxx
 ```
 
 ## 8. Directory Structure
@@ -188,10 +314,15 @@ ai-issue-cli/
 │   ├── config.js                        #   Configuration management
 │   ├── copilot.js                       #   Copilot CLI executor
 │   ├── logger.js                        #   Logging utilities
+│   ├── service-client.js                #   HTTP client for ai-issue-service
 │   └── commands/                        #   Command handlers
-│       ├── solve.js                     #     Two-phase resolve
+│       ├── solve.js                     #     Two-phase resolve + --branch/--push-fork
 │       ├── batch.js                     #     Parallel multi-issue processing
 │       ├── evaluate.js                  #     Standalone evaluation
+│       ├── triage.js                    #     View/trigger issue triage
+│       ├── pipeline.js                  #     View pipeline status (--owner/--status)
+│       ├── watch.js                     #     Watch daemon (auto-solve queued issues)
+│       ├── register.js                  #     Register GitHub PAT for PR creation
 │       └── ...                          #     init, check, config, validate
 │
 ├── skills/                              # MCP Servers (Copilot CLI tools)

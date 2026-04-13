@@ -55,17 +55,48 @@ ai-issue solve 30340
 
 ## Command Options
 
+### Global Options
+
 | Option | Description | Usage |
 |--------|-------------|-------|
 | `--debug` | Enable debug mode (detailed logging) | `ai-issue solve 30340 --debug` |
 | `--no-eval` | Skip evaluation phase | `ai-issue solve 30340 --no-eval` |
 | `--model <model>` | Override AI model | `ai-issue solve 30340 --model gpt-4` |
 | `--concurrency <n>` | Set parallel instances for batch | `ai-issue batch 30340 31316 --concurrency 5` |
+
+### solve Options
+
+| Option | Description | Usage |
+|--------|-------------|-------|
 | `--branch` | Create git branch `fix/issue-<N>` before solving | `ai-issue solve 30340 --branch` |
 | `--push-fork` | Push branch to fork remote after solving | `ai-issue solve 30340 --branch --push-fork` |
 | `--force` | Override triage SKIP/NEEDS_HUMAN recommendation | `ai-issue solve 30340 --force` |
 
-**Debug Mode**: Shows detailed execution information including config values, file paths, copilot commands, and sets log level to `debug`. Useful for troubleshooting.
+### pipeline Options
+
+| Option | Description | Usage |
+|--------|-------------|-------|
+| `--owner <name>` | Filter by assigned owner | `ai-issue pipeline --owner jiaweitao` |
+| `--status <status>` | Filter by status (triaged/queued/solving/solved/failed) | `ai-issue pipeline --status queued` |
+| `--limit <n>` | Max entries to return (default: 20) | `ai-issue pipeline --limit 50` |
+
+### watch Options
+
+| Option | Description | Usage |
+|--------|-------------|-------|
+| `--owner <name>` | **Required.** Your owner identifier | `ai-issue watch --owner alice` |
+| `--interval <sec>` | Poll interval in seconds (default: 300) | `ai-issue watch --owner alice --interval 60` |
+| `--push-fork` | Push branches to fork remote after solving | `ai-issue watch --owner alice --push-fork` |
+
+Watch daemon behavior: polls `GET /pipeline?owner=xxx&status=queued` every N seconds, automatically picks up and solves issues. Reports `solving` status before starting (distributed lock), then `solved`/`failed` on completion. `Ctrl+C` for graceful shutdown.
+
+### register Options
+
+| Option | Description | Usage |
+|--------|-------------|-------|
+| `--pat <token>` | **Required.** GitHub PAT (scope: `repo`) | `ai-issue register --pat ghp_xxx` |
+| `--owner <name>` | Owner identifier (default: `$USER`) | `ai-issue register --pat ghp_xxx --owner alice` |
+| `--trello-member-id <id>` | Trello member ID for board access | `ai-issue register --pat ghp_xxx --trello-member-id 5f8a...` |
 
 ## Skills (MCP Servers)
 
@@ -125,16 +156,25 @@ ai-issue solve 30340
   ├─ Poll new issues from upstream repo
   ├─ POST /triage → LLM classify + duplicate detect + owner match
   ├─ Write to pipeline (status: queued / triaged)
-  └─ Notify owner via webhook
+  ├─ Notify owner (ADO Work Item comment / email)
+  └─ Sync to Trello boards (if enabled)
 
 [Local] ai-issue watch --owner alice
-  ├─ Poll GET /pipeline?owner=alice&status=queued
+  ├─ Poll GET /pipeline?owner=alice&status=queued (every 5 min)
+  ├─ Report status=solving (lock)
   ├─ Auto: ai-issue solve <N> --branch --push-fork
-  └─ Report pipeline status=solved
+  └─ Report pipeline status=solved → Trello card moves to Review
 
-[Local] Manual alternative
-  ├─ ai-issue triage 31984        # View triage result
-  └─ ai-issue solve 31984 --branch --push-fork
+[Trello] Engineer Board (Phase 4)
+  ├─ Engineer sees Review column → clicks GitHub Compare link → reviews diff
+  ├─ Drag card to Approved → auto-creates PR (author = engineer)
+  └─ Drag card to Rejected → records rejection reason
+
+[Trello] Manager Board (Phase 4)
+  ├─ Manager sees all issues across all engineers
+  ├─ Triaged column: SKIP/NEEDS_HUMAN issues
+  ├─ Drag Triaged → Queued (with Member assigned) → creates engineer card
+  └─ Filter by engineer label or member to focus
 ```
 
 ## Output Files
@@ -185,7 +225,9 @@ ai-issue-cli/
 │       ├── evaluate.js                  # evaluate — standalone evaluation
 │       ├── batch.js                     # batch — parallel multi-issue processing
 │       ├── triage.js                    # triage — view/trigger issue triage
+│       ├── pipeline.js                  # pipeline — view pipeline status (--owner/--status)
 │       ├── watch.js                     # watch — daemon for auto-solving queued issues
+│       ├── register.js                  # register — register GitHub PAT for PR creation
 │       ├── init.js                      # init — create config file
 │       ├── check.js                     # check — environment verification
 │       ├── config-cmd.js                # config — show/set/get/reset config
