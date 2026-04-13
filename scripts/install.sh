@@ -27,8 +27,8 @@ NPM_VERSION=$(npm --version)
 echo "✅ npm version: $NPM_VERSION"
 echo ""
 
-# Get script directory
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# Get project root directory (parent of scripts/)
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
 # Method 1: Global installation (recommended)
 echo "Choose installation method:"
@@ -40,8 +40,12 @@ read -p "Please choose [1/2]: " choice
 case $choice in
   1)
     echo ""
-    echo "📦 Installing ai-issue globally..."
+    echo "📦 Installing dependencies..."
     cd "$SCRIPT_DIR"
+    npm install
+    
+    echo ""
+    echo "📦 Installing ai-issue globally..."
     npm install -g .
     
     echo ""
@@ -63,8 +67,12 @@ case $choice in
     
   2)
     echo ""
-    echo "🔗 Linking ai-issue locally..."
+    echo "📦 Installing dependencies..."
     cd "$SCRIPT_DIR"
+    npm install
+    
+    echo ""
+    echo "🔗 Linking ai-issue locally..."
     npm link
     
     echo ""
