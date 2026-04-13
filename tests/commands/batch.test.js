@@ -15,23 +15,8 @@ jest.mock('../../lib/commands/solve', () => ({
 }));
 
 // Mock logger
-jest.mock('../../lib/logger', () => ({
-  log: jest.fn(),
-  error: jest.fn(),
-  success: jest.fn(),
-  info: jest.fn(),
-  warning: jest.fn(),
-  highlight: jest.fn(s => s),
-  chalk: {
-    bold: { 
-      cyan: jest.fn(s => s),
-      grey: jest.fn(s => s)
-    },
-    cyan: jest.fn(s => s),
-    green: jest.fn(s => s),
-    red: jest.fn(s => s)
-  }
-}));
+const { mockCreateLogger } = require('../helpers/mock-logger');
+jest.mock('../../lib/logger', () => mockCreateLogger());
 
 const { cmdBatch } = require('../../lib/commands/batch');
 const { cmdSolve } = require('../../lib/commands/solve');

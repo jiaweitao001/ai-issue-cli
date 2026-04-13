@@ -15,19 +15,8 @@ jest.mock('../../lib/copilot', () => ({
 }));
 
 // Mock logger
-jest.mock('../../lib/logger', () => ({
-  log: jest.fn(),
-  error: jest.fn(),
-  success: jest.fn(),
-  info: jest.fn(),
-  warning: jest.fn(),
-  debug: jest.fn(),
-  highlight: jest.fn(s => s),
-  chalk: {
-    bold: jest.fn(s => s),
-    green: jest.fn(s => s)
-  }
-}));
+const { mockCreateLogger } = require('../helpers/mock-logger');
+jest.mock('../../lib/logger', () => mockCreateLogger());
 
 const { cmdEvaluate } = require('../../lib/commands/evaluate');
 const { runCopilot } = require('../../lib/copilot');

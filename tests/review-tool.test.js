@@ -16,22 +16,8 @@ jest.mock('os', () => ({
   platform: jest.fn(() => 'darwin'),
   homedir: jest.fn(() => '/mock/home')
 }));
-jest.mock('../lib/logger', () => ({
-  log: jest.fn(),
-  error: jest.fn(),
-  success: jest.fn(),
-  info: jest.fn(),
-  warning: jest.fn(),
-  debug: jest.fn(),
-  highlight: jest.fn(s => s),
-  chalk: {
-    bold: {
-      cyan: jest.fn(s => s),
-      magenta: jest.fn(s => s)
-    },
-    magenta: jest.fn(s => s)
-  }
-}));
+const { mockCreateLogger } = require('./helpers/mock-logger');
+jest.mock('../lib/logger', () => mockCreateLogger());
 jest.mock('../lib/copilot', () => ({
   runCopilot: jest.fn()
 }));

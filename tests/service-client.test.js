@@ -12,19 +12,8 @@ jest.mock('fs');
 jest.mock('child_process');
 
 // Mock logger
-jest.mock('../lib/logger', () => ({
-  log: jest.fn(),
-  error: jest.fn(),
-  success: jest.fn(),
-  info: jest.fn(),
-  warning: jest.fn(),
-  debug: jest.fn(),
-  highlight: jest.fn(s => s),
-  chalk: {
-    bold: { cyan: jest.fn(s => s), blue: jest.fn(s => s), green: jest.fn(s => s), grey: jest.fn(s => s) },
-    cyan: jest.fn(s => s), grey: jest.fn(s => s)
-  }
-}));
+const { mockCreateLogger } = require('./helpers/mock-logger');
+jest.mock('../lib/logger', () => mockCreateLogger());
 
 const fs = require('fs');
 const { getServiceUrl, getServiceApiKey, serviceRequest } = require('../lib/service-client');
