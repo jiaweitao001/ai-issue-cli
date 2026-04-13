@@ -1,6 +1,6 @@
 # 🚀 Quick Start Guide
 
-## What's New in v2.0
+## What's New in v0.9
 
 ✨ **Two-Phase Resolution**:
 - Phase 1: Deep Research (find similar implementations, SDK tools, code history)
@@ -75,7 +75,7 @@ ai-issue help
 ## 5. Command Overview
 
 ```bash
-# Core commands (v2.0)
+# Core commands
 ai-issue solve <number>           # Two-phase: Research → Solution → Evaluation
 ai-issue solve <number> --debug   # Enable debug mode (detailed logging)
 ai-issue batch <n1> <n2> ...      # Parallel batch processing (default: 3 concurrent)
@@ -315,6 +315,12 @@ ai-issue-cli/
 │   ├── copilot.js                       #   Copilot CLI executor
 │   ├── logger.js                        #   Logging utilities
 │   ├── service-client.js                #   HTTP client for ai-issue-service
+│   ├── utils.js                         #   Shared helpers (waitForFile, parseBoolean, etc.)
+│   ├── git-utils.js                     #   Git command wrapper (runGit)
+│   ├── review-tool.js                   #   Code review tool installation & auto-review
+│   ├── prompt-loader.js                 #   Prompt template loading
+│   ├── display-helpers.js               #   CLI display formatting helpers
+│   ├── types.js                         #   Shared JSDoc typedefs
 │   └── commands/                        #   Command handlers
 │       ├── solve.js                     #     Two-phase resolve + --branch/--push-fork
 │       ├── batch.js                     #     Parallel multi-issue processing
@@ -345,8 +351,13 @@ ai-issue-cli/
 │   ├── install.sh                       #   Installation script
 │   └── monitor_progress.sh              #   Real-time progress monitor
 │
+├── tests/                               # Jest unit tests
+│   ├── helpers/mock-logger.js           #   Shared mock logger factory
+│   ├── commands/                        #   Command handler tests
+│   └── ...                              #   Module-level tests
+│
 ├── docs/                                # Design specs & guides
-└── tests/                               # Jest unit tests
+└── .editorconfig                        # Editor settings (2-space indent, LF)
 ```
 
 ## 9. Next Steps

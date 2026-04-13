@@ -32,7 +32,7 @@ async function callService(endpoint, body) {
 }
 
 const server = new Server(
-  { name: 'similar-issue-finder', version: '2.0.0' },
+  { name: 'similar-issue-finder', version: '0.9.0' },
   { capabilities: { tools: {} } }
 );
 
