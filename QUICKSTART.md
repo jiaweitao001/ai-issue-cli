@@ -174,7 +174,11 @@ ai-issue batch 30049 30340 30360 30384 30437 31120 31180 --concurrency 5
 
 ### Q: How to uninstall?
 ```bash
+# Remove the CLI command
 npm unlink -g ai-issue-cli
+
+# Remove configuration and reports (optional)
+rm -rf ~/.ai-issue
 ```
 
 ## 7. Advanced Usage
