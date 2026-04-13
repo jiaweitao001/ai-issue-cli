@@ -160,7 +160,7 @@ describe('commands/solve', () => {
     });
     
     await expect(cmdSolve('12345', {}))
-      .rejects.toThrow('Phase 1 prompt file not found');
+      .rejects.toThrow('Prompt file not found');
   });
 
   it('should throw error when research report is not generated', async () => {

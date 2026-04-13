@@ -77,7 +77,7 @@ describe('commands/evaluate', () => {
     });
     
     await expect(cmdEvaluate('12345', {}))
-      .rejects.toThrow('Evaluation prompt file not found');
+      .rejects.toThrow('Prompt file not found');
   });
 
   it('should run copilot with correct prompt', async () => {
