@@ -146,10 +146,7 @@ describe('commands/solve', () => {
     expect(runCopilot).toHaveBeenCalledWith(
       expect.stringContaining('Phase 1 Research'),
       expect.any(Object),
-      expect.any(Array),
-      expect.any(Boolean),
-      expect.any(Boolean), // debugMode
-      expect.objectContaining({ phase: 'phase1' }) // phase option
+      expect.objectContaining({ phase: 'phase1' })
     );
   });
 
@@ -280,9 +277,6 @@ describe('commands/solve', () => {
     expect(runCopilot).toHaveBeenCalledWith(
       expect.stringContaining('/code-review-committed-changes'),
       expect.any(Object),
-      expect.any(Array),
-      expect.any(Boolean),
-      expect.any(Boolean),
       expect.objectContaining({ phase: 'phase2' })
     );
   });
@@ -334,9 +328,6 @@ describe('commands/solve', () => {
     expect(runCopilot).toHaveBeenCalledWith(
       expect.stringContaining('/code-review-committed-changes'),
       expect.any(Object),
-      expect.any(Array),
-      expect.any(Boolean),
-      expect.any(Boolean),
       expect.objectContaining({ phase: 'phase2' })
     );
   });
@@ -398,9 +389,6 @@ describe('commands/solve', () => {
     expect(runCopilot).toHaveBeenCalledWith(
       expect.stringContaining('/code-review-committed-changes'),
       expect.any(Object),
-      expect.any(Array),
-      expect.any(Boolean),
-      expect.any(Boolean),
       expect.objectContaining({ phase: 'phase2' })
     );
   });
@@ -413,10 +401,7 @@ describe('commands/solve', () => {
     expect(runCopilot).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(Object),
-      expect.any(Array),
-      true, // silent mode
-      expect.any(Boolean), // debugMode
-      expect.any(Object) // phase option
+      expect.objectContaining({ silent: true })
     );
   });
 
