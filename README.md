@@ -27,9 +27,19 @@ A command-line tool based on GitHub Copilot CLI that automates the resolution an
 
 See [QUICKSTART.md](QUICKSTART.md) for detailed installation and usage instructions.
 
+### Prerequisites
+
+- **Node.js** >= 14.0.0
+- **Git** — clone the target repository locally (e.g., `terraform-provider-azurerm`)
+- **GITHUB_TOKEN** — [create a GitHub PAT](https://github.com/settings/tokens) with `repo` or `public_repo` scope and set it as an environment variable
+
+### Install & Run
+
 ```bash
-# 1. Install
+# 1. Install (Linux/macOS)
 ./scripts/install.sh
+
+# Windows: see QUICKSTART.md for manual steps (npm install && npm link && skills install)
 
 # 2. Configure
 ai-issue init
@@ -202,7 +212,7 @@ AI Issue CLI can optionally integrate with `ai-issue-service` (a separate FastAP
 |----------|-------------|----------|
 | `AI_ISSUE_SERVICE_URL` | Backend service URL (e.g., `https://your-service.example.com`) | For backend features |
 | `AI_ISSUE_SERVICE_API_KEY` | API key for backend authentication | For backend features |
-| `GITHUB_TOKEN` | GitHub personal access token (read access to issues/PRs) | Yes |
+| `GITHUB_TOKEN` | GitHub personal access token (`repo` or `public_repo` scope). [Create one here](https://github.com/settings/tokens). | Yes |
 
 When `AI_ISSUE_SERVICE_URL` is not set, the tool works without backend features — using only GitHub API and local code analysis.
 

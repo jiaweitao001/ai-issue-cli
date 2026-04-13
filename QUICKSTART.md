@@ -17,7 +17,57 @@
 - Configurable concurrency (default: 3, recommended ≤5 to avoid rate limits)
 - Real-time progress tracking
 
+## 0. Prerequisites
+
+Before installing, make sure you have the following ready:
+
+### Node.js (>= 14.0.0)
+
+Download from https://nodejs.org/ if not installed. Verify with:
+
+```bash
+node --version
+npm --version
+```
+
+### Clone the target repository
+
+This tool works on a local Git repository. Clone the repository you want to process issues for:
+
+```bash
+# Example: clone terraform-provider-azurerm
+git clone https://github.com/hashicorp/terraform-provider-azurerm.git /path/to/terraform-provider-azurerm
+```
+
+You will set this path as `repoPath` in the configuration step.
+
+### Create a GitHub Personal Access Token (PAT)
+
+A `GITHUB_TOKEN` is required for fetching issue and PR data from GitHub.
+
+1. Go to https://github.com/settings/tokens
+2. Click **"Generate new token (classic)"**
+3. Select scopes: **`repo`** (full control of private repositories) or **`public_repo`** (for public repositories only)
+4. Copy the generated token
+
+Set it as an environment variable:
+
+```bash
+# Linux / macOS
+export GITHUB_TOKEN="ghp_your_token_here"
+
+# Windows (PowerShell)
+$env:GITHUB_TOKEN = "ghp_your_token_here"
+
+# Windows (CMD)
+set GITHUB_TOKEN=ghp_your_token_here
+```
+
+> 💡 Add this to your shell profile (e.g., `~/.bashrc`, `~/.zshrc`) or Windows environment variables for persistence.
+
 ## 1. Installation
+
+### Linux / macOS
 
 ```bash
 cd /path/to/ai-issue-cli
@@ -26,15 +76,35 @@ cd /path/to/ai-issue-cli
 
 Choose **Option 2 (Local Link)** for development mode installation.
 
+### Windows (Manual Steps)
+
+The install script is bash-only. On Windows, run these commands manually:
+
+```powershell
+cd C:\path\to\ai-issue-cli
+
+# Install main dependencies
+npm install
+
+# Link CLI globally (makes 'ai-issue' command available)
+npm link
+
+# Install skills dependencies
+cd skills\github-issue-fetcher && npm install && cd ..\..
+cd skills\code-similarity-finder && npm install && cd ..\..
+```
+
 ## 2. Initialize & Configure
 
 ```bash
 # Initialize configuration file
 ai-issue init
 
-# Set required configurations
-ai-issue config set repoPath /path/to/your/repo
-# issueBaseUrl defaults to terraform-provider-azurerm, change if needed:
+# Set repoPath to the local repository you cloned in step 0
+ai-issue config set repoPath /path/to/terraform-provider-azurerm
+
+# issueBaseUrl defaults to https://github.com/hashicorp/terraform-provider-azurerm/issues
+# Only change this if you are working on a different repository:
 # ai-issue config set issueBaseUrl https://github.com/owner/repo/issues
 
 # View configuration
@@ -44,8 +114,8 @@ ai-issue config show
 ### Environment Variables
 
 ```bash
-# Required
-export GITHUB_TOKEN="ghp_..."              # GitHub PAT (read access to issues/PRs)
+# Required — must be set before running ai-issue (see Prerequisites above)
+export GITHUB_TOKEN="ghp_..."              # GitHub PAT (repo or public_repo scope)
 
 # Optional - Backend service for team knowledge sharing
 export AI_ISSUE_SERVICE_URL="https://your-service.example.com"

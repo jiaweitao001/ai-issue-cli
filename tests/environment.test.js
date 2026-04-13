@@ -75,5 +75,39 @@ describe('environment', () => {
       const promptChecks = checks.filter(c => c.name.includes('Prompt'));
       expect(promptChecks.length).toBeGreaterThan(0);
     });
+
+    it('should check GITHUB_TOKEN is set', () => {
+      const original = process.env.GITHUB_TOKEN;
+      process.env.GITHUB_TOKEN = 'ghp_test_token';
+      execSync.mockReturnValue('1.0.0');
+      fs.existsSync.mockReturnValue(true);
+
+      const checks = checkEnvironment(mockConfig);
+      const tokenCheck = checks.find(c => c.name === 'GITHUB_TOKEN');
+      expect(tokenCheck).toBeDefined();
+      expect(tokenCheck.status).toBe(true);
+
+      if (original === undefined) {
+        delete process.env.GITHUB_TOKEN;
+      } else {
+        process.env.GITHUB_TOKEN = original;
+      }
+    });
+
+    it('should report GITHUB_TOKEN as missing when not set', () => {
+      const original = process.env.GITHUB_TOKEN;
+      delete process.env.GITHUB_TOKEN;
+      execSync.mockReturnValue('1.0.0');
+      fs.existsSync.mockReturnValue(true);
+
+      const checks = checkEnvironment(mockConfig);
+      const tokenCheck = checks.find(c => c.name === 'GITHUB_TOKEN');
+      expect(tokenCheck.status).toBe(false);
+      expect(tokenCheck.help).toContain('github.com/settings/tokens');
+
+      if (original !== undefined) {
+        process.env.GITHUB_TOKEN = original;
+      }
+    });
   });
 });
