@@ -70,3 +70,6 @@ jspm_packages/
 # Generated reports (optional - uncomment if you don't want to track them)
 # issue-*-analysis-and-solution.md
 # issue-*-evaluation.md
+
+# Documentation (local only)
+docs/
