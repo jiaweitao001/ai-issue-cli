@@ -40,10 +40,21 @@ ai-issue config set repoPath /path/to/terraform-provider-azurerm
 ai-issue solve 30340
 ```
 
-## Configuration Options
+## Configuration Management
 
-| Option | Description | Default |
-|--------|-------------|--------|
+### Config Actions
+
+| Action | Usage | Description |
+|--------|-------|-------------|
+| `show` | `ai-issue config show` | Display all current configuration values |
+| `set` | `ai-issue config set <key> <value>` | Set a configuration key to a value |
+| `get` | `ai-issue config get <key>` | Get the value of a specific key |
+| `reset` | `ai-issue config reset` | Reset all configuration to default values |
+
+### Configuration Keys
+
+| Key | Description | Default |
+|-----|-------------|---------|
 | `repoPath` | Repository path | *(required, must be set)* |
 | `issueBaseUrl` | Issue URL prefix | `https://github.com/hashicorp/terraform-provider-azurerm/issues` |
 | `reportPath` | Report output path | `~/.ai-issue/reports` |
@@ -53,6 +64,16 @@ ai-issue solve 30340
 | `serviceApiKey` | Service API key | *(env: AI_ISSUE_SERVICE_API_KEY)* |
 | `repo` | GitHub repo (owner/name) | *(from issueBaseUrl)* |
 | `forkRemote` | Git remote for `--push-fork` | `origin` |
+
+### Examples
+
+```bash
+ai-issue config set repoPath /path/to/repo
+ai-issue config set model gpt-5
+ai-issue config get repoPath
+ai-issue config show
+ai-issue config reset
+```
 
 ## Command Options
 
