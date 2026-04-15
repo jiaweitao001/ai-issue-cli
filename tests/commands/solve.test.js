@@ -38,6 +38,7 @@ jest.mock('../../lib/logger', () => mockCreateLogger());
 const { cmdSolve } = require('../../lib/commands/solve');
 const { runCopilot } = require('../../lib/copilot');
 const { cmdEvaluate } = require('../../lib/commands/evaluate');
+const { serviceRequest, getServiceUrl } = require('../../lib/service-client');
 const { success, error, info, debug } = require('../../lib/logger');
 
 describe('commands/solve', () => {
@@ -415,5 +416,100 @@ describe('commands/solve', () => {
       const configArg = call[1];
       expect(configArg.model).toBe('gpt-4');
     }
+  });
+
+  describe('pipeline status reporting', () => {
+    it('should report solving status before Phase 1 when service URL is set', async () => {
+      getServiceUrl.mockReturnValue('http://localhost:8000');
+
+      const promise = cmdSolve('12345', { noEval: true });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      // serviceRequest should have been called with /solving endpoint
+      const solvingCalls = serviceRequest.mock.calls.filter(
+        call => call[0] === 'POST' && call[1].includes('/solving')
+      );
+      expect(solvingCalls).toHaveLength(1);
+      expect(solvingCalls[0][1]).toBe('/pipeline/test/repo/12345/solving');
+    });
+
+    it('should report solving before solved in call order', async () => {
+      getServiceUrl.mockReturnValue('http://localhost:8000');
+
+      const promise = cmdSolve('12345', { noEval: true });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      const postCalls = serviceRequest.mock.calls
+        .filter(call => call[0] === 'POST')
+        .map(call => call[1]);
+
+      const solvingIdx = postCalls.findIndex(url => url.includes('/solving'));
+      const solvedIdx = postCalls.findIndex(url => url.includes('/solved'));
+
+      expect(solvingIdx).toBeGreaterThanOrEqual(0);
+      expect(solvedIdx).toBeGreaterThanOrEqual(0);
+      expect(solvingIdx).toBeLessThan(solvedIdx);
+    });
+
+    it('should not report solving when service URL is empty', async () => {
+      getServiceUrl.mockReturnValue('');
+
+      const promise = cmdSolve('12345', { noEval: true });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      const solvingCalls = serviceRequest.mock.calls.filter(
+        call => call[0] === 'POST' && call[1].includes('/solving')
+      );
+      expect(solvingCalls).toHaveLength(0);
+    });
+
+    it('should not block solve when solving status report fails', async () => {
+      getServiceUrl.mockReturnValue('http://localhost:8000');
+      serviceRequest.mockImplementation((method, url) => {
+        if (url.includes('/solving')) {
+          return Promise.reject(new Error('Network error'));
+        }
+        return Promise.resolve({ status: 200, data: [] });
+      });
+
+      const promise = cmdSolve('12345', { noEval: true });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      // Solve should still complete — Phase 1 and Phase 2 ran
+      expect(runCopilot).toHaveBeenCalledTimes(2);
+    });
+
+    it('should report solved status after Phase 2 when service URL is set', async () => {
+      getServiceUrl.mockReturnValue('http://localhost:8000');
+
+      const promise = cmdSolve('12345', { noEval: true });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      const solvedCalls = serviceRequest.mock.calls.filter(
+        call => call[0] === 'POST' && call[1].includes('/solved')
+      );
+      expect(solvedCalls).toHaveLength(1);
+      expect(solvedCalls[0][2]).toEqual(expect.objectContaining({
+        branch: '',
+        solved_by: expect.any(String),
+      }));
+    });
+
+    it('should report failed status when solve throws', async () => {
+      getServiceUrl.mockReturnValue('http://localhost:8000');
+      runCopilot.mockRejectedValueOnce(new Error('Phase 1 crash'));
+
+      await expect(cmdSolve('12345', {})).rejects.toThrow('Phase 1 crash');
+
+      const failedCalls = serviceRequest.mock.calls.filter(
+        call => call[0] === 'POST' && call[1].includes('/failed')
+      );
+      expect(failedCalls).toHaveLength(1);
+    });
   });
 });
