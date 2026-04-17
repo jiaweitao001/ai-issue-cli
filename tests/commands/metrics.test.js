@@ -189,12 +189,28 @@ describe('commands/metrics', () => {
     });
 
     it('should show error when repo not configured', async () => {
-      fs.readFileSync.mockReturnValue(JSON.stringify({}));
+      // Must mock config module to return empty config without issueBaseUrl
+      // (DEFAULT_CONFIG has a hardcoded issueBaseUrl fallback)
+      jest.resetModules();
+      jest.doMock('../../lib/config', () => ({
+        loadConfig: () => ({}),
+        DEFAULT_CONFIG: {},
+        CONFIG_FILE: '/mock/home/.ai-issue/config.json',
+      }));
+      jest.doMock('../../lib/logger', () => mockCreateLogger());
+      jest.doMock('../../lib/service-client', () => ({
+        serviceRequest: jest.fn(),
+        getServiceUrl: jest.fn(() => 'https://service.example.com'),
+      }));
+
       delete process.env.AI_ISSUE_REPO;
 
-      await cmdMetrics({});
+      const { cmdMetrics: freshCmdMetrics } = require('../../lib/commands/metrics');
+      const { error: freshError } = require('../../lib/logger');
 
-      expect(error).toHaveBeenCalledWith(expect.stringContaining('Repository not configured'));
+      await freshCmdMetrics({});
+
+      expect(freshError).toHaveBeenCalledWith(expect.stringContaining('Repository not configured'));
     });
   });
 

@@ -175,12 +175,26 @@ describe('commands/search-cmd', () => {
     });
 
     it('should show error when repo not configured', async () => {
-      fs.readFileSync.mockReturnValue(JSON.stringify({}));
+      jest.resetModules();
+      jest.doMock('../../lib/config', () => ({
+        loadConfig: () => ({}),
+        DEFAULT_CONFIG: {},
+        CONFIG_FILE: '/mock/home/.ai-issue/config.json',
+      }));
+      jest.doMock('../../lib/logger', () => mockCreateLogger());
+      jest.doMock('../../lib/service-client', () => ({
+        serviceRequest: jest.fn(),
+        getServiceUrl: jest.fn(() => 'https://service.example.com'),
+      }));
+
       delete process.env.AI_ISSUE_REPO;
 
-      await cmdSearch('timeout', {});
+      const { cmdSearch: freshCmdSearch } = require('../../lib/commands/search-cmd');
+      const { error: freshError } = require('../../lib/logger');
 
-      expect(error).toHaveBeenCalledWith(expect.stringContaining('Repository not configured'));
+      await freshCmdSearch('timeout', {});
+
+      expect(freshError).toHaveBeenCalledWith(expect.stringContaining('Repository not configured'));
     });
   });
 
