@@ -618,7 +618,7 @@ PR1 (DB Migration)
 
 1. **时间范围默认值**：✅ 30 天。合适，保持不变。
 2. **搜索模式**：✅ 不暴露 `--mode` 选项给用户。Manager 只需执行简单的 `ai-issue search <query>` 命令，不需要关心底层用了哪种搜索。内部由系统（AI 辅助）自动判断使用 fuzzy 还是 semantic 搜索。
-3. **Metrics 权限**：✅ 仅 Manager 有权限查看 metrics 和执行搜索。
+3. **Metrics 权限**：✅ 仅 Manager 有权限查看 metrics 和执行搜索。**⚠️ 当前未实施**：service 目前无角色系统，所有持有 API key 的用户均可访问。待后续实现 manager-only 权限（方案：独立 `manager_api_key` 配置项）。
 4. **语言支持**：✅ 仅英文。Issue 均为英文表述，Manager 也只用英文搜索，无需中文分词支持。
 5. **历史数据回填精度**：✅ 已确认。用 `assigned_at = created_at`、`solved_at = updated_at WHERE status='solved'` 回填，标注为近似值。已知局限：手动 triage 场景下 `created_at`（入 pipeline 时间）≠ 实际分配时间，会导致 response time 偏高。Phase 6 上线后通过显式记录 `assigned_at`（在 `assigned_to` 被设置/变更时写入）解决此问题，精确统计从上线日开始。
 
