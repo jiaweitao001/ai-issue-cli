@@ -21,6 +21,7 @@ const { cmdWatch } = require('./lib/commands/watch');
 const { cmdPipeline } = require('./lib/commands/pipeline');
 const { cmdRegister } = require('./lib/commands/register');
 const { cmdMetrics } = require('./lib/commands/metrics');
+const { cmdSearch } = require('./lib/commands/search-cmd');
 
 // Basic metadata
 program
@@ -175,6 +176,21 @@ program
   .action(async (cmdOpts) => {
     const options = { ...program.opts(), ...cmdOpts };
     await cmdMetrics(options);
+  });
+
+// Command: search
+program
+  .command('search <query>')
+  .description('Search issues and solutions')
+  .option('--owner <name>', 'Filter by engineer')
+  .option('--status <status>', 'Filter by status')
+  .option('--limit <n>', 'Max results', '20')
+  .action(async (query, cmdOpts) => {
+    const options = { ...program.opts(), ...cmdOpts };
+    await cmdSearch(query, {
+      ...options,
+      limit: parseInt(options.limit || '20'),
+    });
   });
 
 // Command: watch
