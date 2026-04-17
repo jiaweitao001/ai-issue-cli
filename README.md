@@ -1,7 +1,7 @@
 # AI Issue CLI
 
 > 🤖 AI-powered automated Issue resolution and evaluation tool
-> **v2.0.0** - Two-Phase Approach: Research → Solution
+> **v0.9.0** - Two-Phase Approach: Research → Solution
 
 A command-line tool based on GitHub Copilot CLI that automates the resolution and evaluation of GitHub Issues.
 
@@ -50,10 +50,21 @@ ai-issue config set repoPath /path/to/terraform-provider-azurerm
 ai-issue solve 30340
 ```
 
-## Configuration Options
+## Configuration Management
 
-| Option | Description | Default |
-|--------|-------------|--------|
+### Config Actions
+
+| Action | Usage | Description |
+|--------|-------|-------------|
+| `show` | `ai-issue config show` | Display all current configuration values |
+| `set` | `ai-issue config set <key> <value>` | Set a configuration key to a value |
+| `get` | `ai-issue config get <key>` | Get the value of a specific key |
+| `reset` | `ai-issue config reset` | Reset all configuration to default values |
+
+### Configuration Keys
+
+| Key | Description | Default |
+|-----|-------------|---------|
 | `repoPath` | Repository path | *(required, must be set)* |
 | `issueBaseUrl` | Issue URL prefix | `https://github.com/hashicorp/terraform-provider-azurerm/issues` |
 | `reportPath` | Report output path | `~/.ai-issue/reports` |
@@ -63,6 +74,16 @@ ai-issue solve 30340
 | `serviceApiKey` | Service API key | *(env: AI_ISSUE_SERVICE_API_KEY)* |
 | `repo` | GitHub repo (owner/name) | *(from issueBaseUrl)* |
 | `forkRemote` | Git remote for `--push-fork` | `origin` |
+
+### Examples
+
+```bash
+ai-issue config set repoPath /path/to/repo
+ai-issue config set model gpt-5
+ai-issue config get repoPath
+ai-issue config show
+ai-issue config reset
+```
 
 ## Command Options
 
@@ -224,13 +245,21 @@ ai-issue-cli/
 │
 │── ai-issue.js                          # CLI entry point (Commander.js)
 │── package.json
+│── .editorconfig                        # Editor settings (2-space indent, LF, UTF-8)
 │
 ├── lib/                                 # Core library
 │   ├── config.js                        # Configuration management (~/.ai-issue/config.json)
 │   ├── copilot.js                       # Copilot CLI executor (phase-aware MCP config)
 │   ├── logger.js                        # Logging utilities
+│   ├── service-client.js                # HTTP client for ai-issue-service
 │   ├── environment.js                   # Environment checks
 │   ├── report-validator.js              # Report template validation
+│   ├── utils.js                         # Shared helpers (waitForFile, parseBoolean, etc.)
+│   ├── git-utils.js                     # Git command wrapper (runGit)
+│   ├── review-tool.js                   # Code review tool installation & auto-review
+│   ├── prompt-loader.js                 # Prompt template loading from prompts/ dir
+│   ├── display-helpers.js               # CLI display formatting helpers
+│   ├── types.js                         # Shared JSDoc typedefs (Config, SolveOptions, etc.)
 │   └── commands/                        # Command handlers
 │       ├── solve.js                     # solve — two-phase resolution
 │       ├── evaluate.js                  # evaluate — standalone evaluation
@@ -243,8 +272,6 @@ ai-issue-cli/
 │       ├── check.js                     # check — environment verification
 │       ├── config-cmd.js                # config — show/set/get/reset config
 │       └── validate.js                  # validate — report template validation
-│
-├── lib/service-client.js                # HTTP client for ai-issue-service
 │
 ├── skills/                              # MCP Servers (stdio-based)
 │   ├── github-issue-fetcher/            # → get_issue_context (GitHub API)
@@ -271,9 +298,25 @@ ai-issue-cli/
 ├── QUICKSTART.md                        # Quick start guide
 │
 └── tests/                               # Jest unit tests
+    ├── helpers/
+    │   └── mock-logger.js               # Shared mock logger factory
     ├── commands/                        # Command handler tests
+    │   ├── solve.test.js
+    │   ├── evaluate.test.js
+    │   ├── batch.test.js
+    │   ├── triage.test.js
+    │   ├── watch.test.js
+    │   ├── init.test.js
+    │   ├── check.test.js
+    │   └── config-cmd.test.js
     ├── config.test.js
     ├── copilot.test.js
+    ├── service-client.test.js
+    ├── review-tool.test.js
+    ├── utils.test.js
+    ├── git-utils.test.js
+    ├── display-helpers.test.js
+    ├── prompt-loader.test.js
     └── ...
 ```
 

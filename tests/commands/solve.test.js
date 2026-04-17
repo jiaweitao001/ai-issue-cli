@@ -32,32 +32,13 @@ jest.mock('../../lib/service-client', () => ({
 }));
 
 // Mock logger
-jest.mock('../../lib/logger', () => ({
-  log: jest.fn(),
-  error: jest.fn(),
-  success: jest.fn(),
-  info: jest.fn(),
-  warning: jest.fn(),
-  debug: jest.fn(),
-  highlight: jest.fn(s => s),
-  chalk: {
-    bold: { 
-      cyan: jest.fn(s => s),
-      blue: jest.fn(s => s),
-      green: jest.fn(s => s),
-      magenta: jest.fn(s => s),
-      grey: jest.fn(s => s)
-    },
-    cyan: jest.fn(s => s),
-    blue: jest.fn(s => s),
-    green: jest.fn(s => s),
-    magenta: jest.fn(s => s)
-  }
-}));
+const { mockCreateLogger } = require('../helpers/mock-logger');
+jest.mock('../../lib/logger', () => mockCreateLogger());
 
 const { cmdSolve } = require('../../lib/commands/solve');
 const { runCopilot } = require('../../lib/copilot');
 const { cmdEvaluate } = require('../../lib/commands/evaluate');
+const { serviceRequest, getServiceUrl } = require('../../lib/service-client');
 const { success, error, info, debug } = require('../../lib/logger');
 
 describe('commands/solve', () => {
@@ -146,10 +127,7 @@ describe('commands/solve', () => {
     expect(runCopilot).toHaveBeenCalledWith(
       expect.stringContaining('Phase 1 Research'),
       expect.any(Object),
-      expect.any(Array),
-      expect.any(Boolean),
-      expect.any(Boolean), // debugMode
-      expect.objectContaining({ phase: 'phase1' }) // phase option
+      expect.objectContaining({ phase: 'phase1' })
     );
   });
 
@@ -160,7 +138,7 @@ describe('commands/solve', () => {
     });
     
     await expect(cmdSolve('12345', {}))
-      .rejects.toThrow('Phase 1 prompt file not found');
+      .rejects.toThrow('Prompt file not found');
   });
 
   it('should throw error when research report is not generated', async () => {
@@ -280,9 +258,6 @@ describe('commands/solve', () => {
     expect(runCopilot).toHaveBeenCalledWith(
       expect.stringContaining('/code-review-committed-changes'),
       expect.any(Object),
-      expect.any(Array),
-      expect.any(Boolean),
-      expect.any(Boolean),
       expect.objectContaining({ phase: 'phase2' })
     );
   });
@@ -334,9 +309,6 @@ describe('commands/solve', () => {
     expect(runCopilot).toHaveBeenCalledWith(
       expect.stringContaining('/code-review-committed-changes'),
       expect.any(Object),
-      expect.any(Array),
-      expect.any(Boolean),
-      expect.any(Boolean),
       expect.objectContaining({ phase: 'phase2' })
     );
   });
@@ -398,9 +370,6 @@ describe('commands/solve', () => {
     expect(runCopilot).toHaveBeenCalledWith(
       expect.stringContaining('/code-review-committed-changes'),
       expect.any(Object),
-      expect.any(Array),
-      expect.any(Boolean),
-      expect.any(Boolean),
       expect.objectContaining({ phase: 'phase2' })
     );
   });
@@ -413,10 +382,7 @@ describe('commands/solve', () => {
     expect(runCopilot).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(Object),
-      expect.any(Array),
-      true, // silent mode
-      expect.any(Boolean), // debugMode
-      expect.any(Object) // phase option
+      expect.objectContaining({ silent: true })
     );
   });
 
@@ -450,5 +416,100 @@ describe('commands/solve', () => {
       const configArg = call[1];
       expect(configArg.model).toBe('gpt-4');
     }
+  });
+
+  describe('pipeline status reporting', () => {
+    it('should report solving status before Phase 1 when service URL is set', async () => {
+      getServiceUrl.mockReturnValue('http://localhost:8000');
+
+      const promise = cmdSolve('12345', { noEval: true });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      // serviceRequest should have been called with /solving endpoint
+      const solvingCalls = serviceRequest.mock.calls.filter(
+        call => call[0] === 'POST' && call[1].includes('/solving')
+      );
+      expect(solvingCalls).toHaveLength(1);
+      expect(solvingCalls[0][1]).toBe('/pipeline/test/repo/12345/solving');
+    });
+
+    it('should report solving before solved in call order', async () => {
+      getServiceUrl.mockReturnValue('http://localhost:8000');
+
+      const promise = cmdSolve('12345', { noEval: true });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      const postCalls = serviceRequest.mock.calls
+        .filter(call => call[0] === 'POST')
+        .map(call => call[1]);
+
+      const solvingIdx = postCalls.findIndex(url => url.includes('/solving'));
+      const solvedIdx = postCalls.findIndex(url => url.includes('/solved'));
+
+      expect(solvingIdx).toBeGreaterThanOrEqual(0);
+      expect(solvedIdx).toBeGreaterThanOrEqual(0);
+      expect(solvingIdx).toBeLessThan(solvedIdx);
+    });
+
+    it('should not report solving when service URL is empty', async () => {
+      getServiceUrl.mockReturnValue('');
+
+      const promise = cmdSolve('12345', { noEval: true });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      const solvingCalls = serviceRequest.mock.calls.filter(
+        call => call[0] === 'POST' && call[1].includes('/solving')
+      );
+      expect(solvingCalls).toHaveLength(0);
+    });
+
+    it('should not block solve when solving status report fails', async () => {
+      getServiceUrl.mockReturnValue('http://localhost:8000');
+      serviceRequest.mockImplementation((method, url) => {
+        if (url.includes('/solving')) {
+          return Promise.reject(new Error('Network error'));
+        }
+        return Promise.resolve({ status: 200, data: [] });
+      });
+
+      const promise = cmdSolve('12345', { noEval: true });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      // Solve should still complete — Phase 1 and Phase 2 ran
+      expect(runCopilot).toHaveBeenCalledTimes(2);
+    });
+
+    it('should report solved status after Phase 2 when service URL is set', async () => {
+      getServiceUrl.mockReturnValue('http://localhost:8000');
+
+      const promise = cmdSolve('12345', { noEval: true });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      const solvedCalls = serviceRequest.mock.calls.filter(
+        call => call[0] === 'POST' && call[1].includes('/solved')
+      );
+      expect(solvedCalls).toHaveLength(1);
+      expect(solvedCalls[0][2]).toEqual(expect.objectContaining({
+        branch: '',
+        solved_by: expect.any(String),
+      }));
+    });
+
+    it('should report failed status when solve throws', async () => {
+      getServiceUrl.mockReturnValue('http://localhost:8000');
+      runCopilot.mockRejectedValueOnce(new Error('Phase 1 crash'));
+
+      await expect(cmdSolve('12345', {})).rejects.toThrow('Phase 1 crash');
+
+      const failedCalls = serviceRequest.mock.calls.filter(
+        call => call[0] === 'POST' && call[1].includes('/failed')
+      );
+      expect(failedCalls).toHaveLength(1);
+    });
   });
 });

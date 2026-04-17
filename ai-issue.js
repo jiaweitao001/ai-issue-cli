@@ -20,6 +20,7 @@ const { cmdTriage } = require('./lib/commands/triage');
 const { cmdWatch } = require('./lib/commands/watch');
 const { cmdPipeline } = require('./lib/commands/pipeline');
 const { cmdRegister } = require('./lib/commands/register');
+const { cmdMetrics } = require('./lib/commands/metrics');
 
 // Basic metadata
 program
@@ -162,6 +163,18 @@ program
   .action(async (cmdOpts) => {
     const options = { ...program.opts(), ...cmdOpts };
     await cmdRegister(options);
+  });
+
+// Command: metrics
+program
+  .command('metrics')
+  .description('View team metrics (response time, solve rate, etc.)')
+  .option('--owner <name>', 'Filter by engineer')
+  .option('--since <period>', 'Start of time range (e.g. 7d, 30d, 2026-01-01)', '30d')
+  .option('--until <date>', 'End of time range')
+  .action(async (cmdOpts) => {
+    const options = { ...program.opts(), ...cmdOpts };
+    await cmdMetrics(options);
   });
 
 // Command: watch

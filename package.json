@@ -1,6 +1,6 @@
 {
   "name": "ai-issue-cli",
-  "version": "2.1.0",
+  "version": "0.9.0",
   "description": "AI-powered automated Issue resolution and evaluation tool",
   "main": "ai-issue.js",
   "bin": {

@@ -15,19 +15,8 @@ jest.mock('../../lib/copilot', () => ({
 }));
 
 // Mock logger
-jest.mock('../../lib/logger', () => ({
-  log: jest.fn(),
-  error: jest.fn(),
-  success: jest.fn(),
-  info: jest.fn(),
-  warning: jest.fn(),
-  debug: jest.fn(),
-  highlight: jest.fn(s => s),
-  chalk: {
-    bold: jest.fn(s => s),
-    green: jest.fn(s => s)
-  }
-}));
+const { mockCreateLogger } = require('../helpers/mock-logger');
+jest.mock('../../lib/logger', () => mockCreateLogger());
 
 const { cmdEvaluate } = require('../../lib/commands/evaluate');
 const { runCopilot } = require('../../lib/copilot');
@@ -77,7 +66,7 @@ describe('commands/evaluate', () => {
     });
     
     await expect(cmdEvaluate('12345', {}))
-      .rejects.toThrow('Evaluation prompt file not found');
+      .rejects.toThrow('Prompt file not found');
   });
 
   it('should run copilot with correct prompt', async () => {
@@ -86,10 +75,7 @@ describe('commands/evaluate', () => {
     expect(runCopilot).toHaveBeenCalledWith(
       expect.stringContaining('Issue #12345'),
       expect.any(Object),
-      expect.any(Array),
-      expect.any(Boolean),
-      expect.any(Boolean), // debugMode
-      expect.objectContaining({ phase: 'evaluate' }) // phase option
+      expect.objectContaining({ phase: 'evaluate' })
     );
   });
 
@@ -121,14 +107,11 @@ describe('commands/evaluate', () => {
 
   it('should use silent mode when silent option is true', async () => {
     await cmdEvaluate('12345', { silent: true });
-    
+
     expect(runCopilot).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(Object),
-      expect.any(Array),
-      true, // silent mode
-      expect.any(Boolean), // debugMode
-      expect.any(Object) // phase option
+      expect.objectContaining({ silent: true, phase: 'evaluate' })
     );
   });
 

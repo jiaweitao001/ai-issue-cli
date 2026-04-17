@@ -10,18 +10,8 @@ jest.mock('os', () => ({
 }));
 
 // Mock logger
-jest.mock('../../lib/logger', () => ({
-  log: jest.fn(),
-  error: jest.fn(),
-  success: jest.fn(),
-  info: jest.fn(),
-  warning: jest.fn(),
-  highlight: jest.fn(s => s),
-  chalk: {
-    bold: { cyan: jest.fn(s => s) },
-    cyan: jest.fn(s => s)
-  }
-}));
+const { mockCreateLogger } = require('../helpers/mock-logger');
+jest.mock('../../lib/logger', () => mockCreateLogger());
 
 const { cmdInit } = require('../../lib/commands/init');
 const { success, info, error } = require('../../lib/logger');

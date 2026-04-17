@@ -10,18 +10,8 @@ jest.mock('os', () => ({
 }));
 
 // Mock logger to suppress output
-jest.mock('../../lib/logger', () => ({
-  log: jest.fn(),
-  error: jest.fn(),
-  success: jest.fn(),
-  info: jest.fn(),
-  warning: jest.fn(),
-  highlight: jest.fn(s => s),
-  chalk: {
-    bold: { cyan: jest.fn(s => s) },
-    cyan: jest.fn(s => s)
-  }
-}));
+const { mockCreateLogger } = require('../helpers/mock-logger');
+jest.mock('../../lib/logger', () => mockCreateLogger());
 
 const { cmdConfig } = require('../../lib/commands/config-cmd');
 const { log, error, success, info } = require('../../lib/logger');

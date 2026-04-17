@@ -90,7 +90,7 @@ describe('copilot', () => {
       });
 
       it('should pass additional arguments', async () => {
-        const promise = runCopilot('test prompt', mockConfig, ['--extra-arg']);
+        const promise = runCopilot('test prompt', mockConfig, { additionalArgs: ['--extra-arg'] });
         
         mockProcess.emit('close', 0);
         
@@ -104,7 +104,7 @@ describe('copilot', () => {
       });
 
       it('should use silent stdio when silent flag is true', async () => {
-        const promise = runCopilot('test prompt', mockConfig, [], true);
+        const promise = runCopilot('test prompt', mockConfig, { silent: true });
         
         mockProcess.emit('close', 0);
         
@@ -120,7 +120,7 @@ describe('copilot', () => {
       });
 
       it('should use inherit stdio when silent flag is false', async () => {
-        const promise = runCopilot('test prompt', mockConfig, [], false);
+        const promise = runCopilot('test prompt', mockConfig, { silent: false });
         
         mockProcess.emit('close', 0);
         
