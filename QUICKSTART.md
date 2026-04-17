@@ -164,6 +164,10 @@ ai-issue watch --owner <name>     # Auto-solve daemon
 
 # Phase 4: Trello Dashboard commands
 ai-issue register --pat <token>   # Register GitHub PAT for PR creation
+
+# Phase 6: Manager tools (require AI_ISSUE_SERVICE_URL)
+ai-issue metrics                  # View team metrics (--owner, --since, --until)
+ai-issue search "keyword"         # Search issues and solutions (--owner, --status, --limit)
 ```
 
 ## 6. FAQ
@@ -371,6 +375,16 @@ ai-issue solve 31984 --branch --push-fork
 
 # Register / update GitHub PAT
 ai-issue register --pat ghp_xxx
+
+# View team metrics (past 30 days)
+ai-issue metrics
+
+# View metrics for specific engineer
+ai-issue metrics --owner alice --since 7d
+
+# Search issues and solutions
+ai-issue search "polling timeout"
+ai-issue search "key vault" --status solved
 ```
 
 ## 8. Directory Structure

@@ -130,6 +130,26 @@ Watch daemon behavior: polls `GET /pipeline?owner=xxx&status=queued` every N sec
 | `--owner <name>` | Owner identifier (default: `$USER`) | `ai-issue register --pat ghp_xxx --owner alice` |
 | `--trello-member-id <id>` | Trello member ID for board access | `ai-issue register --pat ghp_xxx --trello-member-id 5f8a...` |
 
+### metrics Options
+
+| Option | Description | Usage |
+|--------|-------------|-------|
+| `--owner <name>` | Filter by engineer | `ai-issue metrics --owner alice` |
+| `--since <period>` | Start of time range (default: `30d`) | `ai-issue metrics --since 7d` |
+| `--until <date>` | End of time range | `ai-issue metrics --until 2026-04-01` |
+
+View team performance metrics: solve rate, average response/solve time, P50/P90 percentiles. Shows per-engineer breakdown and status/complexity distribution. Requires `ai-issue-service`.
+
+### search Options
+
+| Option | Description | Usage |
+|--------|-------------|-------|
+| `--owner <name>` | Filter by engineer | `ai-issue search "timeout" --owner alice` |
+| `--status <status>` | Filter by status | `ai-issue search "timeout" --status solved` |
+| `--limit <n>` | Max results (default: 20) | `ai-issue search "timeout" --limit 5` |
+
+Search issues and solutions by keyword. Uses PostgreSQL full-text search with automatic semantic fallback when fuzzy results are insufficient. Requires `ai-issue-service`.
+
 ## Skills (MCP Servers)
 
 AI Issue CLI includes built-in skills powered by MCP (Model Context Protocol) to enhance issue resolution:
@@ -258,7 +278,8 @@ ai-issue-cli/
 │   ├── git-utils.js                     # Git command wrapper (runGit)
 │   ├── review-tool.js                   # Code review tool installation & auto-review
 │   ├── prompt-loader.js                 # Prompt template loading from prompts/ dir
-│   ├── display-helpers.js               # CLI display formatting helpers
+│   ├── display-helpers.js               # CLI display formatting + metrics table rendering
+│   ├── summary-extractor.js             # Extract solution summary from Phase 2 reports
 │   ├── types.js                         # Shared JSDoc typedefs (Config, SolveOptions, etc.)
 │   └── commands/                        # Command handlers
 │       ├── solve.js                     # solve — two-phase resolution
@@ -268,6 +289,8 @@ ai-issue-cli/
 │       ├── pipeline.js                  # pipeline — view pipeline status (--owner/--status)
 │       ├── watch.js                     # watch — daemon for auto-solving queued issues
 │       ├── register.js                  # register — register GitHub PAT for PR creation
+│       ├── metrics.js                   # metrics — team performance dashboard
+│       ├── search-cmd.js               # search — search issues and solutions
 │       ├── init.js                      # init — create config file
 │       ├── check.js                     # check — environment verification
 │       ├── config-cmd.js                # config — show/set/get/reset config
@@ -578,6 +601,18 @@ ai-issue register --pat ghp_xxx
 
 # Start auto-solve daemon
 ai-issue watch --owner YOUR_NAME --push-fork
+
+# View team metrics (past 30 days)
+ai-issue metrics
+
+# View metrics for a specific engineer
+ai-issue metrics --owner alice --since 7d
+
+# Search issues and solutions
+ai-issue search "polling timeout"
+
+# Search with filters
+ai-issue search "key vault" --owner alice --status solved
 ```
 
 ## Troubleshooting

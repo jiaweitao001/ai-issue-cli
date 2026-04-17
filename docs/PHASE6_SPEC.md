@@ -578,13 +578,14 @@ function extractSolutionSummary(reportPath) {
 - [x] `ai-issue.js` 注册 `search <query>` 命令（`--owner`, `--status`, `--limit`）
 - [x] 测试：API 调用 + 参数传递 5, 错误处理 5 (HTTP/403/network/no-url/no-repo), 渲染 5 (match count/PR url/empty solution/singular grammar)
 
-### PR 7: 文档更新 `[cli]`
+### PR 7: 文档更新 `[cli]` ✅
 
 **目标**：补全用户文档。
+**分支**：`phase6/pr7-docs`
 
-- [ ] 更新 README 增加 `metrics` 和 `search` 命令说明
-- [ ] 更新 QUICKSTART
-- [ ] 更新 PHASE6_SPEC 标记完成状态
+- [x] README.md: 新增 metrics/search Options 表格、CLI Cheat Sheet 补充、目录结构新增 metrics.js/search-cmd.js/summary-extractor.js
+- [x] QUICKSTART.md: 命令总览新增 Phase 6 命令、CLI Cheat Sheet 补充
+- [x] PHASE6_SPEC.md: 全部 7 个 PR 标记为 ✅
 
 ### PR 依赖关系
 
