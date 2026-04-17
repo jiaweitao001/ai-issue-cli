@@ -213,4 +213,21 @@ describe('service-client', () => {
       expect(result.data).toBe('Internal Server Error');
     });
   });
+
+  describe('updateSolutionSummary', () => {
+    it('should call serviceRequest with PATCH and correct body', async () => {
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://service.example.com' });
+      mockHttpsRequest(200, { ok: true, issue: 123 });
+
+      const { updateSolutionSummary } = require('../lib/service-client');
+      const result = await updateSolutionSummary('test/repo', 123, 'Fix timeout');
+
+      expect(result.status).toBe(200);
+      // Verify the request was a PATCH with correct path
+      const reqCall = https.request.mock.calls[0];
+      const url = reqCall[0];
+      expect(url.pathname).toBe('/pipeline/test/repo/123/summary');
+      expect(reqCall[1].method).toBe('PATCH');
+    });
+  });
 });

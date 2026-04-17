@@ -29,6 +29,12 @@ jest.mock('../../lib/service-client', () => ({
   serviceRequest: jest.fn().mockResolvedValue({ status: 200, data: [] }),
   getServiceUrl: jest.fn(() => ''),
   getServiceApiKey: jest.fn(() => ''),
+  updateSolutionSummary: jest.fn().mockResolvedValue({ status: 200, data: { ok: true } }),
+}));
+
+// Mock summary-extractor (Phase 6)
+jest.mock('../../lib/summary-extractor', () => ({
+  extractSolutionSummary: jest.fn(() => 'Extracted summary'),
 }));
 
 // Mock logger
@@ -38,7 +44,8 @@ jest.mock('../../lib/logger', () => mockCreateLogger());
 const { cmdSolve } = require('../../lib/commands/solve');
 const { runCopilot } = require('../../lib/copilot');
 const { cmdEvaluate } = require('../../lib/commands/evaluate');
-const { serviceRequest, getServiceUrl } = require('../../lib/service-client');
+const { serviceRequest, getServiceUrl, updateSolutionSummary } = require('../../lib/service-client');
+const { extractSolutionSummary } = require('../../lib/summary-extractor');
 const { success, error, info, debug } = require('../../lib/logger');
 
 describe('commands/solve', () => {
@@ -510,6 +517,34 @@ describe('commands/solve', () => {
         call => call[0] === 'POST' && call[1].includes('/failed')
       );
       expect(failedCalls).toHaveLength(1);
+    });
+  });
+
+  describe('solution summary upload', () => {
+    beforeEach(() => {
+      getServiceUrl.mockReturnValue('https://service.example.com');
+      runCopilot.mockResolvedValue(undefined);
+    });
+
+    it('should upload solution summary when serviceUrl is configured', async () => {
+      await cmdSolve('12345', { noEval: true });
+
+      expect(extractSolutionSummary).toHaveBeenCalled();
+      expect(updateSolutionSummary).toHaveBeenCalled();
+    });
+
+    it('should not upload summary when serviceUrl is not configured', async () => {
+      getServiceUrl.mockReturnValue('');
+
+      await cmdSolve('12345', { noEval: true });
+
+      expect(updateSolutionSummary).not.toHaveBeenCalled();
+    });
+
+    it('should not crash when summary upload fails', async () => {
+      updateSolutionSummary.mockRejectedValue(new Error('Network error'));
+
+      await expect(cmdSolve('12345', { noEval: true })).resolves.toBeUndefined();
     });
   });
 });
