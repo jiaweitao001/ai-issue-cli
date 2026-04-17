@@ -544,89 +544,39 @@ function extractSolutionSummary(reportPath) {
 - [x] `ai-issue.js` 注册 `metrics` 命令（`--owner`, `--since`, `--until`）
 - [x] 测试：24 metrics tests + 4 display-helpers tests
 
-### PR 4: Solution Summary 提取 + 上报 `[cli]` + `[service]`
+### PR 4: Solution Summary 提取 + 上报 `[cli]` + `[service]` ✅
 
 **目标**：Solve 完成后自动提取摘要并上报，为搜索功能提供数据。
+**分支**：`phase6/pr4-solution-summary` (both repos) | **测试**：service 8 new (122 total), cli 15 new (250 total)
 
-- [ ] `[service]` 新增 `PATCH /pipeline/{repo}/{issue}/summary` 端点
-- [ ] `[cli]` 实现 `extractSolutionSummary()`（从 Phase 2 报告 Markdown 中提取）
-- [ ] `[cli]` 新增 `service-client.js:updateSolutionSummary()` 方法
-- [ ] `[cli]` 在 `solve.js` Phase 2 完成后集成上报逻辑
-- [ ] 测试：
-  - **`[service]` PATCH 端点**：
-    - 正常更新 solution_summary 字段
-    - issue 不存在时返回 404
-    - 空 summary 时返回 400
-    - summary 超长（>5000 字符）时截断存储
-  - **`extractSolutionSummary()` 提取逻辑**：
-    - 报告含 `## Solution` 标题时提取该节首段
-    - 报告含 `## Fix` / `## Changes` 等变体标题时正确提取
-    - 报告无匹配标题时 fallback 到报告标题 + 前 200 字符
-    - 提取结果截取前 500 字符
-    - 报告文件不存在时返回空字符串不抛异常
-    - 报告为空文件时返回空字符串
-  - **`updateSolutionSummary()` 客户端**：
-    - 正确调用 `PATCH /pipeline/{repo}/{issue}/summary`
-    - 请求 body 包含 `solution_summary` 字段
-  - **solve.js 集成**：
-    - serviceUrl 已配置时，Phase 2 完成后调用 `updateSolutionSummary()`
-    - serviceUrl 未配置时不调用
-    - 上报失败时不阻断 solve 主流程（non-fatal）
+- [x] `[service]` 新增 `PATCH /pipeline/{repo:path}/{issue}/summary` 端点 + `SummaryUpdateRequest` 模型
+- [x] `[service]` `update_solution_summary()` 函数：更新 solution_summary 字段，超 5000 字符自动截断
+- [x] `[cli]` `lib/summary-extractor.js`：从 Phase 2 Markdown 报告提取摘要（## Solution/Fix/Changes/Implementation，fallback 到标题+前 200 字符，截取 500 字符）
+- [x] `[cli]` `service-client.js:updateSolutionSummary()` 方法
+- [x] `[cli]` `solve.js` Phase 2 完成后自动上报（non-fatal）
+- [x] 测试：service 8 tests (PATCH 正常/404/400/截断 + triage update/not_found/params/truncate), cli 15 tests (提取 11 + solve 集成 3 + client 1)
 
-### PR 5: Search API `[service]`
+### PR 5: Search API `[service]` ✅
 
 **目标**：后端提供搜索能力，依赖 PR 1 的 FTS 索引 + PR 4 的 summary 数据。
+**分支**：`phase6/pr5-search-api` | **测试**：20 new (162 total)
 
-- [ ] 实现 `search_pipeline_fuzzy()`（PostgreSQL 全文检索 + ILIKE fallback）
-- [ ] 实现 `search_pipeline_semantic()`（向量语义搜索）
-- [ ] 实现 `search_pipeline()` 统一入口（自动选择：fuzzy 优先，结果 < 3 条时 fallback semantic）
-- [ ] 新增 `GET /search/pipeline/{repo}` 端点
-- [ ] Manager 权限校验
-- [ ] 测试：
-  - **Fuzzy 搜索**：
-    - 精确关键词匹配（如 `timeout`）返回包含该词的 title/summary
-    - 多词查询（如 `polling timeout`）正确使用 `plainto_tsquery`
-    - ILIKE fallback：FTS 未命中但 title 含关键词时仍返回结果
-    - 结果按 `ts_rank` 降序排列
-    - `match_highlight` 字段包含高亮标记
-  - **Semantic 搜索**：
-    - 语义相近但无精确词匹配的查询能返回结果
-    - semantic 不可用时（无 embedding API）优雅降级，不报错
-  - **自动选择逻辑**：
-    - fuzzy 返回 >= 3 条时不触发 semantic
-    - fuzzy 返回 < 3 条时自动触发 semantic 补充
-    - 两种结果合并后去重（同一 issue 不重复）
-    - 合并后按 score 排序
-  - **筛选参数**：
-    - `owner` 筛选只返回该工程师的结果
-    - `status` 筛选只返回指定状态的结果
-    - `owner` + `status` 组合筛选
-    - `limit` 参数限制返回条数
-  - **边界情况**：
-    - 空查询字符串返回 400
-    - 无匹配结果时返回空列表 `{"results": [], "total": 0}`
-    - 特殊字符查询（如 `azurerm_key_vault`）不导致 SQL 注入或解析错误
-    - solution_summary 为空的记录仍可被 title 搜索命中
-  - **权限**：非 Manager 用户请求返回 403
+- [x] `app/pipeline_search.py`：
+  - `search_pipeline_fuzzy()`：PostgreSQL tsvector/tsquery + ILIKE fallback，ts_rank 排序 + ts_headline 高亮
+  - `search_pipeline_semantic()`：embedding → knowledge_embeddings 向量相似度搜索，score < 0.3 过滤，embedding 失败优雅降级
+  - `search_pipeline()`：统一入口，fuzzy 优先，< 3 条自动 fallback semantic，`_merge_and_deduplicate` 去重 + score 排序
+- [x] `GET /search/pipeline/{repo:path}` 端点（q, owner, status, limit 参数，空 query 返回 400）
+- [x] 权限：使用现有 API key 认证
+- [x] 测试：fuzzy 8 + semantic 3 + unified 5 + endpoint 4
 
-### PR 6: Search CLI `[cli]`
+### PR 6: Search CLI `[cli]` ✅
 
 **目标**：Manager 终端可搜索历史方案，依赖 PR 5 的 API。
+**分支**：`phase6/pr6-search-cli` | **测试**：15 new (265 total)
 
-- [ ] 新增 `lib/commands/search-cmd.js`（`cmdSearch` 命令处理）
-- [ ] 实现搜索结果高亮渲染
-- [ ] `ai-issue.js` 注册 `search` 命令
-- [ ] 测试：
-  - **正常渲染**：mock API 返回多条结果，验证输出包含 issue 编号、title、status、owner、score、solution
-  - **PR 链接**：有 pr_url 时显示，无 pr_url 时不显示该行
-  - **Solution 缺失**：solution_summary 为空时显示 `(in progress)` 或类似占位
-  - **`--owner` / `--status` 筛选**：参数正确传递到 API 请求
-  - **`--limit` 参数**：正确传递到 API
-  - **无结果**：API 返回空列表时提示 "No results found for ..."
-  - **API 请求失败**：HTTP 错误 / 网络错误时显示错误信息不崩溃
-  - **API 返回 403**：提示权限不足
-  - **serviceUrl 未配置**：提示用户配置 service URL
-  - **结果数量提示**：标题栏显示匹配数量（如 `3 matches`）
+- [x] `lib/commands/search-cmd.js`：`cmdSearch` + `displaySearchResults`，status 颜色编码，solution 占位符，PR URL 条件显示，singular/plural match 语法
+- [x] `ai-issue.js` 注册 `search <query>` 命令（`--owner`, `--status`, `--limit`）
+- [x] 测试：API 调用 + 参数传递 5, 错误处理 5 (HTTP/403/network/no-url/no-repo), 渲染 5 (match count/PR url/empty solution/singular grammar)
 
 ### PR 7: 文档更新 `[cli]`
 
