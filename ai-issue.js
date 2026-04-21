@@ -22,6 +22,7 @@ const { cmdPipeline } = require('./lib/commands/pipeline');
 const { cmdRegister } = require('./lib/commands/register');
 const { cmdMetrics } = require('./lib/commands/metrics');
 const { cmdSearch } = require('./lib/commands/search-cmd');
+const { cmdImport } = require('./lib/commands/import-cmd');
 
 // Basic metadata
 program
@@ -206,6 +207,24 @@ program
       ...options,
       interval: parseInt(options.interval || '300'),
     });
+  });
+
+// Command: import
+program
+  .command('import')
+  .description('Import historical issues into the pipeline')
+  .option('--mode <mode>', 'Import mode: full, incremental, backfill', 'incremental')
+  .option('--state <state>', 'Issue state filter: all, open, closed', 'all')
+  .option('--since <period>', 'Only import issues after this date (e.g. 30d, 2025-01-01)')
+  .option('--labels <labels>', 'Comma-separated label filter')
+  .option('--limit <n>', 'Max issues to import')
+  .option('--skip-triage', 'Skip LLM triage, use rule-based inference only')
+  .option('--dry-run', 'Preview mode, do not write to DB')
+  .option('--force', 'Re-import issues already in pipeline (overwrite)')
+  .option('--status', 'Check import progress')
+  .action(async (cmdOpts) => {
+    const options = { ...program.opts(), ...cmdOpts };
+    await cmdImport(options);
   });
 
 // Error handling
