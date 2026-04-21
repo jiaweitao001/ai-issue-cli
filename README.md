@@ -23,6 +23,7 @@ A command-line tool based on GitHub Copilot CLI that automates the resolution an
 - ✅ **Watch Daemon** - Auto-poll queued issues and solve them locally
 - ✅ **Git Branch + Push** - Create branches and push to fork after solving
 - ✅ **Trello Dashboard** - Zero-code visual pipeline with N+1 boards, drag-to-approve PR creation, manager/engineer isolation
+- ✅ **Historical Import** - Batch import GitHub issues into pipeline with status inference, timestamp backfill, and Trello sync
 
 ## Quick Start
 
@@ -149,6 +150,22 @@ View team performance metrics: solve rate, average response/solve time, P50/P90 
 | `--limit <n>` | Max results (default: 20) | `ai-issue search "timeout" --limit 5` |
 
 Search issues and solutions by keyword. Uses PostgreSQL full-text search with automatic semantic fallback when fuzzy results are insufficient. Requires `ai-issue-service`.
+
+### import Options
+
+| Option | Description | Usage |
+|--------|-------------|-------|
+| `--mode <mode>` | Import mode: `full`, `incremental`, `backfill` (default: `incremental`) | `ai-issue import --mode full` |
+| `--state <state>` | Issue state filter: `all`, `open`, `closed` (default: `all`) | `ai-issue import --state open` |
+| `--since <period>` | Only import issues after this date | `ai-issue import --since 30d` |
+| `--labels <labels>` | Comma-separated label filter | `ai-issue import --labels bug,enhancement` |
+| `--limit <n>` | Max issues to import | `ai-issue import --limit 1000` |
+| `--skip-triage` | Skip LLM triage, use rule-based inference only | `ai-issue import --skip-triage` |
+| `--dry-run` | Preview mode, do not write to DB | `ai-issue import --dry-run` |
+| `--force` | Re-import issues already in pipeline (overwrite) | `ai-issue import --force` |
+| `--status` | Check import progress | `ai-issue import --status` |
+
+Import historical GitHub issues into the pipeline with automatic status inference. Infers `solved`/`skipped`/`triaged`/`queued`/`solving` from issue state, labels, timeline events, and comments. Backfills timestamps (`assigned_at`, `first_response_at`, `solved_at`). Requires `ai-issue-service`.
 
 ## Skills (MCP Servers)
 
