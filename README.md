@@ -222,11 +222,21 @@ ai-issue solve 30340
 
 ```
 [Server] Issue Watcher (cron, every 30 min)
-  ├─ Poll new issues from upstream repo
-  ├─ POST /triage → LLM classify + duplicate detect + owner match
-  ├─ Write to pipeline (status: queued / triaged)
-  ├─ Notify owner (ADO Work Item comment / email)
-  └─ Sync to Trello boards (if enabled)
+  ├─ Poll new issues from upstream GitHub repo
+  ├─ POST /triage → LLM classify + duplicate detect + owner candidates
+  ├─ Write to pipeline (status: triaged — always, never auto-queued)
+  ├─ Post ADO Work Item comment: suggest candidate owner(s)
+  └─ Sync to Trello Manager Board (Triaged column, display only)
+
+[ADO] Manager sees triage suggestion comment
+  └─ Manually assigns ADO Work Item to an engineer
+
+[Server] ADO Assignee Sync (cron, every 15 min)
+  ├─ Scan triaged pipeline entries without assigned_to
+  ├─ Read ADO Work Item System.AssignedTo for each
+  ├─ Map ADO email → pipeline owner (via resource_owners.notify_email)
+  ├─ Update pipeline: assigned_to = owner, status = queued
+  └─ Sync to Trello: Manager Board card → Queued + create Engineer Board card
 
 [Local] ai-issue watch --owner alice
   ├─ Poll GET /pipeline?owner=alice&status=queued (every 5 min)
@@ -241,8 +251,7 @@ ai-issue solve 30340
 
 [Trello] Manager Board (Phase 4)
   ├─ Manager sees all issues across all engineers
-  ├─ Triaged column: SKIP/NEEDS_HUMAN issues
-  ├─ Drag Triaged → Queued (with Member assigned) → creates engineer card
+  ├─ Triaged column: all new issues (pending ADO assignment)
   └─ Filter by engineer label or member to focus
 ```
 
@@ -397,9 +406,9 @@ Every issue has a `status` in the pipeline database. The state machine:
 
 | Transition | Triggered By | How |
 |------------|-------------|-----|
-| → `triaged` | Issue Watcher | Auto-triage (SKIP / NEEDS_HUMAN) |
-| → `queued` | Issue Watcher | Auto-triage (PROCEED) |
-| `triaged` → `queued` | Manager | Trello drag Triaged→Queued or API `/enqueue` |
+| → `triaged` | Issue Watcher | Auto-triage (all new issues, regardless of recommendation) |
+| `triaged` → `queued` | ADO Assignee Sync | Manager assigns in ADO → cron reads assignee → updates pipeline |
+| `triaged` → `queued` | Manager | Trello drag Triaged→Queued or API `/enqueue` (manual override) |
 | `queued` → `triaged` | Manager | Trello drag Queued→Triaged or Remove Member or API `/dequeue` |
 | `queued` → `solving` | Watch daemon | API `/solving` (distributed lock) |
 | `solving` → `solved` | CLI | API `/solved` (solve completed) |
@@ -481,23 +490,23 @@ Use Trello's **Filter by label** to quickly find issues by type, complexity, or 
 #### Step 1: Monitor the Pipeline
 
 Open the Manager Board. Cards automatically appear as Issue Watcher triages new issues:
-- **Triaged column** — Issues marked SKIP or NEEDS_HUMAN. Not auto-assigned.
-- **Queued column** — Issues marked PROCEED. Already assigned to an engineer by resource matching.
+- **Triaged column** — All newly triaged issues. ADO Work Item comment suggests candidate owner(s).
 - Other columns update automatically as engineers work.
 
-#### Step 2: Assign SKIP/NEEDS_HUMAN Issues (if needed)
+#### Step 2: Assign Issues via ADO
 
 For issues in the Triaged column that you want an engineer to handle:
 
-1. Click the card → **Members** → Add the responsible engineer
-2. Drag the card from **Triaged → Queued**
-3. System automatically:
+1. Check the ADO Work Item comment for suggested candidate owner(s)
+2. Assign the ADO Work Item to the chosen engineer
+3. ADO Assignee Sync (cron, every 15 min) automatically:
+   - Reads the ADO assignee
+   - Maps the email to a pipeline owner
    - Updates DB: status=queued, assigned_to=engineer
+   - Moves the Manager Board card from Triaged → Queued
    - Creates a card on the engineer's private board
-   - Sends notification to the engineer
 
-If you drag without adding a Member first, the card bounces back with a comment:
-> ⚠️ Please Add Member to assign an engineer before moving to Queued.
+Alternatively, you can still use Trello drag (Triaged → Queued with Member assigned) as a manual override.
 
 #### Step 3: Unassign / Dequeue
 
@@ -591,8 +600,8 @@ Cards move automatically in response to backend events — no manual dragging re
 
 | Event | Card Movement |
 |-------|--------------|
-| Issue Watcher triages new issue (PROCEED) | Card created in Queued on both boards |
-| Issue Watcher triages new issue (SKIP/NEEDS_HUMAN) | Card created in Triaged on manager board only |
+| Issue Watcher triages new issue | Card created in Triaged on manager board only |
+| ADO Assignee Sync detects assignment | Triaged → Queued on manager board + card created on engineer board |
 | Watch daemon picks up issue | Queued → Solving |
 | CLI solve completes | Solving → Review (+ diff link added) |
 | CLI solve fails | → Rejected (+ error comment) |
