@@ -34,6 +34,7 @@ See [QUICKSTART.md](QUICKSTART.md) for detailed installation and usage instructi
 - **Node.js** >= 14.0.0
 - **Git** — clone the target repository locally (e.g., `terraform-provider-azurerm`)
 - **GITHUB_TOKEN** — [create a GitHub PAT](https://github.com/settings/tokens) with `repo` or `public_repo` scope and set it as an environment variable
+- **Azure CLI** — install from https://aka.ms/install-az-cli and run `az login` (required for backend service authentication)
 
 ### Install & Run
 
@@ -274,13 +275,26 @@ AI Issue CLI can optionally integrate with `ai-issue-service` (a separate FastAP
 - **Knowledge base** — Server-side weekly scan of resolved GitHub issues builds a verified knowledge base
 - **Existing research lookup** — Check if teammates have already researched a similar issue
 
+### Authentication
+
+The CLI automatically authenticates with the backend using **Azure CLI tokens**. No additional configuration needed — just make sure you've logged in:
+
+```bash
+# One-time setup (if not already done)
+az login
+```
+
+The authentication priority is:
+1. **Azure CLI Bearer token** — automatic if `az` is installed and logged in
+2. **API key fallback** — if `serviceApiKey` is configured (legacy)
+
 ### Environment Variables
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `AI_ISSUE_SERVICE_URL` | Backend service URL (e.g., `https://your-service.example.com`) | For backend features |
-| `AI_ISSUE_SERVICE_API_KEY` | API key for backend authentication | For backend features |
 | `GITHUB_TOKEN` | GitHub personal access token (`repo` or `public_repo` scope). [Create one here](https://github.com/settings/tokens). | Yes |
+| `AI_ISSUE_SERVICE_URL` | Backend service URL (e.g., `https://your-service.example.com`) | For backend features |
+| `AI_ISSUE_SERVICE_API_KEY` | API key for backend authentication (legacy, not needed if using `az login`) | No |
 
 When `AI_ISSUE_SERVICE_URL` is not set, the tool works without backend features — using only GitHub API and local code analysis.
 
