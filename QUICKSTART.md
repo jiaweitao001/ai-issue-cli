@@ -30,6 +30,26 @@ node --version
 npm --version
 ```
 
+### Azure CLI (for backend service authentication)
+
+The tool uses Azure CLI to authenticate with the backend service. Install and login:
+
+```bash
+# Install (macOS)
+brew install azure-cli
+
+# Install (Linux)
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+# Install (Windows)
+# Download from https://aka.ms/install-az-cli
+
+# Login (one-time, token valid ~90 days)
+az login
+```
+
+> 💡 If you've already used `az` for other Azure work, you're likely already logged in. Verify with `az account show`.
+
 ### Clone the target repository
 
 This tool works on a local Git repository. Clone the repository you want to process issues for:
@@ -117,9 +137,12 @@ ai-issue config show
 # Required — must be set before running ai-issue (see Prerequisites above)
 export GITHUB_TOKEN="ghp_..."              # GitHub PAT (repo or public_repo scope)
 
-# Optional - Backend service for team knowledge sharing
+# Optional - Backend service URL for team knowledge sharing
 export AI_ISSUE_SERVICE_URL="https://your-service.example.com"
-export AI_ISSUE_SERVICE_API_KEY="your-api-key"
+
+# Authentication with the backend is automatic via Azure CLI (az login).
+# No API key needed. Legacy API key is still supported as fallback:
+# export AI_ISSUE_SERVICE_API_KEY="your-api-key"
 ```
 
 Without `AI_ISSUE_SERVICE_URL`, the tool works standalone using only GitHub API and local code analysis.
