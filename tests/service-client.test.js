@@ -11,6 +11,12 @@ jest.mock('os', () => ({
 jest.mock('fs');
 jest.mock('child_process');
 
+// Mock az-token module
+const mockGetAzAccessToken = jest.fn();
+jest.mock('../lib/az-token', () => ({
+  getAzAccessToken: mockGetAzAccessToken,
+}));
+
 // Mock logger
 const { mockCreateLogger } = require('./helpers/mock-logger');
 jest.mock('../lib/logger', () => mockCreateLogger());
@@ -29,7 +35,7 @@ jest.mock('../lib/config', () => ({
 }));
 
 const fs = require('fs');
-const { getServiceUrl, getServiceApiKey, serviceRequest } = require('../lib/service-client');
+const { getServiceUrl, getServiceApiKey, serviceRequest, resolveAuthHeaders } = require('../lib/service-client');
 
 function mockHttpsRequest(statusCode, responseBody) {
   const mockRes = {
@@ -72,6 +78,8 @@ describe('service-client', () => {
     delete process.env.AI_ISSUE_SERVICE_API_KEY;
     // Default: loadConfig returns empty config (no serviceUrl, no serviceApiKey)
     mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG });
+    // Default: az token not available (backward compat with API key)
+    mockGetAzAccessToken.mockImplementation(() => { throw new Error('not logged in'); });
   });
 
   afterEach(() => {
@@ -357,6 +365,54 @@ describe('service-client', () => {
       const { serviceRequestStream } = require('../lib/service-client');
       const result = await serviceRequestStream('POST', '/import/test/repo', {});
       expect(result).toBeNull();
+    });
+  });
+
+  describe('resolveAuthHeaders (Bearer token via Azure CLI)', () => {
+    it('should use Bearer token when az CLI token is available', () => {
+      mockGetAzAccessToken.mockReturnValue('az-access-token');
+
+      const headers = resolveAuthHeaders();
+      expect(headers['Authorization']).toBe('Bearer az-access-token');
+      expect(headers['X-Api-Key']).toBeUndefined();
+    });
+
+    it('should fallback to X-Api-Key when az fails and apiKey configured', () => {
+      mockGetAzAccessToken.mockImplementation(() => { throw new Error('not logged in'); });
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceApiKey: 'my-key' });
+
+      const headers = resolveAuthHeaders();
+      expect(headers['X-Api-Key']).toBe('my-key');
+      expect(headers['Authorization']).toBeUndefined();
+    });
+
+    it('should return empty headers when neither az nor apiKey available', () => {
+      mockGetAzAccessToken.mockImplementation(() => { throw new Error('not logged in'); });
+
+      const headers = resolveAuthHeaders();
+      expect(headers['Authorization']).toBeUndefined();
+      expect(headers['X-Api-Key']).toBeUndefined();
+    });
+
+    it('should prefer Bearer token over API key', () => {
+      mockGetAzAccessToken.mockReturnValue('az-token');
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceApiKey: 'also-has-key' });
+
+      const headers = resolveAuthHeaders();
+      expect(headers['Authorization']).toBe('Bearer az-token');
+      expect(headers['X-Api-Key']).toBeUndefined();
+    });
+
+    it('should pass Bearer token through in serviceRequest', async () => {
+      mockGetAzAccessToken.mockReturnValue('my-bearer');
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://service.example.com' });
+      mockHttpsRequest(200, { ok: true });
+
+      await serviceRequest('GET', '/health');
+
+      const opts = https.request.mock.calls[0][1];
+      expect(opts.headers['Authorization']).toBe('Bearer my-bearer');
+      expect(opts.headers['X-Api-Key']).toBeUndefined();
     });
   });
 });
