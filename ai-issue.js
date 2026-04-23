@@ -33,7 +33,7 @@ program
 // Global options
 program
   .option('-m, --model <model>', 'Specify AI model')
-  .option('--no-eval', 'Skip evaluation phase after solving')
+  .option('--skip-eval', 'Skip evaluation phase after solving')
   .option('--concurrency <number>', 'Parallel instances for batch processing', '3')
   .option('--debug', 'Enable debug logging');
 

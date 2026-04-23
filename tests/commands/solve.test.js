@@ -113,7 +113,7 @@ describe('commands/solve', () => {
       return true;
     });
     
-    const promise = cmdSolve('12345', { noEval: true });
+    const promise = cmdSolve('12345', { skipEval: true });
     
     // Fast-forward timers for waitForFile
     jest.advanceTimersByTime(1000);
@@ -127,7 +127,7 @@ describe('commands/solve', () => {
   });
 
   it('should run Phase 1 research with correct prompt', async () => {
-    const promise = cmdSolve('12345', { noEval: true });
+    const promise = cmdSolve('12345', { skipEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
     
@@ -201,7 +201,7 @@ describe('commands/solve', () => {
       return '';
     });
     
-    const promise = cmdSolve('12345', { noEval: true });
+    const promise = cmdSolve('12345', { skipEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
     
@@ -211,7 +211,7 @@ describe('commands/solve', () => {
   });
 
   it('should clean up research file after Phase 2', async () => {
-    const promise = cmdSolve('12345', { noEval: true });
+    const promise = cmdSolve('12345', { skipEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
     
@@ -228,8 +228,8 @@ describe('commands/solve', () => {
     expect(cmdEvaluate).toHaveBeenCalledWith('12345', expect.any(Object));
   });
 
-  it('should skip evaluation when noEval option is true', async () => {
-    const promise = cmdSolve('12345', { noEval: true });
+  it('should skip evaluation when skipEval option is true', async () => {
+    const promise = cmdSolve('12345', { skipEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
     
@@ -258,7 +258,7 @@ describe('commands/solve', () => {
       return '';
     });
 
-    const promise = cmdSolve('12345', { noEval: true });
+    const promise = cmdSolve('12345', { skipEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
 
@@ -301,7 +301,7 @@ describe('commands/solve', () => {
       return '';
     });
 
-    const promise = cmdSolve('12345', { noEval: true });
+    const promise = cmdSolve('12345', { skipEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
 
@@ -359,7 +359,7 @@ describe('commands/solve', () => {
       return '';
     });
 
-    const promise = cmdSolve('12345', { noEval: true });
+    const promise = cmdSolve('12345', { skipEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
 
@@ -382,7 +382,7 @@ describe('commands/solve', () => {
   });
 
   it('should use silent mode when silent option is true', async () => {
-    const promise = cmdSolve('12345', { silent: true, noEval: true });
+    const promise = cmdSolve('12345', { silent: true, skipEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
     
@@ -403,7 +403,7 @@ describe('commands/solve', () => {
   });
 
   it('should override config model when --model option is specified', async () => {
-    const promise = cmdSolve('12345', { model: 'claude-opus-4.5', noEval: true });
+    const promise = cmdSolve('12345', { model: 'claude-opus-4.5', skipEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
 
@@ -415,7 +415,7 @@ describe('commands/solve', () => {
   });
 
   it('should use config file model when --model option is not specified', async () => {
-    const promise = cmdSolve('12345', { noEval: true });
+    const promise = cmdSolve('12345', { skipEval: true });
     jest.advanceTimersByTime(1000);
     await promise;
 
@@ -429,7 +429,7 @@ describe('commands/solve', () => {
     it('should report solving status before Phase 1 when service URL is set', async () => {
       getServiceUrl.mockReturnValue('http://localhost:8000');
 
-      const promise = cmdSolve('12345', { noEval: true });
+      const promise = cmdSolve('12345', { skipEval: true });
       jest.advanceTimersByTime(1000);
       await promise;
 
@@ -444,7 +444,7 @@ describe('commands/solve', () => {
     it('should report solving before solved in call order', async () => {
       getServiceUrl.mockReturnValue('http://localhost:8000');
 
-      const promise = cmdSolve('12345', { noEval: true });
+      const promise = cmdSolve('12345', { skipEval: true });
       jest.advanceTimersByTime(1000);
       await promise;
 
@@ -463,7 +463,7 @@ describe('commands/solve', () => {
     it('should not report solving when service URL is empty', async () => {
       getServiceUrl.mockReturnValue('');
 
-      const promise = cmdSolve('12345', { noEval: true });
+      const promise = cmdSolve('12345', { skipEval: true });
       jest.advanceTimersByTime(1000);
       await promise;
 
@@ -482,7 +482,7 @@ describe('commands/solve', () => {
         return Promise.resolve({ status: 200, data: [] });
       });
 
-      const promise = cmdSolve('12345', { noEval: true });
+      const promise = cmdSolve('12345', { skipEval: true });
       jest.advanceTimersByTime(1000);
       await promise;
 
@@ -493,7 +493,7 @@ describe('commands/solve', () => {
     it('should report solved status after Phase 2 when service URL is set', async () => {
       getServiceUrl.mockReturnValue('http://localhost:8000');
 
-      const promise = cmdSolve('12345', { noEval: true });
+      const promise = cmdSolve('12345', { skipEval: true });
       jest.advanceTimersByTime(1000);
       await promise;
 
@@ -527,7 +527,7 @@ describe('commands/solve', () => {
     });
 
     it('should upload solution summary when serviceUrl is configured', async () => {
-      await cmdSolve('12345', { noEval: true });
+      await cmdSolve('12345', { skipEval: true });
 
       expect(extractSolutionSummary).toHaveBeenCalled();
       expect(updateSolutionSummary).toHaveBeenCalled();
@@ -536,7 +536,7 @@ describe('commands/solve', () => {
     it('should not upload summary when serviceUrl is not configured', async () => {
       getServiceUrl.mockReturnValue('');
 
-      await cmdSolve('12345', { noEval: true });
+      await cmdSolve('12345', { skipEval: true });
 
       expect(updateSolutionSummary).not.toHaveBeenCalled();
     });
@@ -544,7 +544,42 @@ describe('commands/solve', () => {
     it('should not crash when summary upload fails', async () => {
       updateSolutionSummary.mockRejectedValue(new Error('Network error'));
 
-      await expect(cmdSolve('12345', { noEval: true })).resolves.toBeUndefined();
+      await expect(cmdSolve('12345', { skipEval: true })).resolves.toBeUndefined();
+    });
+  });
+
+  describe('--skip-eval flag (B-23-01 regression)', () => {
+    it('should skip evaluation when skipEval is true', async () => {
+      const promise = cmdSolve('12345', { skipEval: true });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      expect(cmdEvaluate).not.toHaveBeenCalled();
+    });
+
+    it('should run evaluation when skipEval is false', async () => {
+      const promise = cmdSolve('12345', { skipEval: false });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      expect(cmdEvaluate).toHaveBeenCalledWith('12345', expect.any(Object));
+    });
+
+    it('should run evaluation when skipEval is absent', async () => {
+      const promise = cmdSolve('12345', {});
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      expect(cmdEvaluate).toHaveBeenCalledWith('12345', expect.any(Object));
+    });
+
+    it('should NOT skip evaluation when old noEval key is used (regression)', async () => {
+      const promise = cmdSolve('12345', { noEval: true });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      // noEval is no longer recognized, so evaluation should still run
+      expect(cmdEvaluate).toHaveBeenCalledWith('12345', expect.any(Object));
     });
   });
 });
