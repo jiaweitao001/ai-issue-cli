@@ -141,6 +141,30 @@ describe('renderLine', () => {
     expect(msg).toContain('300');
     expect(msg).toContain('DB error');
   });
+
+  test('renders issue line with resource_name', () => {
+    renderLine({ type: 'issue', number: 123, status: 'triaged', reason: 'needs triage', resource_name: 'azurerm_network_interface' }, false);
+    expect(log).toHaveBeenCalled();
+    const msg = log.mock.calls[0][0];
+    expect(msg).toContain('[azurerm_network_interface]');
+  });
+
+  test('renders issue line with recommendation', () => {
+    renderLine({ type: 'issue', number: 123, status: 'triaged', reason: 'needs triage', recommendation: 'PROCEED' }, false);
+    expect(log).toHaveBeenCalled();
+    const msg = log.mock.calls[0][0];
+    expect(msg).toContain('PROCEED');
+  });
+
+  test('handles missing triage fields gracefully', () => {
+    renderLine({ type: 'issue', number: 123, status: 'solved', reason: 'closed with merged PR' }, false);
+    expect(log).toHaveBeenCalled();
+    const msg = log.mock.calls[0][0];
+    expect(msg).toContain('123');
+    expect(msg).toContain('solved');
+    expect(msg).not.toContain('[');
+    expect(msg).not.toContain('PROCEED');
+  });
 });
 
 
@@ -222,11 +246,11 @@ describe('cmdImport', () => {
     expect(params.limit).toBe('100');
   });
 
-  test('passes skipTriage flag', async () => {
+  test('does not include skip_triage in queryParams', async () => {
     serviceRequestStream.mockResolvedValue(null);
-    await cmdImport({ skipTriage: true });
+    await cmdImport({ mode: 'full' });
     const params = serviceRequestStream.mock.calls[0][2];
-    expect(params.skip_triage).toBe('true');
+    expect(params).not.toHaveProperty('skip_triage');
   });
 
   test('passes dryRun flag', async () => {

@@ -218,7 +218,6 @@ program
   .option('--since <period>', 'Only import issues after this date (e.g. 30d, 2025-01-01)')
   .option('--labels <labels>', 'Comma-separated label filter')
   .option('--limit <n>', 'Max issues to import')
-  .option('--skip-triage', 'Skip LLM triage, use rule-based inference only')
   .option('--dry-run', 'Preview mode, do not write to DB')
   .option('--force', 'Re-import issues already in pipeline (overwrite)')
   .option('--status', 'Check import progress')
