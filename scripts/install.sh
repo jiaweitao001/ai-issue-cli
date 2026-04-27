@@ -52,6 +52,7 @@ case $choice in
     echo "📦 Installing skills dependencies..."
     cd "$SCRIPT_DIR/skills/github-issue-fetcher" && npm install --silent
     cd "$SCRIPT_DIR/skills/code-similarity-finder" && npm install --silent
+    cd "$SCRIPT_DIR/skills/similar-issue-finder" && npm install --silent
     echo "✅ Skills installed"
     
     echo ""
@@ -79,6 +80,7 @@ case $choice in
     echo "📦 Installing skills dependencies..."
     cd "$SCRIPT_DIR/skills/github-issue-fetcher" && npm install --silent
     cd "$SCRIPT_DIR/skills/code-similarity-finder" && npm install --silent
+    cd "$SCRIPT_DIR/skills/similar-issue-finder" && npm install --silent
     echo "✅ Skills installed"
     
     echo ""
