@@ -71,14 +71,14 @@ Start from a clean working tree when possible. `ai-issue solve --branch` will cr
 
 ### Optional: Azure CLI for service-backed mode
 
-Service commands use Azure CLI Bearer token first, then API key fallback.
+Service-backed commands are designed to authenticate through Azure CLI. Log in once before using `triage`, `pipeline`, `watch`, `import`, `metrics`, or `search`.
 
 ```bash
 az login
 az account show
 ```
 
-Install Azure CLI from <https://aka.ms/install-az-cli> if `az` is missing.
+Install Azure CLI from <https://aka.ms/install-az-cli> if `az` is missing. API-key authentication still exists as a fallback for older deployments, but most users should use `az login`.
 
 ## 3. Install AI Issue CLI
 
@@ -119,25 +119,32 @@ Create the config file and report directory:
 ai-issue init
 ```
 
-Set the target repo path and issue URL prefix:
+Set the target repo path:
 
 ```bash
 ai-issue config set repoPath /path/to/target-repo
+```
+
+Only set `issueBaseUrl` if you are not using the default repository (`https://github.com/hashicorp/terraform-provider-azurerm/issues`):
+
+```bash
 ai-issue config set issueBaseUrl https://github.com/owner/repo/issues
 ```
 
 The `issueBaseUrl` value must end with `/issues`. The CLI derives `owner/repo` from this URL for most service calls.
 
-Optional but common settings:
+The remaining defaults are ready to use:
+
+| Config | Default | When to change it |
+|--------|---------|-------------------|
+| `reportPath` | `~/.ai-issue/reports` | Use a different report output directory. |
+| `model` | `claude-sonnet-4.5` | Prefer another Copilot model. You can also use `--model` per run. |
+| `logLevel` | `info` | Usually leave this alone; use `--debug` for troubleshooting. |
+| `forkRemote` | `origin` fallback | Set this only if `--push-fork` should push to another remote. |
+
+For example, only configure `forkRemote` when needed:
 
 ```bash
-# Override the default report directory
-ai-issue config set reportPath ~/.ai-issue/reports
-
-# Change the Copilot model for future runs
-ai-issue config set model claude-sonnet-4.5
-
-# Use a non-origin remote when --push-fork is enabled
 ai-issue config set forkRemote my-fork
 ```
 
@@ -163,19 +170,13 @@ If your `issueBaseUrl` is not enough to derive the GitHub repo, set it explicitl
 ai-issue config set repo owner/repo
 ```
 
-For CLI service commands, Azure CLI auth is preferred:
+Authenticate with Azure CLI:
 
 ```bash
 az login
 ```
 
-If your deployment uses API-key auth, or if your Phase 1 historical issue MCP search endpoints require `X-Api-Key`, also set the API key:
-
-```bash
-ai-issue config set serviceApiKey your-api-key
-```
-
-The distinction matters because the top-level CLI service client can use Azure CLI tokens, while the `similar-issue-finder` MCP skill receives `AI_ISSUE_SERVICE_API_KEY` and sends it as `X-Api-Key`.
+API-key auth is only a legacy fallback. If your service admin tells you the deployment still requires an API key, set `serviceApiKey`; otherwise skip it.
 
 ## 6. Run environment checks
 
@@ -498,29 +499,24 @@ ai-issue check
 
 ### Service auth fails
 
-Try Azure CLI auth first:
+Use Azure CLI auth:
 
 ```bash
 az login
 az account get-access-token --output json
 ```
 
-If your deployment uses API keys:
-
-```bash
-ai-issue config set serviceApiKey your-api-key
-```
+If this still fails, confirm that your Azure account has access to the service. API-key auth is a legacy fallback; set `serviceApiKey` only if your service admin tells you to.
 
 ### Historical issue search fails during Phase 1
 
-Confirm service settings:
+Confirm the service URL first:
 
 ```bash
 ai-issue config get serviceUrl
-ai-issue config get serviceApiKey
 ```
 
-The `similar-issue-finder` MCP skill sends `AI_ISSUE_SERVICE_API_KEY` as `X-Api-Key`; configure `serviceApiKey` if that endpoint requires it.
+If your deployment still protects historical-search endpoints with API-key auth, set `serviceApiKey`; otherwise Azure CLI login is the expected path.
 
 ### The run created changes on the wrong branch
 
