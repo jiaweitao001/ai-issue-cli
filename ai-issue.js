@@ -18,7 +18,7 @@ const { cmdInit } = require('./lib/commands/init');
 const { cmdValidate } = require('./lib/commands/validate');
 const { cmdTriage } = require('./lib/commands/triage');
 const { cmdWatch } = require('./lib/commands/watch');
-const { cmdPipeline } = require('./lib/commands/pipeline');
+const { cmdPipeline, cmdMarkPrCreated } = require('./lib/commands/pipeline');
 const { cmdRegister } = require('./lib/commands/register');
 const { cmdMetrics } = require('./lib/commands/metrics');
 const { cmdSearch } = require('./lib/commands/search-cmd');
@@ -141,9 +141,9 @@ program
   });
 
 // Command: pipeline
-program
+const pipelineCommand = program
   .command('pipeline')
-  .description('View issue pipeline status from ai-issue-service')
+  .description('View or update issue pipeline status from ai-issue-service')
   .option('--owner <owner>', 'Filter by assigned owner')
   .option('--status <status>', 'Filter by status (triaged, queued, solving, solved, failed)')
   .option('--limit <number>', 'Max entries to return', '20')
@@ -153,6 +153,17 @@ program
       ...options,
       limit: parseInt(options.limit || '20'),
     });
+  });
+
+pipelineCommand
+  .command('mark-pr-created <issue>')
+  .description('Manually mark an issue as PR-created in ai-issue-service')
+  .requiredOption('--pr-url <url>', 'GitHub pull request URL')
+  .option('--repo <owner/name>', 'Repository in owner/name form (defaults to configured repo)')
+  .option('--pr-number <number>', 'Pull request number (defaults to number parsed from --pr-url)')
+  .action(async (issueNumber, cmdOpts) => {
+    const options = { ...program.opts(), ...cmdOpts };
+    await cmdMarkPrCreated(issueNumber, options);
   });
 
 // Command: register

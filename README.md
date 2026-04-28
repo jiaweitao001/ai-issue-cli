@@ -133,6 +133,7 @@ Commands:
 | `ai-issue validate [target]` | No | Validate generated report format. A direct file path is the most reliable target. |
 | `ai-issue triage <issue>` | Yes | Trigger service triage and display recommendation, type, complexity, solvability, owner, duplicate, and reasoning. |
 | `ai-issue pipeline` | Yes | List pipeline entries with optional owner/status filters. |
+| `ai-issue pipeline mark-pr-created <issue> --pr-url <url>` | Yes | Manually mark a pipeline issue as PR-created after a PR exists. |
 | `ai-issue watch --owner <owner>` | Yes | Poll queued issues assigned to an owner and solve them locally. |
 | `ai-issue register --pat <token>` | Yes | Register an engineer GitHub PAT for PR creation after Trello approval. |
 | `ai-issue metrics` | Yes | Show team metrics such as solve rate, response time, and per-engineer breakdown. |
@@ -169,6 +170,7 @@ Service-backed examples:
 ```bash
 ai-issue triage 30340
 ai-issue pipeline --owner alice --status queued
+ai-issue pipeline mark-pr-created 30340 --pr-url https://github.com/hashicorp/terraform-provider-azurerm/pull/30345
 ai-issue watch --owner alice --interval 300 --push-fork
 
 ai-issue import --dry-run --since 30d --limit 100
@@ -191,7 +193,7 @@ With `ai-issue-service`, the CLI participates in a team pipeline:
 3. Engineers run `ai-issue watch --owner <owner>` locally.
 4. The watch daemon marks issues as `solving`, runs `solve --branch --force`, and reports `solved` or `failed`.
 5. Trello boards can show manager-wide and engineer-specific views.
-6. Engineers approve solved cards to create PRs using the PAT registered by `ai-issue register`.
+6. Engineers approve solved cards to create PRs using the PAT registered by `ai-issue register`, or manually record an existing PR with `ai-issue pipeline mark-pr-created`.
 7. Managers use `metrics` and `search` to inspect throughput and prior solutions.
 
 Service authentication behavior:
