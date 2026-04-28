@@ -338,6 +338,16 @@ ai-issue pipeline --owner alice
 ai-issue pipeline --status queued --limit 50
 ```
 
+### Manually record an existing PR
+
+If a PR already exists outside the automated Trello approval flow, mark the issue as PR-created and let the service sync Trello:
+
+```bash
+ai-issue pipeline mark-pr-created 30340 --pr-url https://github.com/hashicorp/terraform-provider-azurerm/pull/30345
+```
+
+Use `--repo owner/name` when the configured repository is not the issue repository. The CLI parses `--pr-number` from the URL unless you pass it explicitly.
+
 ### Import historical issues
 
 Preview first:
@@ -440,6 +450,7 @@ ai-issue --concurrency 2 batch 30340 31316
 # Service-backed workflow
 ai-issue triage 30340
 ai-issue pipeline --owner alice
+ai-issue pipeline mark-pr-created 30340 --pr-url https://github.com/hashicorp/terraform-provider-azurerm/pull/30345
 ai-issue import --dry-run --since 30d
 ai-issue register --pat ghp_xxx --owner alice
 ai-issue watch --owner alice --push-fork
