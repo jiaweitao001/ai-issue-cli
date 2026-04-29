@@ -40,6 +40,7 @@ const {
   parseGitHubPrUrl,
   formatEntry,
   normalizePipelineEntries,
+  sortPipelineEntriesByIssue,
 } = require('../../lib/commands/pipeline');
 const { serviceRequest, getServiceUrl } = require('../../lib/service-client');
 const { log, error, info, success, warning } = require('../../lib/logger');
@@ -364,5 +365,168 @@ describe('cmdPipeline', () => {
     expect(allLogs).toContain('queued: 2');
     expect(allLogs).toContain('solved: 1');
     expect(allLogs).toContain('total: 3');
+  });
+
+  it('renders entries in ascending issue-number order regardless of service order', async () => {
+    serviceRequest.mockResolvedValue({
+      status: 200,
+      data: [
+        { issue: 32263, status: 'triaged', title: 'newer' },
+        { issue: 32244, status: 'triaged', title: 'older' },
+        { issue: 32258, status: 'triaged', title: 'middle' },
+      ],
+    });
+
+    await cmdPipeline({});
+
+    const issueLines = log.mock.calls
+      .map((c) => c[0])
+      .filter((s) => typeof s === 'string' && /#\d+/.test(s));
+    const issueNumbers = issueLines
+      .map((line) => line.match(/#(\d+)/))
+      .filter(Boolean)
+      .map((m) => Number(m[1]));
+
+    expect(issueNumbers).toEqual([32244, 32258, 32263]);
+  });
+
+  it('sorts numerically rather than lexicographically', async () => {
+    serviceRequest.mockResolvedValue({
+      status: 200,
+      data: [
+        { issue: 100, status: 'triaged' },
+        { issue: 9, status: 'triaged' },
+        { issue: 20, status: 'triaged' },
+      ],
+    });
+
+    await cmdPipeline({});
+
+    const issueNumbers = log.mock.calls
+      .map((c) => c[0])
+      .filter((s) => typeof s === 'string')
+      .map((line) => line.match(/#(\d+)/))
+      .filter(Boolean)
+      .map((m) => Number(m[1]));
+
+    expect(issueNumbers).toEqual([9, 20, 100]);
+  });
+
+  it('keeps forwarding filters and limit unchanged when sorting is applied', async () => {
+    serviceRequest.mockResolvedValue({
+      status: 200,
+      data: [
+        { issue: 30, status: 'queued' },
+        { issue: 10, status: 'queued' },
+        { issue: 20, status: 'queued' },
+      ],
+    });
+
+    await cmdPipeline({ owner: 'alice', status: 'queued', limit: 2000 });
+
+    expect(serviceRequest).toHaveBeenCalledWith(
+      'GET',
+      '/pipeline',
+      null,
+      expect.objectContaining({
+        owner: 'alice',
+        status: 'queued',
+        limit: 2000,
+      })
+    );
+
+    const issueNumbers = log.mock.calls
+      .map((c) => c[0])
+      .filter((s) => typeof s === 'string')
+      .map((line) => line.match(/#(\d+)/))
+      .filter(Boolean)
+      .map((m) => Number(m[1]));
+
+    expect(issueNumbers).toEqual([10, 20, 30]);
+  });
+
+  it('does not affect summary counts after sorting', async () => {
+    serviceRequest.mockResolvedValue({
+      status: 200,
+      data: [
+        { issue: 3, status: 'solved' },
+        { issue: 1, status: 'queued' },
+        { issue: 2, status: 'queued' },
+      ],
+    });
+
+    await cmdPipeline({});
+
+    const allLogs = log.mock.calls.map((c) => c[0]).join('\n');
+    const issueNumbers = log.mock.calls
+      .map((c) => c[0])
+      .filter((s) => typeof s === 'string')
+      .map((line) => line.match(/#(\d+)/))
+      .filter(Boolean)
+      .map((m) => Number(m[1]));
+
+    expect(issueNumbers).toEqual([1, 2, 3]);
+    expect(allLogs).toContain('queued: 2');
+    expect(allLogs).toContain('solved: 1');
+    expect(allLogs).toContain('total: 3');
+  });
+});
+
+describe('sortPipelineEntriesByIssue', () => {
+  it('sorts by numeric issue number ascending', () => {
+    const sorted = sortPipelineEntriesByIssue([
+      { issue: 32263 },
+      { issue: 32244 },
+      { issue: 32258 },
+    ]);
+
+    expect(sorted.map((e) => e.issue)).toEqual([32244, 32258, 32263]);
+  });
+
+  it('does not mutate the input array', () => {
+    const input = [{ issue: 3 }, { issue: 1 }, { issue: 2 }];
+    const original = [...input];
+
+    const sorted = sortPipelineEntriesByIssue(input);
+
+    expect(input).toEqual(original);
+    expect(sorted).not.toBe(input);
+  });
+
+  it('coerces string issue numbers and treats numeric strings as numbers', () => {
+    const sorted = sortPipelineEntriesByIssue([
+      { issue: '100' },
+      { issue: '9' },
+      { issue: '20' },
+    ]);
+
+    expect(sorted.map((e) => e.issue)).toEqual(['9', '20', '100']);
+  });
+
+  it('places entries with missing or non-numeric issue numbers at the end, preserving their order', () => {
+    const sorted = sortPipelineEntriesByIssue([
+      { issue: 'abc', tag: 'a' },
+      { issue: 10, tag: 'b' },
+      { issue: null, tag: 'c' },
+      { issue: 2, tag: 'd' },
+    ]);
+
+    expect(sorted.map((e) => e.tag)).toEqual(['d', 'b', 'a', 'c']);
+  });
+
+  it('keeps original relative order when issue numbers are equal', () => {
+    const sorted = sortPipelineEntriesByIssue([
+      { issue: 5, tag: 'first' },
+      { issue: 5, tag: 'second' },
+      { issue: 5, tag: 'third' },
+    ]);
+
+    expect(sorted.map((e) => e.tag)).toEqual(['first', 'second', 'third']);
+  });
+
+  it('returns an empty array for non-array input', () => {
+    expect(sortPipelineEntriesByIssue(null)).toEqual([]);
+    expect(sortPipelineEntriesByIssue(undefined)).toEqual([]);
+    expect(sortPipelineEntriesByIssue('oops')).toEqual([]);
   });
 });
