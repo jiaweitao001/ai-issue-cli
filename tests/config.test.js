@@ -241,5 +241,70 @@ describe('config', () => {
       
       expect(fs.mkdirSync).toHaveBeenCalledWith('/new/reports', { recursive: true });
     });
+
+    describe('serviceUrl validation', () => {
+      const baseConfig = {
+        repoPath: '/valid/path',
+        issueBaseUrl: 'https://github.com/test/repo/issues',
+        reportPath: '/valid/reports',
+      };
+
+      it('should accept empty serviceUrl (service integration is optional)', () => {
+        const { valid, errors } = validateConfig({ ...baseConfig, serviceUrl: '' });
+        expect(valid).toBe(true);
+        expect(errors).toHaveLength(0);
+      });
+
+      it('should accept origin-only https URL', () => {
+        const { valid } = validateConfig({ ...baseConfig, serviceUrl: 'https://svc.example.com' });
+        expect(valid).toBe(true);
+      });
+
+      it('should accept origin-only URL with trailing slash', () => {
+        const { valid } = validateConfig({ ...baseConfig, serviceUrl: 'https://svc.example.com/' });
+        expect(valid).toBe(true);
+      });
+
+      it('should accept localhost http URL with port', () => {
+        const { valid } = validateConfig({ ...baseConfig, serviceUrl: 'http://localhost:8000' });
+        expect(valid).toBe(true);
+      });
+
+      it('should reject URL with sub-path (origin-only invariant)', () => {
+        const { valid, errors } = validateConfig({ ...baseConfig, serviceUrl: 'https://svc.example.com/api' });
+        expect(valid).toBe(false);
+        expect(errors.some(e => e.includes('origin-only'))).toBe(true);
+      });
+
+      it('should reject URL with deeper sub-path', () => {
+        const { valid, errors } = validateConfig({ ...baseConfig, serviceUrl: 'https://svc.example.com/api/v1' });
+        expect(valid).toBe(false);
+        expect(errors.some(e => e.includes('origin-only'))).toBe(true);
+      });
+
+      it('should reject URL missing schema', () => {
+        const { valid, errors } = validateConfig({ ...baseConfig, serviceUrl: 'svc.example.com' });
+        expect(valid).toBe(false);
+        expect(errors.some(e => e.includes('not a valid URL') || e.includes('http://'))).toBe(true);
+      });
+
+      it('should reject non-http(s) schema', () => {
+        const { valid, errors } = validateConfig({ ...baseConfig, serviceUrl: 'ftp://svc.example.com' });
+        expect(valid).toBe(false);
+        expect(errors.some(e => e.includes('http://'))).toBe(true);
+      });
+
+      it('should reject completely invalid URL', () => {
+        const { valid, errors } = validateConfig({ ...baseConfig, serviceUrl: '://not a url' });
+        expect(valid).toBe(false);
+        expect(errors.some(e => e.includes('not a valid URL'))).toBe(true);
+      });
+
+      it('should reject URL with query string', () => {
+        const { valid, errors } = validateConfig({ ...baseConfig, serviceUrl: 'https://svc.example.com?foo=bar' });
+        expect(valid).toBe(false);
+        expect(errors.some(e => e.includes('query/fragment'))).toBe(true);
+      });
+    });
   });
 });
