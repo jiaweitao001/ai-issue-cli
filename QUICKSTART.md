@@ -186,12 +186,13 @@ ai-issue check
 
 This checks:
 
-- Config validation.
+- Config validation (including `serviceUrl` format if set).
 - `GITHUB_TOKEN`.
 - Copilot CLI availability.
 - Target repository path.
 - Report directory.
 - Required prompt files.
+- `ai-issue-service` reachability and authentication, **only when `serviceUrl` is configured** (otherwise these two rows show ⏭ skipped).
 
 Fix any failed check before running `solve`.
 

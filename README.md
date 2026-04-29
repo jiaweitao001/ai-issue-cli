@@ -145,7 +145,7 @@ Commands:
 | `ai-issue init` | No | Create `~/.ai-issue/config.json` and the report directory. |
 | `ai-issue config [show|get|set|reset]` | No | Manage configuration. |
 | `ai-issue model [list|current]` | No | List the preset model catalog, print the current model id, or run an interactive picker (no subcommand). See "Switching models" above. |
-| `ai-issue check` | No | Validate config, `GITHUB_TOKEN`, Copilot CLI, repo path, report path, and prompt files. |
+| `ai-issue check` | No | Validate config, `GITHUB_TOKEN`, Copilot CLI, repo path, report path, prompt files, and (when `serviceUrl` is set) `ai-issue-service` reachability + authentication. |
 | `ai-issue solve <issue>` | No | Run research, solution/guidance, auto-review for code changes, and optional evaluation. |
 | `ai-issue evaluate <issue>` | No | Run evaluation against an existing analysis report. Alias: `eval`. |
 | `ai-issue batch <issues...>` | No | Solve multiple issues concurrently. |
@@ -302,6 +302,11 @@ The project uses CommonJS, JSDoc type annotations, and Jest. There is no build s
 | `GITHUB_TOKEN` check fails | Export `GITHUB_TOKEN` in the same shell that runs `ai-issue`. |
 | `Copilot CLI` check fails | Run `npm install -g @github/copilot`, then complete Copilot CLI authentication if prompted. |
 | Service commands fail auth | Run `az login`; if your deployment uses API keys, set `serviceApiKey` or `AI_ISSUE_SERVICE_API_KEY`. |
+| `Service Reachability` shows `INVALID_URL` / `INVALID_SCHEMA` in `ai-issue check` | `serviceUrl` must be the origin only (e.g. `https://svc.example.com`) using `http`/`https`; do not append paths, query strings, or fragments. The CLI builds `/health` and `/pipeline` from this base. |
+| `Service Reachability` shows `ENOTFOUND` / `ECONNREFUSED` / `ETIMEDOUT` | Verify VPN, corporate DNS, the backend process is up, and that the port/host in `serviceUrl` is correct. |
+| `Service Authentication` shows 401 with `credentialSent=Bearer` | Azure CLI access token was rejected. Run `az login` (the CLI caches `az account get-access-token` for 60s; wait or open a new shell to force refresh). |
+| `Service Authentication` shows 401 with `credentialSent=X-Api-Key` | The configured `serviceApiKey` is invalid or revoked. Update via `ai-issue config set serviceApiKey <new-key>`. |
+| `Service Authentication` shows ⚠️ "anonymous access" | The backend accepted the request without validating any credential. Verify the backend has `aad_tenant_id` and/or `api_key` configured for production. |
 | Historical issue MCP search fails | Confirm `serviceUrl` is set and, if required, configure `serviceApiKey` because the MCP skill sends `X-Api-Key`. |
 | `--no-eval` does not work | Use the current flag: `--skip-eval`. |
 | `import --skip-triage` is rejected | The option was removed; import always runs triage. |
