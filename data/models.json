@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": "2026-04-29",
+  "catalogVersion": "2026-04-30",
   "recommended": "claude-sonnet-4.6",
   "models": [
     {
@@ -18,6 +18,13 @@
       "tags": ["coding"]
     },
     {
+      "id": "claude-sonnet-4",
+      "displayName": "Claude Sonnet 4",
+      "vendor": "Anthropic",
+      "tier": "standard",
+      "tags": ["legacy"]
+    },
+    {
       "id": "claude-haiku-4.5",
       "displayName": "Claude Haiku 4.5",
       "vendor": "Anthropic",
@@ -32,11 +39,39 @@
       "tags": ["deep-reasoning"]
     },
     {
+      "id": "claude-opus-4.7-high",
+      "displayName": "Claude Opus 4.7 (high reasoning)",
+      "vendor": "Anthropic",
+      "tier": "premium",
+      "tags": ["deep-reasoning", "high"]
+    },
+    {
       "id": "claude-opus-4.7-xhigh",
       "displayName": "Claude Opus 4.7 (xhigh reasoning)",
       "vendor": "Anthropic",
       "tier": "premium",
       "tags": ["deep-reasoning", "xhigh"]
+    },
+    {
+      "id": "claude-opus-4.6",
+      "displayName": "Claude Opus 4.6",
+      "vendor": "Anthropic",
+      "tier": "premium",
+      "tags": ["deep-reasoning"]
+    },
+    {
+      "id": "claude-opus-4.5",
+      "displayName": "Claude Opus 4.5",
+      "vendor": "Anthropic",
+      "tier": "premium",
+      "tags": ["deep-reasoning", "legacy"]
+    },
+    {
+      "id": "gpt-5.5",
+      "displayName": "GPT-5.5",
+      "vendor": "OpenAI",
+      "tier": "premium",
+      "tags": ["deep-reasoning"]
     },
     {
       "id": "gpt-5.4",
@@ -46,11 +81,32 @@
       "tags": ["coding"]
     },
     {
+      "id": "gpt-5.4-mini",
+      "displayName": "GPT-5.4 mini",
+      "vendor": "OpenAI",
+      "tier": "fast",
+      "tags": ["cheap", "fast"]
+    },
+    {
       "id": "gpt-5.3-codex",
       "displayName": "GPT-5.3 Codex",
       "vendor": "OpenAI",
       "tier": "standard",
       "tags": ["coding", "codex"]
+    },
+    {
+      "id": "gpt-5.2-codex",
+      "displayName": "GPT-5.2 Codex",
+      "vendor": "OpenAI",
+      "tier": "standard",
+      "tags": ["coding", "codex", "legacy"]
+    },
+    {
+      "id": "gpt-5.2",
+      "displayName": "GPT-5.2",
+      "vendor": "OpenAI",
+      "tier": "standard",
+      "tags": ["coding", "legacy"]
     },
     {
       "id": "gpt-5-mini",
