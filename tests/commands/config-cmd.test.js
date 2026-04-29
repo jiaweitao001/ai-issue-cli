@@ -63,6 +63,44 @@ describe('commands/config-cmd', () => {
       expect(() => cmdConfig('set', 'repoPath')).toThrow('process.exit called');
       expect(error).toHaveBeenCalled();
     });
+
+    it('should warn when setting model to an unknown id', () => {
+      const modelCatalog = require('../../lib/model-catalog');
+      modelCatalog._resetCache();
+      modelCatalog._resetWarned();
+      // catalog read returns a valid catalog so validator can compare against it
+      fs.readFileSync.mockImplementation((p) => {
+        if (typeof p === 'string' && p.endsWith('models.json')) {
+          return JSON.stringify({
+            schemaVersion: 1,
+            recommended: 'claude-sonnet-4.6',
+            models: [{ id: 'claude-sonnet-4.6', vendor: 'Anthropic' }],
+          });
+        }
+        return JSON.stringify({ model: 'gpt-4' });
+      });
+      fs.existsSync.mockImplementation((p) => {
+        if (typeof p === 'string' && p.endsWith(`${require('path').sep}models.json`)) {
+          return p.includes('lib') === false; // built-in path under data/, not the override
+        }
+        return true;
+      });
+
+      const { warning } = require('../../lib/logger');
+      cmdConfig('set', 'model', 'totally-bogus-model-id');
+      expect(warning).toHaveBeenCalledWith(
+        expect.stringContaining('totally-bogus-model-id')
+      );
+    });
+
+    it('should NOT warn when setting non-model keys', () => {
+      const modelCatalog = require('../../lib/model-catalog');
+      modelCatalog._resetCache();
+      modelCatalog._resetWarned();
+      const { warning } = require('../../lib/logger');
+      cmdConfig('set', 'repoPath', '/some/path');
+      expect(warning).not.toHaveBeenCalled();
+    });
   });
 
   describe('get action', () => {
