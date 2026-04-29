@@ -39,6 +39,7 @@ const {
   cmdPipeline,
   parseGitHubPrUrl,
   formatEntry,
+  formatOwner,
   normalizePipelineEntries,
   sortPipelineEntriesByIssue,
 } = require('../../lib/commands/pipeline');
@@ -254,6 +255,48 @@ describe('formatEntry', () => {
 
     expect(row).toContain('#7');
     expect(row).toContain('-');
+  });
+
+  it('renders the friendly assignee name when available', () => {
+    const row = formatEntry({
+      issue: 1,
+      status: 'queued',
+      title: '',
+      assigned_to: 'jiaweitao',
+      assigned_to_name: 'Jiawei Tao',
+    });
+    expect(row).toContain('jiaweitao (Jiawei Tao)');
+  });
+});
+
+describe('formatOwner', () => {
+  it('returns alias only when no friendly name is provided', () => {
+    expect(formatOwner({ assigned_to: 'jiaweitao' })).toBe('jiaweitao');
+  });
+
+  it('returns "-" for unassigned entries', () => {
+    expect(formatOwner({})).toBe('-');
+  });
+
+  it('renders alias (Name) when both fields are present', () => {
+    expect(
+      formatOwner({ assigned_to: 'jiaweitao', assigned_to_name: 'Jiawei Tao' })
+    ).toBe('jiaweitao (Jiawei Tao)');
+  });
+
+  it('does not duplicate the alias when name === alias', () => {
+    expect(
+      formatOwner({ assigned_to: 'alice', assigned_to_name: 'alice' })
+    ).toBe('alice');
+  });
+
+  it('truncates to alias when the combined string exceeds 22 chars', () => {
+    expect(
+      formatOwner({
+        assigned_to: 'jiaweitao',
+        assigned_to_name: 'A Very Long Display Name That Will Not Fit',
+      })
+    ).toBe('jiaweitao');
   });
 });
 

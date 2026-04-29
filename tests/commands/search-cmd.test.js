@@ -21,7 +21,7 @@ jest.mock('../../lib/service-client', () => ({
 }));
 
 const fs = require('fs');
-const { cmdSearch, displaySearchResults } = require('../../lib/commands/search-cmd');
+const { cmdSearch, displaySearchResults, formatSearchOwner } = require('../../lib/commands/search-cmd');
 const { serviceRequest, getServiceUrl } = require('../../lib/service-client');
 const { log, error, info } = require('../../lib/logger');
 
@@ -249,6 +249,46 @@ describe('commands/search-cmd', () => {
       // Should not say "1 matches"
       const wrongHeader = logCalls.find(l => l && l.includes('1 matches'));
       expect(wrongHeader).toBeUndefined();
+    });
+
+    it('should render assigned_to_name when present', () => {
+      displaySearchResults('timeout', {
+        results: [{
+          issue: 1,
+          title: 't',
+          status: 'queued',
+          assigned_to: 'jiaweitao',
+          assigned_to_name: 'Jiawei Tao',
+          match_score: 1,
+        }],
+        total: 1,
+      });
+
+      const logCalls = log.mock.calls.map(c => c[0]);
+      const output = logCalls.join('\n');
+      expect(output).toContain('Owner: jiaweitao (Jiawei Tao)');
+    });
+  });
+
+  describe('formatSearchOwner', () => {
+    it('returns "-" when assigned_to is missing', () => {
+      expect(formatSearchOwner({})).toBe('-');
+    });
+
+    it('returns alias only when assigned_to_name is missing', () => {
+      expect(formatSearchOwner({ assigned_to: 'jiaweitao' })).toBe('jiaweitao');
+    });
+
+    it('renders alias (Name) when both are present', () => {
+      expect(
+        formatSearchOwner({ assigned_to: 'jiaweitao', assigned_to_name: 'Jiawei Tao' })
+      ).toBe('jiaweitao (Jiawei Tao)');
+    });
+
+    it('does not duplicate when name === alias', () => {
+      expect(
+        formatSearchOwner({ assigned_to: 'alice', assigned_to_name: 'alice' })
+      ).toBe('alice');
     });
   });
 });
