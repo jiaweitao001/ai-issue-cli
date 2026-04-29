@@ -116,9 +116,9 @@ program
 // Command: check
 program
   .command('check')
-  .description('Check environment configuration')
-  .action(() => {
-    cmdCheck();
+  .description('Check environment configuration (including optional ai-issue-service connectivity)')
+  .action(async () => {
+    await cmdCheck();
   });
 
 // Command: validate
