@@ -338,6 +338,8 @@ ai-issue pipeline --owner alice
 ai-issue pipeline --status queued --limit 50
 ```
 
+Entries are sorted by issue number in ascending order, so the newest issues appear at the bottom of the list.
+
 ### Manually record an existing PR
 
 If a PR already exists outside the automated Trello approval flow, mark the issue as PR-created and let the service sync Trello:

@@ -132,7 +132,7 @@ Commands:
 | `ai-issue batch <issues...>` | No | Solve multiple issues concurrently. |
 | `ai-issue validate [target]` | No | Validate generated report format. A direct file path is the most reliable target. |
 | `ai-issue triage <issue>` | Yes | Trigger service triage and display recommendation, type, complexity, solvability, owner, duplicate, and reasoning. |
-| `ai-issue pipeline` | Yes | List pipeline entries with optional owner/status filters. |
+| `ai-issue pipeline` | Yes | List pipeline entries with optional owner/status filters. Entries are sorted by issue number ascending, so the newest issues appear at the bottom. |
 | `ai-issue pipeline mark-pr-created <issue> --pr-url <url>` | Yes | Manually mark a pipeline issue as PR-created after a PR exists. |
 | `ai-issue watch --owner <owner>` | Yes | Poll queued issues assigned to an owner and solve them locally. |
 | `ai-issue register --pat <token>` | Yes | Register an engineer GitHub PAT for PR creation after Trello approval. |
