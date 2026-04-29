@@ -9,14 +9,20 @@ jest.mock('os', () => ({
 jest.mock('fs');
 jest.mock('child_process');
 
+// Mock logger
 const { mockCreateLogger } = require('../helpers/mock-logger');
 jest.mock('../../lib/logger', () => mockCreateLogger());
 
+// Mock service-client
 jest.mock('../../lib/service-client', () => ({
   serviceRequest: jest.fn(),
   getServiceUrl: jest.fn(() => 'https://service.example.com'),
+  getServiceApiKey: jest.fn(() => 'test-key'),
 }));
 
+// Mock config to avoid env-var pollution. cmdPipeline + cmdMarkPrCreated
+// both call loadConfig() at runtime; mocking it directly is the pattern
+// recommended in CLAUDE.md.
 const mockLoadConfig = jest.fn();
 jest.mock('../../lib/config', () => ({
   loadConfig: mockLoadConfig,
@@ -30,10 +36,13 @@ jest.mock('../../lib/config', () => ({
 
 const {
   cmdMarkPrCreated,
+  cmdPipeline,
   parseGitHubPrUrl,
+  formatEntry,
+  normalizePipelineEntries,
 } = require('../../lib/commands/pipeline');
 const { serviceRequest, getServiceUrl } = require('../../lib/service-client');
-const { log, success, warning } = require('../../lib/logger');
+const { log, error, info, success, warning } = require('../../lib/logger');
 
 const PR_URL = 'https://github.com/hashicorp/terraform-provider-azurerm/pull/123';
 
@@ -199,5 +208,161 @@ describe('cmdMarkPrCreated', () => {
     await expect(cmdMarkPrCreated('456', { prUrl: PR_URL }))
       .rejects.toThrow('Service URL not configured');
     expect(serviceRequest).not.toHaveBeenCalled();
+  });
+});
+
+describe('normalizePipelineEntries', () => {
+  it('returns the input unchanged when given an array', () => {
+    const arr = [{ issue: 1 }, { issue: 2 }];
+    expect(normalizePipelineEntries(arr)).toBe(arr);
+  });
+
+  it('returns an empty array for non-array values', () => {
+    expect(normalizePipelineEntries(null)).toEqual([]);
+    expect(normalizePipelineEntries(undefined)).toEqual([]);
+    expect(normalizePipelineEntries('oops')).toEqual([]);
+    expect(normalizePipelineEntries({ unexpected: true })).toEqual([]);
+    expect(normalizePipelineEntries(42)).toEqual([]);
+  });
+});
+
+describe('formatEntry', () => {
+  it('renders the issue number, status, title, owner and resource', () => {
+    const row = formatEntry({
+      issue: 12345,
+      status: 'triaged',
+      recommendation: 'PROCEED',
+      title: 'Some bug title',
+      assigned_to: 'alice',
+      resource_name: 'azurerm_storage_account',
+    });
+
+    expect(row).toContain('#12345');
+    expect(row).toContain('triaged');
+    expect(row).toContain('Some bug title');
+    expect(row).toContain('alice');
+    expect(row).toContain('azurerm_storage_account');
+  });
+
+  it('falls back to "-" for missing owner and resource', () => {
+    const row = formatEntry({
+      issue: 7,
+      status: 'queued',
+      title: '',
+    });
+
+    expect(row).toContain('#7');
+    expect(row).toContain('-');
+  });
+});
+
+describe('cmdPipeline', () => {
+  beforeEach(() => {
+    serviceRequest.mockResolvedValue({ status: 200, data: [] });
+  });
+
+  it('queries /pipeline with default parameters', async () => {
+    await cmdPipeline({});
+
+    expect(serviceRequest).toHaveBeenCalledWith(
+      'GET',
+      '/pipeline',
+      null,
+      expect.objectContaining({
+        owner: undefined,
+        status: undefined,
+        limit: 20,
+      })
+    );
+  });
+
+  it('forwards --owner, --status and --limit to the service', async () => {
+    await cmdPipeline({ owner: 'alice', status: 'queued', limit: 50 });
+
+    expect(serviceRequest).toHaveBeenCalledWith(
+      'GET',
+      '/pipeline',
+      null,
+      expect.objectContaining({
+        owner: 'alice',
+        status: 'queued',
+        limit: 50,
+      })
+    );
+  });
+
+  it('reports an error and stops rendering when HTTP status is not 200', async () => {
+    serviceRequest.mockResolvedValue({
+      status: 500,
+      data: { detail: 'boom' },
+    });
+
+    await cmdPipeline({});
+
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining('Pipeline query failed (HTTP 500)')
+    );
+
+    const issueLines = log.mock.calls
+      .map((c) => c[0])
+      .filter((s) => typeof s === 'string' && /#\d+/.test(s));
+    expect(issueLines).toHaveLength(0);
+  });
+
+  it('reports an error when the service request rejects', async () => {
+    serviceRequest.mockRejectedValue(new Error('ECONNREFUSED'));
+
+    await cmdPipeline({});
+
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining('Pipeline query failed')
+    );
+  });
+
+  it('treats non-array payloads as empty results', async () => {
+    serviceRequest.mockResolvedValue({
+      status: 200,
+      data: { unexpected: true },
+    });
+
+    await cmdPipeline({});
+
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining('No pipeline entries found.')
+    );
+  });
+
+  it('renders one row per pipeline entry', async () => {
+    serviceRequest.mockResolvedValue({
+      status: 200,
+      data: [
+        { issue: 123, status: 'triaged', title: 'first' },
+        { issue: 456, status: 'queued', title: 'second' },
+      ],
+    });
+
+    await cmdPipeline({});
+
+    const allLogs = log.mock.calls.map((c) => c[0]).join('\n');
+    expect(allLogs).toContain('#123');
+    expect(allLogs).toContain('#456');
+  });
+
+  it('summarizes counts independent of the input ordering', async () => {
+    serviceRequest.mockResolvedValue({
+      status: 200,
+      data: [
+        { issue: 9, status: 'queued' },
+        { issue: 10, status: 'solved' },
+        { issue: 11, status: 'queued' },
+      ],
+    });
+
+    await cmdPipeline({});
+
+    const allLogs = log.mock.calls.map((c) => c[0]).join('\n');
+    expect(allLogs).toContain('queued: 2');
+    expect(allLogs).toContain('solved: 1');
+    expect(allLogs).toContain('total: 3');
   });
 });
