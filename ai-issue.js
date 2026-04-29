@@ -23,6 +23,7 @@ const { cmdRegister } = require('./lib/commands/register');
 const { cmdMetrics } = require('./lib/commands/metrics');
 const { cmdSearch } = require('./lib/commands/search-cmd');
 const { cmdImport } = require('./lib/commands/import-cmd');
+const { cmdModel } = require('./lib/commands/model');
 
 // Basic metadata
 program
@@ -235,6 +236,28 @@ program
   .action(async (cmdOpts) => {
     const options = { ...program.opts(), ...cmdOpts };
     await cmdImport(options);
+  });
+
+// Command: model
+const modelCommand = program
+  .command('model')
+  .description('List or interactively select the LLM model used by Copilot')
+  .action(async () => {
+    await cmdModel();
+  });
+
+modelCommand
+  .command('list')
+  .description('Print the known model preset catalog')
+  .action(async () => {
+    await cmdModel('list');
+  });
+
+modelCommand
+  .command('current')
+  .description("Print the effective model id (loadConfig().model)")
+  .action(async () => {
+    await cmdModel('current');
   });
 
 // Error handling

@@ -94,6 +94,24 @@ ai-issue config set model claude-sonnet-4.5
 ai-issue config reset
 ```
 
+### Switching models
+
+Typing model ids by hand (e.g. `claude-sonnet-4.5`) is error-prone. Use the `model` command group instead:
+
+```bash
+ai-issue model            # interactive picker (arrow keys in a TTY, numbered prompt over a pipe)
+ai-issue model list       # tabular preset catalog with ★ recommended and ✓ current markers
+ai-issue model current    # print just the effective model id (suitable for $(...))
+```
+
+The picker pre-selects your current model, lets you pick a built-in preset, or pick `[Enter custom model ID...]` to type a BYOK / preview id.
+
+Notes:
+
+- The catalog under `data/models.json` is a **curated preset list, not authoritative**. Newly released models that are not yet listed are still accepted — you'll just get a one-time warning per process explaining how to confirm the id.
+- You can extend or override the catalog by creating `~/.ai-issue/models.json` with the same schema. Entries with the same `id` replace the built-in metadata in place; new ids are appended.
+- The same warning fires once per process whenever any command uses an unknown model id, whether it was set via `config set model …`, `--model …`, or `AI_ISSUE_MODEL`. Validation is **warning-only** — it never blocks a run.
+
 ## Main workflow
 
 `ai-issue solve <issue>` is the primary command.
@@ -126,6 +144,7 @@ Commands:
 |---------|------------------|-------------|
 | `ai-issue init` | No | Create `~/.ai-issue/config.json` and the report directory. |
 | `ai-issue config [show|get|set|reset]` | No | Manage configuration. |
+| `ai-issue model [list|current]` | No | List the preset model catalog, print the current model id, or run an interactive picker (no subcommand). See "Switching models" above. |
 | `ai-issue check` | No | Validate config, `GITHUB_TOKEN`, Copilot CLI, repo path, report path, and prompt files. |
 | `ai-issue solve <issue>` | No | Run research, solution/guidance, auto-review for code changes, and optional evaluation. |
 | `ai-issue evaluate <issue>` | No | Run evaluation against an existing analysis report. Alias: `eval`. |
