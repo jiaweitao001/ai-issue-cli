@@ -415,4 +415,279 @@ describe('service-client', () => {
       expect(opts.headers['X-Api-Key']).toBeUndefined();
     });
   });
+
+  // ───────────────────────────────────────────────────────────────────
+  // Connectivity probes — see lib/service-client.js + design doc §5.2/§5.3
+  // ───────────────────────────────────────────────────────────────────
+
+  describe('resolveCredentialForCheck', () => {
+    let resolveCredentialForCheck;
+    beforeEach(() => {
+      ({ resolveCredentialForCheck } = require('../lib/service-client'));
+    });
+
+    it('should return Bearer when Azure CLI succeeds', () => {
+      mockGetAzAccessToken.mockReturnValue('az-token');
+      const result = resolveCredentialForCheck();
+      expect(result.credentialSent).toBe('Bearer');
+      expect(result.headers['Authorization']).toBe('Bearer az-token');
+      expect(result.azError).toBeNull();
+      expect(result.sourcesTried).toEqual(['azure-cli']);
+    });
+
+    it('should fall back to X-Api-Key with azError preserved', () => {
+      mockGetAzAccessToken.mockImplementation(() => { throw new Error('Not logged in to Azure CLI. Run `az login` first.'); });
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceApiKey: 'fallback-key' });
+      const result = resolveCredentialForCheck();
+      expect(result.credentialSent).toBe('X-Api-Key');
+      expect(result.headers['X-Api-Key']).toBe('fallback-key');
+      expect(result.azError).toContain('Not logged in to Azure CLI');
+      expect(result.sourcesTried).toEqual(['azure-cli', 'api-key']);
+    });
+
+    it('should return none with azError when both az and apiKey missing', () => {
+      mockGetAzAccessToken.mockImplementation(() => { throw new Error('az not installed'); });
+      const result = resolveCredentialForCheck();
+      expect(result.credentialSent).toBe('none');
+      expect(result.headers).toEqual({});
+      expect(result.azError).toContain('az not installed');
+      expect(result.sourcesTried).toEqual(['azure-cli', 'api-key']);
+    });
+  });
+
+  describe('pingHealth', () => {
+    let pingHealth;
+    beforeEach(() => {
+      ({ pingHealth } = require('../lib/service-client'));
+    });
+
+    it('should resolve not_configured when serviceUrl is empty', async () => {
+      const result = await pingHealth();
+      expect(result.ok).toBe(false);
+      expect(result.reason).toBe('not_configured');
+    });
+
+    it('should resolve INVALID_URL for malformed serviceUrl', async () => {
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: '://not a url' });
+      const result = await pingHealth();
+      expect(result.ok).toBe(false);
+      expect(result.errorCode).toBe('INVALID_URL');
+    });
+
+    it('should resolve INVALID_SCHEMA for non-http(s) URL', async () => {
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'ftp://svc.example.com' });
+      const result = await pingHealth();
+      expect(result.ok).toBe(false);
+      expect(result.errorCode).toBe('INVALID_SCHEMA');
+    });
+
+    it('should hit /health and return ok for 200 + valid shape', async () => {
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      mockHttpsRequest(200, { status: 'ok' });
+      const result = await pingHealth();
+      expect(result.ok).toBe(true);
+      expect(result.status).toBe(200);
+      expect(result.url).toBe('https://svc.example.com/health');
+      expect(typeof result.latencyMs).toBe('number');
+    });
+
+    it('should preserve origin and ignore trailing slash on serviceUrl', async () => {
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com/' });
+      mockHttpsRequest(200, { status: 'ok' });
+      const result = await pingHealth();
+      expect(result.ok).toBe(true);
+      expect(result.url).toBe('https://svc.example.com/health');
+    });
+
+    it('should treat 200 with non-ok body as unexpectedShape', async () => {
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      mockHttpsRequest(200, { status: 'degraded' });
+      const result = await pingHealth();
+      expect(result.ok).toBe(false);
+      expect(result.unexpectedShape).toBe(true);
+      expect(result.status).toBe(200);
+    });
+
+    it('should treat 200 with non-JSON body as unexpectedShape', async () => {
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      mockHttpsRequest(200, '<html>portal page</html>');
+      const result = await pingHealth();
+      expect(result.ok).toBe(false);
+      expect(result.unexpectedShape).toBe(true);
+    });
+
+    it('should report HTTP-layer failures (e.g. 308 redirect)', async () => {
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      mockHttpsRequest(308, '');
+      const result = await pingHealth();
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(308);
+    });
+
+    it('should map ECONNREFUSED to structured result', async () => {
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      jest.spyOn(https, 'request').mockImplementation(() => {
+        const mockReq = {
+          on: jest.fn((event, cb) => {
+            if (event === 'error') {
+              setTimeout(() => {
+                const err = new Error('connect ECONNREFUSED');
+                err.code = 'ECONNREFUSED';
+                cb(err);
+              }, 0);
+            }
+            return mockReq;
+          }),
+          end: jest.fn(),
+          destroy: jest.fn(),
+        };
+        return mockReq;
+      });
+      const result = await pingHealth();
+      expect(result.ok).toBe(false);
+      expect(result.errorCode).toBe('ECONNREFUSED');
+    });
+
+    it('should map timeout to ETIMEDOUT', async () => {
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      jest.spyOn(https, 'request').mockImplementation(() => {
+        const mockReq = {
+          on: jest.fn((event, cb) => {
+            if (event === 'timeout') setTimeout(() => cb(), 0);
+            return mockReq;
+          }),
+          end: jest.fn(),
+          destroy: jest.fn(),
+        };
+        return mockReq;
+      });
+      const result = await pingHealth(50);
+      expect(result.ok).toBe(false);
+      expect(result.errorCode).toBe('ETIMEDOUT');
+      expect(result.latencyMs).toBe(50);
+    });
+
+    it('should resolve only once when timeout and error race', async () => {
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      const handlers = {};
+      jest.spyOn(https, 'request').mockImplementation(() => {
+        const mockReq = {
+          on: jest.fn((event, cb) => { handlers[event] = cb; return mockReq; }),
+          end: jest.fn(),
+          destroy: jest.fn(),
+        };
+        return mockReq;
+      });
+      const promise = pingHealth(1000);
+      // Fire both events synchronously (worst-case race).
+      handlers.timeout && handlers.timeout();
+      handlers.error && handlers.error(Object.assign(new Error('late'), { code: 'LATE' }));
+      const result = await promise;
+      // First-fired event wins; second is a no-op.
+      expect(['ETIMEDOUT', 'LATE']).toContain(result.errorCode);
+    });
+
+    it('should select http client for http URL', async () => {
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'http://localhost:8000' });
+      const httpSpy = jest.spyOn(http, 'request').mockImplementation((url, opts, cb) => {
+        const mockRes = {
+          statusCode: 200,
+          on: jest.fn((event, fn) => {
+            if (event === 'data') fn(JSON.stringify({ status: 'ok' }));
+            if (event === 'end') fn();
+            return mockRes;
+          }),
+        };
+        cb(mockRes);
+        return { on: jest.fn().mockReturnThis(), end: jest.fn(), destroy: jest.fn() };
+      });
+      const result = await pingHealth();
+      expect(result.ok).toBe(true);
+      expect(httpSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('pingAuthenticated', () => {
+    let pingAuthenticated;
+    beforeEach(() => {
+      ({ pingAuthenticated } = require('../lib/service-client'));
+    });
+
+    it('should resolve not_configured when serviceUrl is empty', async () => {
+      const result = await pingAuthenticated();
+      expect(result.ok).toBe(false);
+      expect(result.reason).toBe('not_configured');
+    });
+
+    it('should target /pipeline?limit=1 with Bearer when az succeeds', async () => {
+      mockGetAzAccessToken.mockReturnValue('az-tok');
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      let captured;
+      jest.spyOn(https, 'request').mockImplementation((url, opts, cb) => {
+        captured = { url: url.toString(), headers: opts.headers };
+        const mockRes = {
+          statusCode: 200,
+          on: jest.fn((event, fn) => {
+            if (event === 'data') fn('[]');
+            if (event === 'end') fn();
+            return mockRes;
+          }),
+        };
+        cb(mockRes);
+        return { on: jest.fn().mockReturnThis(), end: jest.fn(), destroy: jest.fn() };
+      });
+      const result = await pingAuthenticated();
+      expect(result.ok).toBe(true);
+      expect(captured.url).toBe('https://svc.example.com/pipeline?limit=1');
+      expect(captured.headers['Authorization']).toBe('Bearer az-tok');
+      expect(result.credentialSent).toBe('Bearer');
+    });
+
+    it('should send X-Api-Key when az fails and key configured', async () => {
+      mockGetAzAccessToken.mockImplementation(() => { throw new Error('az not logged in'); });
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com', serviceApiKey: 'k' });
+      mockHttpsRequest(200, []);
+      const result = await pingAuthenticated();
+      expect(result.credentialSent).toBe('X-Api-Key');
+      expect(result.azError).toContain('az not logged in');
+      expect(result.ok).toBe(true);
+    });
+
+    it('should send no credential and surface azError when nothing configured', async () => {
+      mockGetAzAccessToken.mockImplementation(() => { throw new Error('az missing'); });
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      mockHttpsRequest(401, { detail: 'Unauthorized' });
+      const result = await pingAuthenticated();
+      expect(result.credentialSent).toBe('none');
+      expect(result.azError).toContain('az missing');
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(401);
+    });
+
+    it('should treat 401 as fail even when credential is sent', async () => {
+      mockGetAzAccessToken.mockReturnValue('expired-tok');
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      mockHttpsRequest(401, { detail: 'Unauthorized' });
+      const result = await pingAuthenticated();
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(401);
+      expect(result.credentialSent).toBe('Bearer');
+    });
+
+    it('should treat 200 with non-array body as unexpectedShape', async () => {
+      mockGetAzAccessToken.mockReturnValue('tok');
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      mockHttpsRequest(200, { items: [] });
+      const result = await pingAuthenticated();
+      expect(result.ok).toBe(false);
+      expect(result.unexpectedShape).toBe(true);
+    });
+
+    it('should resolve INVALID_URL for malformed serviceUrl', async () => {
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: '://nope' });
+      const result = await pingAuthenticated();
+      expect(result.ok).toBe(false);
+      expect(result.errorCode).toBe('INVALID_URL');
+    });
+  });
 });
