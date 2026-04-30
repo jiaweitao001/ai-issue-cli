@@ -153,14 +153,166 @@ describe('lib/update/worker', () => {
   });
 
   describe('runCopyUpdate', () => {
-    test('throws "not implemented yet" with exit code 12 (P2 work)', () => {
+    const goodPlan = {
+      mode: 'copy',
+      globalPkg: '/usr/local/lib/node_modules/ai-issue-cli',
+      upstreamUrl: 'https://github.com/x/y.git',
+      resolvedTargetRef: 'refs/tags/v1.0.0',
+      toCommit: 'cccccccccccccccccccccccccccccccccccccccc',
+      toLabel: 'v1.0.0',
+      skipSkills: false,
+    };
+
+    test('first-time: clones, fetches, checks out, npm-installs locally + globally', () => {
+      // existsSync(cloneDir) = false on first run
+      fs.existsSync.mockImplementation(() => false);
+      execFileSync.mockReturnValue('1.0.0\n');
+      worker.runCopyUpdate(goodPlan);
+      const cmds = execFileSync.mock.calls.map(c => `${c[0]} ${c[1].join(' ')}`);
+      expect(cmds.some(c => /^git clone/.test(c))).toBe(true);
+      expect(cmds.some(c => /^git fetch/.test(c))).toBe(true);
+      expect(cmds.some(c => /^git checkout/.test(c))).toBe(true);
+      expect(cmds.some(c => /^npm install --prefix/.test(c))).toBe(true);
+      expect(cmds.some(c => /^npm install -g/.test(c))).toBe(true);
+    });
+
+    test('subsequent run: skips clone when cloneDir already exists', () => {
+      fs.existsSync.mockImplementation((p) => /\.ai-issue\/source\/ai-issue-cli$/.test(String(p)));
+      execFileSync.mockReturnValue('1.0.0\n');
+      worker.runCopyUpdate(goodPlan);
+      const cmds = execFileSync.mock.calls.map(c => `${c[0]} ${c[1].join(' ')}`);
+      expect(cmds.some(c => /^git clone/.test(c))).toBe(false);
+      expect(cmds.some(c => /^git fetch/.test(c))).toBe(true);
+    });
+
+    test('checkout uses toCommit when present', () => {
+      fs.existsSync.mockReturnValue(false);
+      execFileSync.mockReturnValue('1.0.0\n');
+      worker.runCopyUpdate(goodPlan);
+      const checkoutCall = execFileSync.mock.calls.find(c => c[0] === 'git' && c[1][0] === 'checkout');
+      expect(checkoutCall).toBeDefined();
+      expect(checkoutCall[1]).toContain(goodPlan.toCommit);
+    });
+
+    test('checkout falls back to resolvedTargetRef when toCommit missing', () => {
+      fs.existsSync.mockReturnValue(false);
+      execFileSync.mockReturnValue('1.0.0\n');
+      worker.runCopyUpdate({ ...goodPlan, toCommit: null });
+      const checkoutCall = execFileSync.mock.calls.find(c => c[0] === 'git' && c[1][0] === 'checkout');
+      expect(checkoutCall).toBeDefined();
+      expect(checkoutCall[1]).toContain('refs/tags/v1.0.0');
+    });
+
+    test('EACCES on npm install -g maps to exit code 21 with non-sudo guidance', () => {
+      fs.existsSync.mockReturnValue(true);
+      execFileSync.mockImplementation((cmd, args) => {
+        const cmdline = `${cmd} ${args.join(' ')}`;
+        if (/npm install -g/.test(cmdline)) {
+          throw Object.assign(new Error('EACCES: permission denied, mkdir /usr/lib/node_modules'), { status: 1 });
+        }
+        return '';
+      });
       try {
-        worker.runCopyUpdate({});
+        worker.runCopyUpdate(goodPlan);
         throw new Error('expected throw');
       } catch (e) {
-        expect(e.message).toMatch(/copy-mode/i);
-        expect(e.exitCode).toBe(12);
+        expect(e.exitCode).toBe(21);
+        expect(e.message).toMatch(/EACCES/i);
+        expect(e.message).toMatch(/npm config set prefix/i);
+        // CRITICAL: must NOT positively recommend sudo (UPDATE_COMMAND_PROPOSAL §4.2.4).
+        // Warning AGAINST sudo is fine and desirable.
+        expect(e.message).not.toMatch(/\btry\s+sudo\b/i);
+        expect(e.message).not.toMatch(/\bsudo\s+npm\s+install\s*-g\s*$/im);
+        // We DO want to see explicit "do NOT sudo" guidance:
+        expect(e.message).toMatch(/(WITHOUT sudo|Do NOT.*sudo|don't.*sudo)/i);
       }
+    });
+
+    test('throws when upstreamUrl missing (caller bug)', () => {
+      expect(() => worker.runCopyUpdate({ ...goodPlan, upstreamUrl: null })).toThrow(/upstreamUrl/);
+    });
+
+    test('throws when globalPkg missing (caller bug)', () => {
+      expect(() => worker.runCopyUpdate({ ...goodPlan, globalPkg: null })).toThrow(/globalPkg/);
+    });
+
+    test('skipSkills=true skips skills:install step', () => {
+      fs.existsSync.mockReturnValue(true);
+      execFileSync.mockReturnValue('1.0.0\n');
+      worker.runCopyUpdate({ ...goodPlan, skipSkills: true });
+      const cmds = execFileSync.mock.calls.map(c => c[1].join(' '));
+      expect(cmds.some(c => /skills:install/.test(c))).toBe(false);
+    });
+
+    test('skills:install failure is non-fatal', () => {
+      fs.existsSync.mockReturnValue(true);
+      execFileSync.mockImplementation((cmd, args) => {
+        const cmdline = `${cmd} ${args.join(' ')}`;
+        if (/skills:install/.test(cmdline)) {
+          throw Object.assign(new Error('skills boom'), { status: 1 });
+        }
+        return '1.0.0\n';
+      });
+      expect(() => worker.runCopyUpdate(goodPlan)).not.toThrow();
+    });
+  });
+
+  describe('whichBinary', () => {
+    test('uses `which` on Unix and returns trimmed first line', () => {
+      const origPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+      Object.defineProperty(process, 'platform', { value: 'darwin' });
+      execFileSync.mockReturnValue('/opt/homebrew/bin/ai-issue\n');
+      expect(worker.whichBinary('ai-issue')).toBe('/opt/homebrew/bin/ai-issue');
+      expect(execFileSync.mock.calls[0][0]).toBe('which');
+      Object.defineProperty(process, 'platform', origPlatform);
+    });
+
+    test('uses `where` on Windows and takes the first line', () => {
+      const origPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+      Object.defineProperty(process, 'platform', { value: 'win32' });
+      execFileSync.mockReturnValue('C:\\Users\\me\\AppData\\Roaming\\npm\\ai-issue.cmd\r\nC:\\extra\\ai-issue\r\n');
+      const result = worker.whichBinary('ai-issue');
+      expect(result).toBe('C:\\Users\\me\\AppData\\Roaming\\npm\\ai-issue.cmd');
+      expect(execFileSync.mock.calls[0][0]).toBe('where');
+      Object.defineProperty(process, 'platform', origPlatform);
+    });
+
+    test('returns null when binary is not found', () => {
+      execFileSync.mockImplementation(() => { throw new Error('not found'); });
+      expect(worker.whichBinary('nope')).toBeNull();
+    });
+  });
+
+  describe('verifyGlobalInstall', () => {
+    test('runs `node <globalPkg>/ai-issue.js --version` (NOT execFileSync of .js directly — Windows-safe)', () => {
+      execFileSync.mockReturnValue('0.10.0\n');
+      worker.verifyGlobalInstall({ globalPkg: '/g' });
+      const versionCall = execFileSync.mock.calls.find(c => c[0] === process.execPath);
+      expect(versionCall).toBeDefined();
+      expect(versionCall[1]).toEqual(['/g/ai-issue.js', '--version']);
+    });
+
+    test('warns but does NOT throw when version probe fails', () => {
+      execFileSync.mockImplementation(() => { throw new Error('oops'); });
+      expect(() => worker.verifyGlobalInstall({ globalPkg: '/g' })).not.toThrow();
+    });
+  });
+
+  describe('looksLikeEACCES', () => {
+    test('matches typical EACCES messages', () => {
+      expect(worker.looksLikeEACCES(new Error('EACCES: permission denied'))).toBe(true);
+      expect(worker.looksLikeEACCES(new Error('permission denied'))).toBe(true);
+      expect(worker.looksLikeEACCES(new Error('Operation not permitted'))).toBe(true);
+    });
+    test('does not match unrelated errors', () => {
+      expect(worker.looksLikeEACCES(new Error('ENOENT'))).toBe(false);
+      expect(worker.looksLikeEACCES(null)).toBe(false);
+    });
+  });
+
+  describe('managedCloneDir', () => {
+    test('lives under ~/.ai-issue/source/ai-issue-cli', () => {
+      expect(worker.managedCloneDir()).toBe('/mock/home/.ai-issue/source/ai-issue-cli');
     });
   });
 

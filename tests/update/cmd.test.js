@@ -232,12 +232,38 @@ describe('commands/update', () => {
   // ---------- P1 non-check path -----------------------------------------
 
   describe('non-check path (P1)', () => {
-    it('exits 12 with P2 message when install mode is copy', async () => {
+    it('happy path: copy mode flows through plan/lock/spawn (P2 — no link-only checks fire)', async () => {
       mockDetect.mockReturnValue({ mode: 'copy', globalPkg: '/g' });
+      mockBuildUpdatePlan.mockResolvedValue(basePlan({
+        mode: 'copy',
+        sourceClone: null,
+        currentBranch: null,
+        workingTreeDirty: false,
+        effectiveChannel: 'tag',
+        channelReason: 'auto-copy',
+        resolvedTargetRef: 'refs/tags/v1.0.0',
+        toLabel: 'v1.0.0',
+        targetBranch: null,
+      }));
+      mockAcquireUpdateLock.mockReturnValue({ acquired: true });
       await expect(cmdUpdate({})).rejects.toThrow();
-      expect(process.exit).toHaveBeenCalledWith(12);
-      expect(error).toHaveBeenCalledWith(expect.stringContaining('P2'));
-      expect(mockBuildUpdatePlan).not.toHaveBeenCalled();
+      expect(mockSpawnWorker).toHaveBeenCalledWith(expect.objectContaining({ mode: 'copy' }));
+      expect(process.exit).toHaveBeenCalledWith(0);
+    });
+
+    it('copy mode does NOT trigger the link-only currentBranch=null refusal', async () => {
+      mockDetect.mockReturnValue({ mode: 'copy', globalPkg: '/g' });
+      mockBuildUpdatePlan.mockResolvedValue(basePlan({
+        mode: 'copy',
+        sourceClone: null,
+        currentBranch: null,
+        targetBranch: null,
+      }));
+      mockAcquireUpdateLock.mockReturnValue({ acquired: true });
+      await expect(cmdUpdate({})).rejects.toThrow();
+      expect(process.exit).toHaveBeenCalledWith(0);
+      const errs = error.mock.calls.map(c => c[0]).join('\n');
+      expect(errs).not.toMatch(/detached HEAD/i);
     });
 
     it('happy path: link mode, builds plan, acquires lock, spawns worker, exits 0', async () => {
