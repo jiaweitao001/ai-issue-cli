@@ -459,6 +459,12 @@ ai-issue register --pat ghp_xxx --owner alice
 ai-issue watch --owner alice --push-fork
 ai-issue metrics --since 7d
 ai-issue search "timeout" --status solved
+
+# Self-update
+ai-issue update --check
+ai-issue update
+ai-issue update --ref v0.10.0
+ai-issue config set updateChannel tag
 ```
 
 ## 13. Troubleshooting
@@ -566,7 +572,60 @@ That option was removed. Import always runs service triage:
 ai-issue import --dry-run --since 30d
 ```
 
-## 14. Uninstall
+## 14. Updating the CLI
+
+To upgrade `ai-issue` itself in place, use the built-in update command. It auto-detects whether your install is **link** mode (you ran `npm link` or `./scripts/install.sh` from a clone) or **copy** mode (installed globally with `npm install -g`).
+
+Always start with a dry-run check:
+
+```bash
+ai-issue update --check
+```
+
+This prints the current version, target version, install mode, source path, and whether an update is needed — **without** changing anything.
+
+Apply the update:
+
+```bash
+ai-issue update
+```
+
+By default this upgrades to the latest GitHub release tag. To pin a specific ref:
+
+```bash
+ai-issue update --ref v0.10.0          # specific tag
+ai-issue update --ref main             # branch HEAD
+ai-issue update --ref abc1234          # commit SHA
+ai-issue update --ref v0.9.1 --confirm-downgrade   # downgrade
+ai-issue update --force                # reinstall even if up-to-date
+```
+
+Channel control (what "latest" means without `--ref`):
+
+```bash
+ai-issue config set updateChannel auto    # default — branch HEAD in link mode, latest tag in copy mode
+ai-issue config set updateChannel tag     # always latest stable release
+ai-issue config set updateChannel branch  # always current branch HEAD (link mode only)
+```
+
+If `ai-issue watch` is running, `update` will refuse to start. Stop watch first, then update, then restart watch.
+
+Common refusals (exit code in parentheses):
+
+- `(12)` Source clone has uncommitted changes — `git status` in your clone, commit/stash, retry.
+- `(12)` Detached HEAD in link mode — `git checkout <branch>`, retry.
+- `(12)` Target ref would change branch HEAD in link mode — either checkout the ref in the clone manually, or `ai-issue config set updateChannel branch`.
+- `(2)`  Downgrade refused — add `--confirm-downgrade`.
+- `(21)` Global `npm install -g` failed with EACCES — fix your npm prefix (`npm config set prefix ~/.npm-global`) and put `~/.npm-global/bin` on `PATH`. **Do NOT** run `sudo npm install -g`.
+
+After update, verify:
+
+```bash
+ai-issue --version
+ai-issue check
+```
+
+## 15. Uninstall
 
 ```bash
 npm unlink -g ai-issue-cli
