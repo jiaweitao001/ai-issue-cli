@@ -24,6 +24,7 @@ const { cmdMetrics } = require('./lib/commands/metrics');
 const { cmdSearch } = require('./lib/commands/search-cmd');
 const { cmdImport } = require('./lib/commands/import-cmd');
 const { cmdModel } = require('./lib/commands/model');
+const { cmdUpdate } = require('./lib/commands/update');
 
 // Basic metadata
 program
@@ -258,6 +259,24 @@ modelCommand
   .description("Print the effective model id (loadConfig().model)")
   .action(async () => {
     await cmdModel('current');
+  });
+
+// Command: update
+// Self-update for the ai-issue CLI itself. P0 ships --check (read-only).
+// P1 adds link-mode self-update; P2 adds copy-mode + Windows.
+// See docs/UPDATE_COMMAND_PROPOSAL.md.
+// Note: deliberately does NOT call ensureConfig() — users should be able to
+// upgrade before completing init.
+program
+  .command('update')
+  .description('Update ai-issue CLI to the upstream latest (or specified ref)')
+  .option('--check', 'Only print version status, do not write')
+  .option('--ref <ref>', 'Update to a specific tag/branch/SHA (P1+)')
+  .option('--force', 'Re-run install even if already up to date (P1+)')
+  .option('--confirm-downgrade', 'Required when --ref points to an older version (P1+)')
+  .action(async (cmdOpts) => {
+    const options = { ...program.opts(), ...cmdOpts };
+    await cmdUpdate(options);
   });
 
 // Error handling
