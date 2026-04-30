@@ -84,6 +84,7 @@ Configuration is stored in `~/.ai-issue/config.json`. Environment variables are 
 | `repo` | `AI_ISSUE_REPO` | Service features if not derivable | GitHub repo in `owner/name` form. Usually derived from `issueBaseUrl`. |
 | `forkRemote` | - | No | Git remote used by `solve --push-fork`. Default fallback: `origin`. |
 | `owner` | `AI_ISSUE_OWNER` | Some service flows | Owner identifier used by `register` if `--owner` is omitted. |
+| `updateChannel` | - | No | Self-update channel for `ai-issue update`. One of `auto` (default), `tag`, `branch`. See "Updating the CLI". |
 
 Common config commands:
 
@@ -158,6 +159,7 @@ Commands:
 | `ai-issue metrics` | Yes | Show team metrics such as solve rate, response time, and per-engineer breakdown. |
 | `ai-issue search <query>` | Yes | Search pipeline issues and solution summaries. |
 | `ai-issue import` | Yes | Import historical GitHub issues into the pipeline. Import triage always runs; there is no `--skip-triage` option. |
+| `ai-issue update` | No | Update the CLI itself. By default upgrades to the latest GitHub release. See "Updating the CLI" below. |
 
 Frequently used command examples:
 
@@ -221,7 +223,72 @@ Service authentication behavior:
 - If Azure CLI auth is unavailable, `serviceApiKey` / `AI_ISSUE_SERVICE_API_KEY` is used as an `X-Api-Key` fallback.
 - The Phase 1 `similar-issue-finder` MCP skill forwards `AI_ISSUE_SERVICE_URL` and `AI_ISSUE_SERVICE_API_KEY` to the skill process. Configure `serviceApiKey` if your backend requires API-key auth for those MCP endpoints.
 
-## MCP skills
+## Updating the CLI
+
+`ai-issue update` upgrades this CLI in place. By default it upgrades to the latest GitHub **release tag**. There are two install modes:
+
+- **link mode** — you ran `npm link` or `./scripts/install.sh` from a clone. The clone IS your install. `update` runs a fast-forward `git pull` + `npm install` against your current branch.
+- **copy mode** — the package was installed globally (e.g. `npm install -g .`). The CLI maintains its own clone at `~/.ai-issue/source/ai-issue-cli` and reinstalls globally from there.
+
+Mode is auto-detected. Run `ai-issue update --check` to see what mode you're in, what version you'd move to, and from where, **without** making changes.
+
+```bash
+# See what an update would do (no side effects)
+ai-issue update --check
+
+# Apply the update (defaults to the latest release tag)
+ai-issue update
+
+# Pin to a specific tag, branch, or commit SHA
+ai-issue update --ref v0.10.0
+ai-issue update --ref main
+
+# Allow a downgrade (refused by default)
+ai-issue update --ref v0.9.1 --confirm-downgrade
+
+# Force a reinstall even when already up to date
+ai-issue update --force
+```
+
+### Channels
+
+The `updateChannel` config controls what "latest" means when no `--ref` is passed:
+
+| Channel | Meaning |
+|---------|---------|
+| `auto` (default) | link mode → tracks your current branch HEAD; copy mode → tracks the latest release tag. |
+| `tag` | Always upgrades to the latest stable release tag. |
+| `branch` | Always tracks the current branch's upstream HEAD (link mode); not meaningful in copy mode. |
+
+```bash
+ai-issue config set updateChannel tag       # always pull releases
+ai-issue config set updateChannel branch    # always track branch HEAD
+```
+
+`--ref` always overrides the channel for a single run.
+
+### Safety
+
+- **Concurrent runs are blocked.** `update` acquires `~/.ai-issue/update.lock`. A running `ai-issue watch` writes `~/.ai-issue/watch-active.lock`; `update` refuses to run while watch is active, and watch refuses to start a new cycle while update is running.
+- **Dirty link clones are refused.** If your clone has uncommitted changes (tracked files), `update` exits with code `12` and asks you to commit or stash first.
+- **Detached HEAD is refused in link mode.** Check out a branch first.
+- **Refs that would change HEAD are refused in link mode.** If you ask for a tag that doesn't match your current branch's HEAD, `update` exits `12` and prints both alternatives (checkout the tag in your clone, or switch to `branch` channel).
+- **Downgrades are refused** unless you pass `--confirm-downgrade`.
+- **Global install permission errors map to exit `21`** with explicit guidance to fix your npm prefix (`npm config set prefix ~/.npm-global`). `ai-issue update` will never recommend `sudo npm install -g`.
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success (or already up to date). |
+| `2` | Refused: downgrade without `--confirm-downgrade`. |
+| `10` | Network / GitHub API failure during version check. |
+| `12` | Refused due to environment (dirty clone, detached HEAD, watch lock held, etc.). |
+| `20` | Worker failed mid-update (e.g. git fetch / npm install error). |
+| `21` | Global install failed with EACCES — fix your npm prefix and retry. |
+| `99` | Internal error. |
+
+
 
 The CLI passes a phase-specific MCP config to Copilot:
 
