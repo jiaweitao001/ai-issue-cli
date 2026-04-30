@@ -79,10 +79,11 @@ describe('lib/update/detect', () => {
     });
 
     it('reports working tree dirty when git status --porcelain has output', () => {
+      let statusCallArgs = null;
       execFileSync.mockImplementation((cmd, args) => {
         if (cmd === 'npm' && args[0] === 'root') return '/npm/root';
         if (cmd === 'git' && args[0] === 'rev-parse') return 'feature/x\n';
-        if (cmd === 'git' && args[0] === 'status') return ' M lib/foo.js\n';
+        if (cmd === 'git' && args[0] === 'status') { statusCallArgs = args; return ' M lib/foo.js\n'; }
         throw new Error('unexpected');
       });
       fs.lstatSync.mockReturnValue(makeStat({ symlink: true }));
@@ -91,6 +92,8 @@ describe('lib/update/detect', () => {
       const r = detectCliInstall();
       expect(r.workingTreeDirty).toBe(true);
       expect(r.currentBranch).toBe('feature/x');
+      // -uno excludes untracked files (ff-merge doesn't care about them)
+      expect(statusCallArgs).toContain('-uno');
     });
 
     it('returns currentBranch=null when git rev-parse fails', () => {
