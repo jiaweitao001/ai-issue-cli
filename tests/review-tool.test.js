@@ -140,6 +140,14 @@ describe('review-tool', () => {
   describe('runPostPhase2AutoReview', () => {
     const mockConfig = { repoPath: '/repo', model: 'gpt-4', logLevel: 'info' };
 
+    it('should skip when prePhase2Head is empty (cannot construct review range)', async () => {
+      // Regression test for I7: an empty prePhase2Head would yield an invalid
+      // `..HEAD` range; runPostPhase2AutoReview must fall back to skipping.
+      await runPostPhase2AutoReview('42', mockConfig, { silent: true }, '');
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining('pre-Phase 2 HEAD unavailable'));
+      expect(runCopilot).not.toHaveBeenCalled();
+    });
+
     it('should skip when no new commits', async () => {
       runGit.mockReturnValue('abc123');
       await runPostPhase2AutoReview('42', mockConfig, { silent: true }, 'abc123');
@@ -166,6 +174,10 @@ describe('review-tool', () => {
 
       await runPostPhase2AutoReview('42', mockConfig, { silent: true }, 'oldhead');
       expect(runCopilot).toHaveBeenCalled();
+      // Range-based prompt: must reference oldhead..HEAD, NOT "latest commit"
+      const reviewPrompt = runCopilot.mock.calls[0][0];
+      expect(reviewPrompt).toContain('oldhead..HEAD');
+      expect(reviewPrompt).not.toContain('the latest commit');
       expect(success).toHaveBeenCalledWith('Auto review completed, no additional fixes required');
     });
 
