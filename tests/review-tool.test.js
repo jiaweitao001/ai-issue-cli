@@ -18,22 +18,28 @@ jest.mock('os', () => ({
 }));
 const { mockCreateLogger } = require('./helpers/mock-logger');
 jest.mock('../lib/logger', () => mockCreateLogger());
-jest.mock('../lib/copilot', () => ({
-  runCopilot: jest.fn()
-}));
+const { mockCreateAgentModule, mockRunTask, mockResetAgentMocks } = require('./helpers/mock-agent');
+jest.mock('../lib/agents', () => mockCreateAgentModule());
 jest.mock('../lib/git-utils', () => ({
   runGit: jest.fn()
 }));
 
 const { isReviewToolInRepo, findInstallerScript, ensureReviewToolInstalled, runPostPhase2AutoReview } = require('../lib/review-tool');
 const { runGit } = require('../lib/git-utils');
-const { runCopilot } = require('../lib/copilot');
+const { runTask } = require('../lib/agents');
 const { info, success, warning } = require('../lib/logger');
 const os = require('os');
 
 describe('review-tool', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockResetAgentMocks();
+    mockRunTask.mockResolvedValue({
+      success: true,
+      artifacts: {},
+      warnings: [],
+      git: { beforeHead: 'oldhead', afterHead: 'newhead', commits: [], changedFiles: [] }
+    });
     os.platform.mockReturnValue('darwin');
   });
 
@@ -145,14 +151,14 @@ describe('review-tool', () => {
       // `..HEAD` range; runPostPhase2AutoReview must fall back to skipping.
       await runPostPhase2AutoReview('42', mockConfig, { silent: true }, '');
       expect(warning).toHaveBeenCalledWith(expect.stringContaining('pre-Phase 2 HEAD unavailable'));
-      expect(runCopilot).not.toHaveBeenCalled();
+      expect(runTask).not.toHaveBeenCalled();
     });
 
     it('should skip when no new commits', async () => {
       runGit.mockReturnValue('abc123');
       await runPostPhase2AutoReview('42', mockConfig, { silent: true }, 'abc123');
       expect(info).toHaveBeenCalledWith('No new commits from Phase 2, skipping auto review.');
-      expect(runCopilot).not.toHaveBeenCalled();
+      expect(runTask).not.toHaveBeenCalled();
     });
 
     it('should skip when HEAD check fails', async () => {
@@ -170,14 +176,25 @@ describe('review-tool', () => {
         return '';
       });
       fs.existsSync.mockReturnValue(true); // review tool present
-      runCopilot.mockResolvedValue(undefined);
 
       await runPostPhase2AutoReview('42', mockConfig, { silent: true }, 'oldhead');
-      expect(runCopilot).toHaveBeenCalled();
+      expect(runTask).toHaveBeenCalled();
       // Range-based prompt: must reference oldhead..HEAD, NOT "latest commit"
-      const reviewPrompt = runCopilot.mock.calls[0][0];
+      const reviewPrompt = runTask.mock.calls[0][1].prompt;
       expect(reviewPrompt).toContain('oldhead..HEAD');
       expect(reviewPrompt).not.toContain('the latest commit');
+      expect(runTask).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({
+          taskType: 'auto_review',
+          mcpProfile: 'phase2',
+          permissionProfile: 'noninteractive-full-auto',
+          gitPolicy: { commitBehavior: 'may-commit' },
+          expectedArtifacts: [],
+          silent: true,
+          debugMode: undefined
+        })
+      );
       expect(success).toHaveBeenCalledWith('Auto review completed, no additional fixes required');
     });
 
@@ -194,7 +211,6 @@ describe('review-tool', () => {
         return '';
       });
       fs.existsSync.mockReturnValue(true);
-      runCopilot.mockResolvedValue(undefined);
 
       await runPostPhase2AutoReview('42', mockConfig, { silent: true }, 'oldhead');
       expect(runGit).toHaveBeenCalledWith('/repo', 'git add -A');
@@ -209,7 +225,7 @@ describe('review-tool', () => {
         return '';
       });
       fs.existsSync.mockReturnValue(true);
-      runCopilot.mockRejectedValue(new Error('copilot failed'));
+      mockRunTask.mockRejectedValue(new Error('agent failed'));
 
       await runPostPhase2AutoReview('42', mockConfig, { silent: true }, 'oldhead');
       expect(warning).toHaveBeenCalledWith(expect.stringContaining('Auto review step failed'));
