@@ -1,17 +1,23 @@
 /**
  * Tests for environment.js
  */
-const { execSync } = require('child_process');
 const fs = require('fs');
 
-jest.mock('child_process');
 jest.mock('fs');
+const { mockCreateAgentModule, mockCreateAgent, mockResetAgentMocks } = require('./helpers/mock-agent');
+jest.mock('../lib/agents', () => mockCreateAgentModule());
 
 const { checkEnvironment } = require('../lib/environment');
 
 describe('environment', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockResetAgentMocks();
+    mockCreateAgent.mockReturnValue({
+      name: 'copilot',
+      displayName: 'Copilot CLI',
+      validateInstallationSync: jest.fn(() => ({ installed: true, version: '1.0.0', errors: [] }))
+    });
   });
 
   describe('checkEnvironment', () => {
@@ -21,7 +27,6 @@ describe('environment', () => {
     };
 
     it('should check Copilot CLI availability', () => {
-      execSync.mockReturnValue('1.0.0');
       fs.existsSync.mockReturnValue(true);
       
       const checks = checkEnvironment(mockConfig);
@@ -32,8 +37,14 @@ describe('environment', () => {
     });
 
     it('should report Copilot CLI as missing when not installed', () => {
-      execSync.mockImplementation(() => {
-        throw new Error('command not found');
+      mockCreateAgent.mockReturnValue({
+        name: 'copilot',
+        displayName: 'Copilot CLI',
+        validateInstallationSync: jest.fn(() => ({
+          installed: false,
+          version: null,
+          errors: ['Copilot CLI not found. Run: npm install -g @github/copilot']
+        }))
       });
       fs.existsSync.mockReturnValue(true);
       
@@ -45,7 +56,6 @@ describe('environment', () => {
     });
 
     it('should check repository path exists', () => {
-      execSync.mockReturnValue('1.0.0');
       fs.existsSync.mockImplementation((path) => {
         return path === mockConfig.repoPath;
       });
@@ -57,7 +67,6 @@ describe('environment', () => {
     });
 
     it('should check report path exists', () => {
-      execSync.mockReturnValue('1.0.0');
       fs.existsSync.mockReturnValue(true);
       
       const checks = checkEnvironment(mockConfig);
@@ -67,7 +76,6 @@ describe('environment', () => {
     });
 
     it('should check prompt files exist', () => {
-      execSync.mockReturnValue('1.0.0');
       fs.existsSync.mockReturnValue(true);
       
       const checks = checkEnvironment(mockConfig);
@@ -79,7 +87,6 @@ describe('environment', () => {
     it('should check GITHUB_TOKEN is set', () => {
       const original = process.env.GITHUB_TOKEN;
       process.env.GITHUB_TOKEN = 'ghp_test_token';
-      execSync.mockReturnValue('1.0.0');
       fs.existsSync.mockReturnValue(true);
 
       const checks = checkEnvironment(mockConfig);
@@ -97,7 +104,6 @@ describe('environment', () => {
     it('should report GITHUB_TOKEN as missing when not set', () => {
       const original = process.env.GITHUB_TOKEN;
       delete process.env.GITHUB_TOKEN;
-      execSync.mockReturnValue('1.0.0');
       fs.existsSync.mockReturnValue(true);
 
       const checks = checkEnvironment(mockConfig);

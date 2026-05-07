@@ -9,17 +9,15 @@ jest.mock('os', () => ({
   homedir: jest.fn(() => '/mock/home')
 }));
 
-// Mock copilot
-jest.mock('../../lib/copilot', () => ({
-  runCopilot: jest.fn()
-}));
+const { mockCreateAgentModule, mockRunTask, mockResetAgentMocks } = require('../helpers/mock-agent');
+jest.mock('../../lib/agents', () => mockCreateAgentModule());
 
 // Mock logger
 const { mockCreateLogger } = require('../helpers/mock-logger');
 jest.mock('../../lib/logger', () => mockCreateLogger());
 
 const { cmdEvaluate } = require('../../lib/commands/evaluate');
-const { runCopilot } = require('../../lib/copilot');
+const { runTask } = require('../../lib/agents');
 const { success, error, warning, info } = require('../../lib/logger');
 
 describe('commands/evaluate', () => {
@@ -46,7 +44,13 @@ describe('commands/evaluate', () => {
       return '';
     });
     
-    runCopilot.mockResolvedValue(undefined);
+    mockResetAgentMocks();
+    mockRunTask.mockResolvedValue({
+      success: true,
+      artifacts: { '/test/reports/issue-12345-evaluation.md': '# Evaluation' },
+      warnings: [],
+      git: { beforeHead: 'head1', afterHead: 'head1', commits: [], changedFiles: [] }
+    });
   });
 
   it('should throw error when analysis file does not exist', async () => {
@@ -69,13 +73,23 @@ describe('commands/evaluate', () => {
       .rejects.toThrow('Prompt file not found');
   });
 
-  it('should run copilot with correct prompt', async () => {
+  it('should run AgentRunner with correct evaluation task contract', async () => {
     await cmdEvaluate('12345', {});
     
-    expect(runCopilot).toHaveBeenCalledWith(
-      expect.stringContaining('Issue #12345'),
+    expect(runTask).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ phase: 'evaluate' })
+      expect.objectContaining({
+        taskType: 'evaluation',
+        prompt: expect.stringContaining('Issue #12345'),
+        mcpProfile: 'evaluate',
+        permissionProfile: 'noninteractive-full-auto',
+        gitPolicy: { commitBehavior: 'forbid-commit' },
+        expectedArtifacts: [expect.objectContaining({
+          kind: 'file',
+          path: '/test/reports/issue-12345-evaluation.md',
+          failureMode: 'warn'
+        })]
+      })
     );
   });
 
@@ -108,18 +122,17 @@ describe('commands/evaluate', () => {
   it('should use silent mode when silent option is true', async () => {
     await cmdEvaluate('12345', { silent: true });
 
-    expect(runCopilot).toHaveBeenCalledWith(
-      expect.any(String),
+    expect(runTask).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ silent: true, phase: 'evaluate' })
+      expect.objectContaining({ silent: true, mcpProfile: 'evaluate' })
     );
   });
 
-  it('should throw error when copilot execution fails', async () => {
-    runCopilot.mockRejectedValue(new Error('Copilot failed'));
+  it('should throw error when agent execution fails', async () => {
+    mockRunTask.mockRejectedValue(new Error('Agent failed'));
     
     await expect(cmdEvaluate('12345', {}))
-      .rejects.toThrow('Copilot failed');
+      .rejects.toThrow('Agent failed');
     
     expect(error).toHaveBeenCalledWith(expect.stringContaining('Execution failed'));
   });
@@ -127,14 +140,14 @@ describe('commands/evaluate', () => {
   it('should override config model when --model option is specified', async () => {
     await cmdEvaluate('12345', { model: 'claude-opus-4.5' });
 
-    const configArg = runCopilot.mock.calls[0][1];
+    const configArg = runTask.mock.calls[0][0];
     expect(configArg.model).toBe('claude-opus-4.5');
   });
 
   it('should use config file model when --model option is not specified', async () => {
     await cmdEvaluate('12345', {});
 
-    const configArg = runCopilot.mock.calls[0][1];
+    const configArg = runTask.mock.calls[0][0];
     expect(configArg.model).toBe('gpt-4');
   });
 });
