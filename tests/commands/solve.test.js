@@ -14,11 +14,6 @@ jest.mock('os', () => ({
   homedir: jest.fn(() => '/mock/home')
 }));
 
-// Mock copilot
-jest.mock('../../lib/copilot', () => ({
-  runCopilot: jest.fn()
-}));
-
 // Mock AgentRunner for solve Phase 1/2
 const { mockCreateAgentModule, mockRunTask, mockResetAgentMocks } = require('../helpers/mock-agent');
 jest.mock('../../lib/agents', () => mockCreateAgentModule());
@@ -46,7 +41,6 @@ const { mockCreateLogger } = require('../helpers/mock-logger');
 jest.mock('../../lib/logger', () => mockCreateLogger());
 
 const { cmdSolve } = require('../../lib/commands/solve');
-const { runCopilot } = require('../../lib/copilot');
 const { runTask } = require('../../lib/agents');
 const { cmdEvaluate } = require('../../lib/commands/evaluate');
 const { serviceRequest, getServiceUrl, updateSolutionSummary } = require('../../lib/service-client');
@@ -88,7 +82,6 @@ describe('commands/solve', () => {
     fs.unlinkSync.mockReturnValue(undefined);
     fs.writeFileSync.mockReturnValue(undefined);
     
-    runCopilot.mockResolvedValue(undefined);
     mockResetAgentMocks();
     mockRunTask.mockImplementation(async (_config, request) => {
       const artifacts = {};
@@ -286,10 +279,13 @@ describe('commands/solve', () => {
     jest.advanceTimersByTime(1000);
     await promise;
 
-    expect(runCopilot).toHaveBeenCalledWith(
-      expect.stringContaining('/code-review-committed-changes'),
+    expect(runTask).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ phase: 'phase2' })
+      expect.objectContaining({
+        taskType: 'auto_review',
+        prompt: expect.stringContaining('/code-review-committed-changes'),
+        mcpProfile: 'phase2'
+      })
     );
   });
 
@@ -337,10 +333,13 @@ describe('commands/solve', () => {
     );
 
     // Verify review was run after install
-    expect(runCopilot).toHaveBeenCalledWith(
-      expect.stringContaining('/code-review-committed-changes'),
+    expect(runTask).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ phase: 'phase2' })
+      expect.objectContaining({
+        taskType: 'auto_review',
+        prompt: expect.stringContaining('/code-review-committed-changes'),
+        mcpProfile: 'phase2'
+      })
     );
   });
 
@@ -398,10 +397,13 @@ describe('commands/solve', () => {
     );
 
     // Verify review was run
-    expect(runCopilot).toHaveBeenCalledWith(
-      expect.stringContaining('/code-review-committed-changes'),
+    expect(runTask).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ phase: 'phase2' })
+      expect.objectContaining({
+        taskType: 'auto_review',
+        prompt: expect.stringContaining('/code-review-committed-changes'),
+        mcpProfile: 'phase2'
+      })
     );
   });
 
@@ -550,7 +552,6 @@ describe('commands/solve', () => {
   describe('solution summary upload', () => {
     beforeEach(() => {
       getServiceUrl.mockReturnValue('https://service.example.com');
-      runCopilot.mockResolvedValue(undefined);
     });
 
     it('should upload solution summary when serviceUrl is configured', async () => {
