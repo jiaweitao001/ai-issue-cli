@@ -32,6 +32,7 @@ describe('config', () => {
       const config = loadConfig();
       
       expect(config).toMatchObject({
+        agent: 'copilot',
         model: expect.any(String),
         logLevel: expect.any(String)
       });
@@ -215,6 +216,33 @@ describe('config', () => {
       
       expect(valid).toBe(true);
       expect(errors).toHaveLength(0);
+    });
+
+    it('should accept missing agent as copilot for backward compatibility', () => {
+      const config = {
+        repoPath: '/valid/path',
+        issueBaseUrl: 'https://github.com/test/repo/issues',
+        reportPath: '/valid/reports'
+      };
+
+      const { valid, errors } = validateConfig(config);
+
+      expect(valid).toBe(true);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should return error when agent is unsupported in 5A', () => {
+      const config = {
+        repoPath: '/valid/path',
+        issueBaseUrl: 'https://github.com/test/repo/issues',
+        reportPath: '/valid/reports',
+        agent: 'claude-code'
+      };
+
+      const { valid, errors } = validateConfig(config);
+
+      expect(valid).toBe(false);
+      expect(errors).toContain('Unknown agent: claude-code. Available agents: copilot');
     });
 
     it('should create reportPath if it does not exist', () => {
