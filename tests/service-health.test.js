@@ -244,6 +244,56 @@ describe('service-health', () => {
     });
   });
 
+  describe('migration aggregation', () => {
+    it('promotes migration from reachability probe', async () => {
+      mockPingHealth.mockResolvedValue({
+        ok: true, status: 200, latencyMs: 10,
+        migration: { newUrl: 'https://new.example.com', deadline: '2026-06-15' },
+      });
+      mockPingAuthenticated.mockResolvedValue({ ok: true, status: 200, latencyMs: 20, migration: null });
+
+      const result = await checkServiceConnectivity({ serviceUrl: 'https://svc.example.com' });
+      expect(result.migration).toEqual({
+        newUrl: 'https://new.example.com',
+        deadline: '2026-06-15',
+      });
+    });
+
+    it('falls back to migration from auth probe when reachability has none', async () => {
+      mockPingHealth.mockResolvedValue({ ok: true, status: 200, latencyMs: 10, migration: null });
+      mockPingAuthenticated.mockResolvedValue({
+        ok: true, status: 200, latencyMs: 20,
+        migration: { newUrl: 'https://new.example.com' },
+      });
+
+      const result = await checkServiceConnectivity({ serviceUrl: 'https://svc.example.com' });
+      expect(result.migration).toEqual({ newUrl: 'https://new.example.com' });
+    });
+
+    it('reports null migration when neither probe carries the header', async () => {
+      mockPingHealth.mockResolvedValue({ ok: true, status: 200, latencyMs: 10 });
+      mockPingAuthenticated.mockResolvedValue({ ok: true, status: 200, latencyMs: 20 });
+
+      const result = await checkServiceConnectivity({ serviceUrl: 'https://svc.example.com' });
+      expect(result.migration).toBeNull();
+    });
+
+    it('still surfaces migration when reachability has transport-level failure but auth was skipped', async () => {
+      // When reachability fails at transport level, auth is skipped → only reachability migration counts.
+      // Realistically transport failures don't carry headers (no response), so migration is null.
+      mockPingHealth.mockResolvedValue({ ok: false, errorCode: 'ETIMEDOUT', latencyMs: 5000 });
+
+      const result = await checkServiceConnectivity({ serviceUrl: 'https://svc.example.com' });
+      expect(result.auth).toBeNull();
+      expect(result.migration).toBeNull();
+    });
+
+    it('reports null migration when service not configured', async () => {
+      const result = await checkServiceConnectivity({});
+      expect(result.migration).toBeNull();
+    });
+  });
+
   describe('TRANSPORT_ERROR_CODES', () => {
     it('should be a Set containing common transport errors', () => {
       expect(TRANSPORT_ERROR_CODES).toBeInstanceOf(Set);

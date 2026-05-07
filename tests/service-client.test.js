@@ -690,4 +690,209 @@ describe('service-client', () => {
       expect(result.errorCode).toBe('INVALID_URL');
     });
   });
+
+  // ─────────────────────────────────────────────────────────────────
+  // Migration header tests (subscription rotation notification)
+  // ─────────────────────────────────────────────────────────────────
+
+  describe('parseMigrationHeaders (pure helper)', () => {
+    let parseMigrationHeaders;
+    beforeAll(() => {
+      ({ parseMigrationHeaders } = require('../lib/service-client'));
+    });
+
+    it('returns null when no headers present', () => {
+      expect(parseMigrationHeaders({})).toBeNull();
+      expect(parseMigrationHeaders(null)).toBeNull();
+      expect(parseMigrationHeaders(undefined)).toBeNull();
+    });
+
+    it('returns null when migration url header is empty', () => {
+      expect(parseMigrationHeaders({ 'x-service-migration-url': '' })).toBeNull();
+      expect(parseMigrationHeaders({ 'x-service-migration-url': '   ' })).toBeNull();
+    });
+
+    it('parses url-only header (no deadline)', () => {
+      const result = parseMigrationHeaders({
+        'x-service-migration-url': 'https://new.example.com',
+      });
+      expect(result).toEqual({ newUrl: 'https://new.example.com' });
+    });
+
+    it('parses url + deadline together', () => {
+      const result = parseMigrationHeaders({
+        'x-service-migration-url': 'https://new.example.com',
+        'x-service-migration-deadline': '2026-06-15',
+      });
+      expect(result).toEqual({
+        newUrl: 'https://new.example.com',
+        deadline: '2026-06-15',
+      });
+    });
+
+    it('handles array header values (defensive against odd proxies)', () => {
+      const result = parseMigrationHeaders({
+        'x-service-migration-url': ['https://new.example.com'],
+        'x-service-migration-deadline': ['2026-06-15'],
+      });
+      expect(result.newUrl).toBe('https://new.example.com');
+      expect(result.deadline).toBe('2026-06-15');
+    });
+
+    it('omits empty deadline', () => {
+      const result = parseMigrationHeaders({
+        'x-service-migration-url': 'https://new.example.com',
+        'x-service-migration-deadline': '   ',
+      });
+      expect(result).toEqual({ newUrl: 'https://new.example.com' });
+    });
+  });
+
+  describe('serviceRequest migration header integration', () => {
+    /**
+     * Variant of mockHttpsRequest that lets the test set arbitrary response headers.
+     */
+    function mockHttpsRequestWithHeaders(statusCode, responseBody, headers) {
+      const mockRes = {
+        statusCode,
+        headers: headers || {},
+        on: jest.fn((event, cb) => {
+          if (event === 'data') cb(typeof responseBody === 'string' ? responseBody : JSON.stringify(responseBody));
+          if (event === 'end') cb();
+          return mockRes;
+        }),
+      };
+      const mockReq = {
+        on: jest.fn().mockReturnThis(),
+        write: jest.fn(),
+        end: jest.fn(),
+        destroy: jest.fn(),
+      };
+      jest.spyOn(https, 'request').mockImplementation((url, opts, callback) => {
+        callback(mockRes);
+        return mockReq;
+      });
+      return { mockReq, mockRes };
+    }
+
+    let mockMaybeShowBanner;
+
+    beforeEach(() => {
+      // Reset the migration-notifier mock between tests.
+      jest.resetModules();
+      mockMaybeShowBanner = jest.fn();
+      jest.doMock('../lib/migration-notifier', () => ({
+        maybeShowMigrationBanner: mockMaybeShowBanner,
+        showMigrationBannerForced: jest.fn(),
+      }));
+      // Re-require service-client so its lazy require('./migration-notifier') hits our doMock.
+      // Also re-require config so loadConfig still routes through the file-level mock.
+    });
+
+    afterEach(() => {
+      jest.dontMock('../lib/migration-notifier');
+    });
+
+    it('triggers maybeShowMigrationBanner when server sends X-Service-Migration-Url', async () => {
+      const { serviceRequest } = require('../lib/service-client');
+      const { loadConfig } = require('../lib/config');
+      loadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      mockHttpsRequestWithHeaders(200, { ok: true }, {
+        'x-service-migration-url': 'https://new-svc.example.com',
+        'x-service-migration-deadline': '2026-06-15',
+      });
+
+      const result = await serviceRequest('GET', '/pipeline');
+      expect(result.status).toBe(200);
+      expect(mockMaybeShowBanner).toHaveBeenCalledWith({
+        newUrl: 'https://new-svc.example.com',
+        deadline: '2026-06-15',
+      });
+    });
+
+    it('does NOT trigger banner when migration headers absent', async () => {
+      const { serviceRequest } = require('../lib/service-client');
+      const { loadConfig } = require('../lib/config');
+      loadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      mockHttpsRequestWithHeaders(200, { ok: true }, {});
+
+      await serviceRequest('GET', '/pipeline');
+      expect(mockMaybeShowBanner).not.toHaveBeenCalled();
+    });
+
+    it('does NOT propagate notifier errors to the caller', async () => {
+      mockMaybeShowBanner.mockImplementation(() => { throw new Error('notifier exploded'); });
+      const { serviceRequest } = require('../lib/service-client');
+      const { loadConfig } = require('../lib/config');
+      loadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      mockHttpsRequestWithHeaders(200, { ok: true }, {
+        'x-service-migration-url': 'https://new-svc.example.com',
+      });
+
+      // Must NOT throw despite notifier throwing.
+      const result = await serviceRequest('GET', '/pipeline');
+      expect(result.status).toBe(200);
+      expect(result.data).toEqual({ ok: true });
+    });
+  });
+
+  describe('executeProbe attaches migration to result', () => {
+    function mockHttpsRequestWithHeaders(statusCode, body, headers) {
+      const mockRes = {
+        statusCode,
+        headers: headers || {},
+        on: jest.fn((event, cb) => {
+          if (event === 'data') cb(typeof body === 'string' ? body : JSON.stringify(body));
+          if (event === 'end') cb();
+          return mockRes;
+        }),
+      };
+      const mockReq = {
+        on: jest.fn().mockReturnThis(),
+        write: jest.fn(),
+        end: jest.fn(),
+        destroy: jest.fn(),
+      };
+      jest.spyOn(https, 'request').mockImplementation((url, opts, callback) => {
+        callback(mockRes);
+        return mockReq;
+      });
+      return { mockReq, mockRes };
+    }
+
+    it('exposes migration on pingHealth result when header present', async () => {
+      const { pingHealth } = require('../lib/service-client');
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      mockHttpsRequestWithHeaders(200, { status: 'ok' }, {
+        'x-service-migration-url': 'https://new-svc.example.com',
+        'x-service-migration-deadline': '2026-06-15',
+      });
+      const result = await pingHealth();
+      expect(result.ok).toBe(true);
+      expect(result.migration).toEqual({
+        newUrl: 'https://new-svc.example.com',
+        deadline: '2026-06-15',
+      });
+    });
+
+    it('exposes migration on pingAuthenticated result when header present', async () => {
+      const { pingAuthenticated } = require('../lib/service-client');
+      mockGetAzAccessToken.mockReturnValue('tok');
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      mockHttpsRequestWithHeaders(200, [], {
+        'x-service-migration-url': 'https://new-svc.example.com',
+      });
+      const result = await pingAuthenticated();
+      expect(result.ok).toBe(true);
+      expect(result.migration).toEqual({ newUrl: 'https://new-svc.example.com' });
+    });
+
+    it('migration is null when probe response has no migration header', async () => {
+      const { pingHealth } = require('../lib/service-client');
+      mockLoadConfig.mockReturnValue({ ...EMPTY_CONFIG, serviceUrl: 'https://svc.example.com' });
+      mockHttpsRequestWithHeaders(200, { status: 'ok' }, {});
+      const result = await pingHealth();
+      expect(result.migration).toBeNull();
+    });
+  });
 });
