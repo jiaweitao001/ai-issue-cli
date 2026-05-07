@@ -19,6 +19,10 @@ jest.mock('../../lib/copilot', () => ({
   runCopilot: jest.fn()
 }));
 
+// Mock AgentRunner for solve Phase 1/2
+const { mockCreateAgentModule, mockRunTask, mockResetAgentMocks } = require('../helpers/mock-agent');
+jest.mock('../../lib/agents', () => mockCreateAgentModule());
+
 // Mock evaluate command
 jest.mock('../../lib/commands/evaluate', () => ({
   cmdEvaluate: jest.fn()
@@ -43,6 +47,7 @@ jest.mock('../../lib/logger', () => mockCreateLogger());
 
 const { cmdSolve } = require('../../lib/commands/solve');
 const { runCopilot } = require('../../lib/copilot');
+const { runTask } = require('../../lib/agents');
 const { cmdEvaluate } = require('../../lib/commands/evaluate');
 const { serviceRequest, getServiceUrl, updateSolutionSummary } = require('../../lib/service-client');
 const { extractSolutionSummary } = require('../../lib/summary-extractor');
@@ -84,6 +89,20 @@ describe('commands/solve', () => {
     fs.writeFileSync.mockReturnValue(undefined);
     
     runCopilot.mockResolvedValue(undefined);
+    mockResetAgentMocks();
+    mockRunTask.mockImplementation(async (_config, request) => {
+      const artifacts = {};
+      for (const spec of request.expectedArtifacts || []) {
+        artifacts[spec.path] = request.taskType === 'research'
+          ? '# Research Report\n\n## Problem Classification\n\n**Type**: 🔧 CODE_CHANGE'
+          : '# Analysis and Solution';
+      }
+      return {
+        success: true,
+        artifacts,
+        git: { beforeHead: 'aaa111', afterHead: 'aaa111', commits: [], changedFiles: [] }
+      };
+    });
     cmdEvaluate.mockResolvedValue(undefined);
 
     execSync.mockImplementation((command) => {
@@ -131,10 +150,23 @@ describe('commands/solve', () => {
     jest.advanceTimersByTime(1000);
     await promise;
     
-    expect(runCopilot).toHaveBeenCalledWith(
-      expect.stringContaining('Phase 1 Research'),
+    expect(runTask).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ phase: 'phase1' })
+      expect.objectContaining({
+        taskType: 'research',
+        prompt: expect.stringContaining('Phase 1 Research'),
+        mcpProfile: 'phase1',
+        permissionProfile: 'noninteractive-full-auto',
+        gitPolicy: { commitBehavior: 'no-commit' },
+        expectedArtifacts: expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'file',
+            path: expect.stringContaining('research.md'),
+            failureMode: 'throw',
+            requiredSection: /^## Problem Classification/m
+          })
+        ])
+      })
     );
   });
 
@@ -149,22 +181,10 @@ describe('commands/solve', () => {
   });
 
   it('should throw error when research report is not generated', async () => {
-    fs.existsSync.mockImplementation((path) => {
-      if (path.includes('research.md')) return false;
-      return true;
-    });
-    
-    const promise = cmdSolve('12345', {});
-    
-    // Fast-forward past the new timeout (60 seconds)
-    // With 1000ms poll interval, need to advance 60+ times
-    for (let i = 0; i < 65; i++) {
-      jest.advanceTimersByTime(1000);
-      await Promise.resolve(); // Allow pending promises to settle
-    }
-    
-    await expect(promise).rejects.toThrow('Research report not generated');
-  }, 70000); // Increased timeout for test itself
+    mockRunTask.mockRejectedValueOnce(new Error('Research report not generated at /test/reports/issue-12345-research.md after 60s timeout'));
+
+    await expect(cmdSolve('12345', {})).rejects.toThrow('Research report not generated');
+  });
 
   it('should detect GUIDANCE issue type from research report', async () => {
     fs.existsSync.mockImplementation((path) => {
@@ -186,19 +206,23 @@ describe('commands/solve', () => {
           logLevel: 'info'
         });
       }
-      if (path.includes('research.md')) {
-        return '# Research Report\n\n**Type**: 📖 GUIDANCE';
-      }
-      if (path.includes('PHASE1_RESEARCH_PROMPT.md')) {
-        return '# Phase 1';
-      }
-      if (path.includes('PHASE2_GUIDANCE_PROMPT.md')) {
-        return '# Phase 2 Guidance';
-      }
-      if (path.includes('PHASE2_SOLUTION_PROMPT.md')) {
-        return '# Phase 2 Solution';
-      }
+      if (path.includes('PHASE1_RESEARCH_PROMPT.md')) return '# Phase 1';
+      if (path.includes('PHASE2_GUIDANCE_PROMPT.md')) return '# Phase 2 Guidance';
+      if (path.includes('PHASE2_SOLUTION_PROMPT.md')) return '# Phase 2 Solution';
       return '';
+    });
+    mockRunTask.mockImplementation(async (_config, request) => {
+      const artifacts = {};
+      for (const spec of request.expectedArtifacts || []) {
+        artifacts[spec.path] = request.taskType === 'research'
+          ? '# Research Report\n\n## Problem Classification\n\n**Type**: 📖 GUIDANCE'
+          : '# Guidance Analysis';
+      }
+      return {
+        success: true,
+        artifacts,
+        git: { beforeHead: 'aaa111', afterHead: 'aaa111', commits: [], changedFiles: [] }
+      };
     });
     
     const promise = cmdSolve('12345', { skipEval: true });
@@ -206,8 +230,8 @@ describe('commands/solve', () => {
     await promise;
     
     // Should use GUIDANCE prompt (check second call which is Phase 2)
-    const secondCall = runCopilot.mock.calls[1];
-    expect(secondCall[0]).toContain('Phase 2 Guidance');
+    const secondCall = runTask.mock.calls[1];
+    expect(secondCall[1].prompt).toContain('Phase 2 Guidance');
   });
 
   it('should clean up research file after Phase 2', async () => {
@@ -386,18 +410,17 @@ describe('commands/solve', () => {
     jest.advanceTimersByTime(1000);
     await promise;
     
-    expect(runCopilot).toHaveBeenCalledWith(
-      expect.any(String),
+    expect(runTask).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ silent: true })
     );
   });
 
-  it('should throw error when copilot execution fails', async () => {
-    runCopilot.mockRejectedValue(new Error('Copilot failed'));
+  it('should throw error when agent execution fails', async () => {
+    mockRunTask.mockRejectedValue(new Error('Agent failed'));
     
     await expect(cmdSolve('12345', {}))
-      .rejects.toThrow('Copilot failed');
+      .rejects.toThrow('Agent failed');
     
     expect(error).toHaveBeenCalledWith(expect.stringContaining('Execution failed'));
   });
@@ -408,9 +431,11 @@ describe('commands/solve', () => {
     await promise;
 
     // Both Phase 1 and Phase 2 calls should use the overridden model
-    for (const call of runCopilot.mock.calls) {
-      const configArg = call[1];
+    for (const call of runTask.mock.calls) {
+      const configArg = call[0];
+      const requestArg = call[1];
       expect(configArg.model).toBe('claude-opus-4.5');
+      expect(requestArg.model).toBe('claude-opus-4.5');
     }
   });
 
@@ -419,9 +444,11 @@ describe('commands/solve', () => {
     jest.advanceTimersByTime(1000);
     await promise;
 
-    for (const call of runCopilot.mock.calls) {
-      const configArg = call[1];
+    for (const call of runTask.mock.calls) {
+      const configArg = call[0];
+      const requestArg = call[1];
       expect(configArg.model).toBe('gpt-4');
+      expect(requestArg.model).toBe('gpt-4');
     }
   });
 
@@ -487,7 +514,7 @@ describe('commands/solve', () => {
       await promise;
 
       // Solve should still complete — Phase 1 and Phase 2 ran
-      expect(runCopilot).toHaveBeenCalledTimes(2);
+      expect(runTask).toHaveBeenCalledTimes(2);
     });
 
     it('should report solved status after Phase 2 when service URL is set', async () => {
@@ -509,7 +536,7 @@ describe('commands/solve', () => {
 
     it('should report failed status when solve throws', async () => {
       getServiceUrl.mockReturnValue('http://localhost:8000');
-      runCopilot.mockRejectedValueOnce(new Error('Phase 1 crash'));
+      mockRunTask.mockRejectedValueOnce(new Error('Phase 1 crash'));
 
       await expect(cmdSolve('12345', {})).rejects.toThrow('Phase 1 crash');
 
