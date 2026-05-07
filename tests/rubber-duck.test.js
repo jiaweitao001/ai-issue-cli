@@ -20,24 +20,18 @@ jest.mock('child_process', () => ({
 }));
 const { mockCreateLogger } = require('./helpers/mock-logger');
 jest.mock('../lib/logger', () => mockCreateLogger());
-jest.mock('../lib/copilot', () => ({
-  runCopilot: jest.fn()
-}));
+const { mockCreateAgentModule, mockRunTask, mockResetAgentMocks } = require('./helpers/mock-agent');
+jest.mock('../lib/agents', () => mockCreateAgentModule());
 jest.mock('../lib/git-utils', () => ({
   runGit: jest.fn(),
   runGitArgs: jest.fn()
-}));
-jest.mock('../lib/utils', () => ({
-  ...jest.requireActual('../lib/utils'),
-  waitForFile: jest.fn(() => Promise.resolve(true))
 }));
 jest.mock('../lib/prompt-loader', () => ({
   loadPrompt: jest.fn((name) => `[stub-prompt:${name}]`)
 }));
 
 const { runGit, runGitArgs } = require('../lib/git-utils');
-const { runCopilot } = require('../lib/copilot');
-const { waitForFile } = require('../lib/utils');
+const { runTask } = require('../lib/agents');
 const { warning, info } = require('../lib/logger');
 
 const {
@@ -60,6 +54,16 @@ const makeConfig = (overrides = {}) => ({
   reportPath: '/reports',
   model: 'claude-sonnet-4.6',
   logLevel: 'info',
+  ...overrides
+});
+
+const makeRunTaskResult = (request, overrides = {}) => ({
+  success: true,
+  artifacts: request.taskType === 'rubber_duck_critique'
+    ? { [request.expectedArtifacts[0].path]: fs.readFileSync(request.expectedArtifacts[0].path, 'utf8') }
+    : {},
+  warnings: [],
+  git: { beforeHead: 'head1', afterHead: 'head1', commits: [], changedFiles: [] },
   ...overrides
 });
 
@@ -140,8 +144,7 @@ function setupHappyGit({ findings, fileChanged = 'src/foo.go' } = {}) {
     return '';
   });
 
-  runCopilot.mockResolvedValue(undefined);
-  waitForFile.mockResolvedValue(true);
+  mockRunTask.mockImplementation(async (_config, request) => makeRunTaskResult(request));
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -309,6 +312,8 @@ describe('renderFindingList', () => {
 describe('runPostPhase2RubberDuck', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockResetAgentMocks();
+    mockRunTask.mockImplementation(async (_config, request) => makeRunTaskResult(request));
     delete process.env.AI_ISSUE_RUBBER_DUCK_DISABLE;
   });
 
@@ -317,14 +322,14 @@ describe('runPostPhase2RubberDuck', () => {
     it('returns null when prePhase2Head is empty (no pre-image)', async () => {
       const r = await runPostPhase2RubberDuck('42', makeConfig(), '');
       expect(r).toBeNull();
-      expect(runCopilot).not.toHaveBeenCalled();
+      expect(runTask).not.toHaveBeenCalled();
     });
 
     it('returns null when current HEAD equals prePhase2Head (no Phase 2 commit)', async () => {
       runGit.mockImplementation((_, cmd) => (cmd === 'git rev-parse HEAD' ? 'samehead' : ''));
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'samehead');
       expect(r).toBeNull();
-      expect(runCopilot).not.toHaveBeenCalled();
+      expect(runTask).not.toHaveBeenCalled();
     });
 
     it('returns null when git rev-parse HEAD throws', async () => {
@@ -334,7 +339,7 @@ describe('runPostPhase2RubberDuck', () => {
       });
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r).toBeNull();
-      expect(runCopilot).not.toHaveBeenCalled();
+      expect(runTask).not.toHaveBeenCalled();
     });
   });
 
@@ -343,13 +348,11 @@ describe('runPostPhase2RubberDuck', () => {
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue('# no json block');
       runGit.mockReturnValue('head');
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r.autoFixStatus).toBe('skipped-parse-error');
       expect(r.warnings.some(w => w.includes('JSON parse failed'))).toBe(true);
-      expect(runCopilot).toHaveBeenCalledTimes(1); // only critique, NOT fix
+      expect(runTask).toHaveBeenCalledTimes(1); // only critique, NOT fix
     });
 
     it('returns skipped-parse-error when JSON syntax is broken', async () => {
@@ -358,12 +361,10 @@ describe('runPostPhase2RubberDuck', () => {
         '```json rubber-duck-findings\n{bad json}\n```'
       );
       runGit.mockReturnValue('head');
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r.autoFixStatus).toBe('skipped-parse-error');
-      expect(runCopilot).toHaveBeenCalledTimes(1);
+      expect(runTask).toHaveBeenCalledTimes(1);
     });
 
     it('skips fix when only low findings present', async () => {
@@ -371,7 +372,7 @@ describe('runPostPhase2RubberDuck', () => {
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r.autoFixStatus).toBe('skipped-no-findings');
       expect(r.counts.low).toBe(1);
-      expect(runCopilot).toHaveBeenCalledTimes(1); // critique only
+      expect(runTask).toHaveBeenCalledTimes(1); // critique only
     });
 
     it('drops malformed findings while keeping valid ones', async () => {
@@ -386,12 +387,50 @@ describe('runPostPhase2RubberDuck', () => {
       expect(r.counts.high).toBe(1);
     });
 
-    it('reports critique-skipped autoFixStatus when critique Copilot throws', async () => {
+    it('calls AgentRunner with critique and fix task contracts', async () => {
+      setupHappyGit({ findings: [makeFinding()] });
+
+      await runPostPhase2RubberDuck('42', makeConfig(), 'old');
+
+      expect(runTask).toHaveBeenNthCalledWith(
+        1,
+        expect.any(Object),
+        expect.objectContaining({
+          taskType: 'rubber_duck_critique',
+          mcpProfile: 'phase2',
+          permissionProfile: 'read-only',
+          gitPolicy: { commitBehavior: 'forbid-commit' },
+          expectedArtifacts: expect.arrayContaining([
+            expect.objectContaining({
+              kind: 'file',
+              path: expect.stringContaining('rubber-duck-critique.md'),
+              failureMode: 'warn'
+            })
+          ]),
+          silent: false,
+          debugMode: false
+        })
+      );
+      expect(runTask).toHaveBeenNthCalledWith(
+        2,
+        expect.any(Object),
+        expect.objectContaining({
+          taskType: 'rubber_duck_fix',
+          mcpProfile: 'phase2',
+          permissionProfile: 'noninteractive-full-auto',
+          gitPolicy: { commitBehavior: 'may-commit' },
+          expectedArtifacts: [],
+          silent: false,
+          debugMode: false
+        })
+      );
+    });
+
+    it('reports critique-skipped autoFixStatus when critique agent throws', async () => {
       runGit.mockReturnValue('head');
-      runCopilot.mockRejectedValueOnce(new Error('copilot crash'));
+      runTask.mockRejectedValueOnce(new Error('copilot crash'));
       // Even after thrown error, code still tries to read report
       fs.existsSync.mockReturnValue(false);
-      waitForFile.mockResolvedValue(false);
 
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r.autoFixStatus).toBe('critique-skipped');
@@ -401,9 +440,13 @@ describe('runPostPhase2RubberDuck', () => {
 
     it('warns when critique report file is never produced', async () => {
       runGit.mockReturnValue('head');
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(false);
       fs.existsSync.mockReturnValue(false);
+      mockRunTask.mockResolvedValueOnce({
+        success: true,
+        artifacts: {},
+        warnings: ['Expected artifact missing'],
+        git: { beforeHead: 'head1', afterHead: 'head1', commits: [], changedFiles: [] }
+      });
 
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r.autoFixStatus).toBe('critique-skipped');
@@ -435,8 +478,6 @@ describe('runPostPhase2RubberDuck', () => {
         }
         return '';
       });
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r.warnings.some(w => w.includes('outside reportPath; discarding'))).toBe(true);
@@ -471,8 +512,6 @@ describe('runPostPhase2RubberDuck', () => {
         }
         return '';
       });
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       const cfg = makeConfig({ reportPath: '/repo/.reports' });
       const r = await runPostPhase2RubberDuck('42', cfg, 'old');
@@ -506,8 +545,6 @@ describe('runPostPhase2RubberDuck', () => {
         }
         return '';
       });
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       // Surgical stash includes ONLY src/touched.go, NOT src/preexisting.go
@@ -542,8 +579,6 @@ describe('runPostPhase2RubberDuck', () => {
         if (argv[0] === 'status') return ''; // both pre + post critique clean
         return '';
       });
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r.warnings.some(w => w.includes('READ-ONLY'))).toBe(true);
@@ -589,8 +624,6 @@ describe('runPostPhase2RubberDuck', () => {
         if (argv[0] === 'status') return ''; // no changes after fix
         return '';
       });
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r.autoFixStatus).toBe('ran-no-changes');
@@ -611,10 +644,9 @@ describe('runPostPhase2RubberDuck', () => {
         if (argv[0] === 'status') return ''; // critique drift check returns clean
         return '';
       });
-      runCopilot
-        .mockResolvedValueOnce(undefined)              // critique OK
+      mockRunTask
+        .mockImplementationOnce(async (_config, request) => makeRunTaskResult(request)) // critique OK
         .mockRejectedValueOnce(new Error('crash'));    // fix fails
-      waitForFile.mockResolvedValue(true);
 
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r.autoFixStatus).toBe('failed');
@@ -651,8 +683,6 @@ describe('runPostPhase2RubberDuck', () => {
         if (argv[0] === 'status') return ' M src/foo.go\0';
         return '';
       });
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r.autoFixStatus).toBe('applied');
@@ -684,8 +714,6 @@ describe('runPostPhase2RubberDuck', () => {
         if (cmd === 'git status --porcelain') return '';
         return '';
       });
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r.autoFixStatus).toBe('failed');
@@ -712,8 +740,6 @@ describe('runPostPhase2RubberDuck', () => {
         if (argv[0] === 'status') return ' M src/foo.go\0';
         return '';
       });
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r.autoFixStatus).toBe('applied');
@@ -743,8 +769,6 @@ describe('runPostPhase2RubberDuck', () => {
         if (argv[0] === 'status') return ' M src/foo.go\0';
         return '';
       });
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r.autoFixStatus).toBe('applied'); // still applied, not failed
@@ -768,8 +792,6 @@ describe('runPostPhase2RubberDuck', () => {
         }
         return '';
       });
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       const cfg = makeConfig({ reportPath: '/repo/.reports' });
       const r = await runPostPhase2RubberDuck('42', cfg, 'old');
@@ -792,8 +814,6 @@ describe('runPostPhase2RubberDuck', () => {
         if (argv[0] === 'status') return ' M .reports/notes.md\0';
         return '';
       });
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       const cfg = makeConfig({ reportPath: '/repo/.reports' });
       const r = await runPostPhase2RubberDuck('42', cfg, 'old');
@@ -817,8 +837,6 @@ describe('runPostPhase2RubberDuck', () => {
         if (argv[0] === 'status') return ' M src/foo.go\0';
         return '';
       });
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       const commitCall = runGitArgs.mock.calls.find(c => c[1][0] === 'commit');
@@ -849,8 +867,6 @@ describe('runPostPhase2RubberDuck', () => {
         }
         return '';
       });
-      runCopilot.mockResolvedValue(undefined);
-      waitForFile.mockResolvedValue(true);
 
       const r = await runPostPhase2RubberDuck('42', makeConfig(), 'old');
       expect(r.autoFixStatus).toBe('failed');
@@ -908,7 +924,7 @@ describe('runPostPhase2RubberDuck', () => {
       // Pass spurious extra argument (must be ignored, function only declares 3 params)
       // eslint-disable-next-line no-extra-args
       const r = await runPostPhase2RubberDuck('42', cfg, 'old', { rubberDuck: false });
-      expect(runCopilot).toHaveBeenCalled();
+      expect(runTask).toHaveBeenCalled();
       expect(r.autoFixStatus).not.toBe('critique-skipped');
 
       delete process.env.AI_ISSUE_RUBBER_DUCK_DISABLE;
