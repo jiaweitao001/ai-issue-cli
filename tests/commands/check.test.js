@@ -24,6 +24,13 @@ jest.mock('../../lib/service-health', () => ({
   hintsFor: mockHintsFor,
 }));
 
+// Mock migration-notifier so we can verify check.js triggers the forced banner.
+const mockShowMigrationBannerForced = jest.fn();
+jest.mock('../../lib/migration-notifier', () => ({
+  showMigrationBannerForced: mockShowMigrationBannerForced,
+  maybeShowMigrationBanner: jest.fn(),
+}));
+
 const { cmdCheck } = require('../../lib/commands/check');
 const { log, error, success, warning, info } = require('../../lib/logger');
 
@@ -257,6 +264,64 @@ describe('commands/check', () => {
       expect(infoMessages).toContain('anonymous access');
       // Anonymous access is a warning, not a fail.
       expect(success).toHaveBeenCalledWith(expect.stringContaining('All checks passed'));
+    });
+  });
+
+  describe('migration banner integration', () => {
+    it('triggers forced migration banner when svc.migration is present', async () => {
+      setupHappyPath();
+      mockCheckServiceConnectivity.mockResolvedValue({
+        configured: true,
+        mismatch: false,
+        reachability: { ok: true, status: 200, latencyMs: 100, url: 'https://svc.example.com/health' },
+        auth: { ok: true, status: 200, latencyMs: 200, url: 'https://svc.example.com/pipeline?limit=1', credentialSent: 'Bearer' },
+        authSkipReason: null,
+        hints: [],
+        migration: { newUrl: 'https://new-svc.example.com', deadline: '2026-06-15' },
+      });
+
+      await cmdCheck();
+
+      expect(mockShowMigrationBannerForced).toHaveBeenCalledWith({
+        newUrl: 'https://new-svc.example.com',
+        deadline: '2026-06-15',
+      });
+    });
+
+    it('does NOT call forced banner when svc.migration is null', async () => {
+      setupHappyPath();
+      mockCheckServiceConnectivity.mockResolvedValue({
+        configured: true,
+        mismatch: false,
+        reachability: { ok: true, status: 200, latencyMs: 100, url: 'https://svc.example.com/health' },
+        auth: { ok: true, status: 200, latencyMs: 200, url: 'https://svc.example.com/pipeline?limit=1', credentialSent: 'Bearer' },
+        authSkipReason: null,
+        hints: [],
+        migration: null,
+      });
+
+      await cmdCheck();
+
+      expect(mockShowMigrationBannerForced).not.toHaveBeenCalled();
+    });
+
+    it('forces banner even on otherwise-failing check (so users see migration even when service is broken)', async () => {
+      setupHappyPath();
+      mockCheckServiceConnectivity.mockResolvedValue({
+        configured: true,
+        mismatch: false,
+        reachability: { ok: false, status: 500, latencyMs: 100, url: 'https://svc.example.com/health' },
+        auth: { ok: false, status: 500, latencyMs: 100, url: 'https://svc.example.com/pipeline?limit=1', credentialSent: 'Bearer' },
+        authSkipReason: null,
+        hints: [],
+        migration: { newUrl: 'https://new-svc.example.com' },
+      });
+
+      await expect(cmdCheck()).rejects.toThrow('process.exit called');
+      // Forced banner is invoked BEFORE the failure exit.
+      expect(mockShowMigrationBannerForced).toHaveBeenCalledWith({
+        newUrl: 'https://new-svc.example.com',
+      });
     });
   });
 });
