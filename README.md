@@ -17,7 +17,7 @@ It can run as a standalone local tool, or connect to `ai-issue-service` for team
 
 | Requirement | Needed for | Notes |
 |-------------|------------|-------|
-| Node.js and npm | All usage | `package.json` declares Node.js `>=14.0.0`. |
+| Node.js and npm | All usage | Requires Node.js ≥ 18 (Phase 5C breaking change — older versions are no longer supported). |
 | Git | All solving workflows | The target repository must be cloned locally. |
 | GitHub Copilot CLI | Default agent and post-Phase 2 auto-review | Install with `npm install -g @github/copilot`, then verify `copilot --version`. Auto-review is a soft dependency when another main agent is selected. |
 | Claude Code CLI | Optional `claude-code` agent | Install with `npm install -g @anthropic-ai/claude-code`, then verify `claude --version`. |
@@ -85,6 +85,9 @@ Configuration is stored in `~/.ai-issue/config.json`. Environment variables are 
 | `logLevel` | `AI_ISSUE_LOG_LEVEL` | No | Copilot log level. Default: `info`; `--debug` uses debug logging. |
 | `serviceUrl` | `AI_ISSUE_SERVICE_URL` | Service features | Base URL for `ai-issue-service`. |
 | `serviceApiKey` | `AI_ISSUE_SERVICE_API_KEY` | Optional | Legacy service auth fallback. Also used by the Phase 1 `similar-issue-finder` MCP skill if your backend expects `X-Api-Key`. |
+| `knowledgeBasePath` | `AI_ISSUE_KB_PATH` | No | Local knowledge base directory. If unset, historical issue lookup uses `serviceUrl` when configured or returns empty results. |
+| `knowledgeBaseEnabled` | `AI_ISSUE_KB_ENABLED` | No | Enables local knowledge base support when available. Default: `true`; set env to `false` to disable. |
+| `knowledgeBaseAutoUpdate` | `AI_ISSUE_KB_AUTO_UPDATE` | No | Reserved for future local knowledge base updates. Default: `false`. |
 | `repo` | `AI_ISSUE_REPO` | Service features if not derivable | GitHub repo in `owner/name` form. Usually derived from `issueBaseUrl`. |
 | `forkRemote` | - | No | Git remote used by `solve --push-fork`. Default fallback: `origin`. |
 | `owner` | `AI_ISSUE_OWNER` | Some service flows | Owner identifier used by `register` if `--owner` is omitted. |

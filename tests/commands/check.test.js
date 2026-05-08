@@ -129,6 +129,38 @@ describe('commands/check', () => {
 
       expect(info).toHaveBeenCalledWith(expect.stringContaining('repository .mcp.json will be ignored'));
     });
+
+    it('renders configWarnings as a non-failing line under section 0', async () => {
+      // Simulate a properly-configured repo but with a knowledgeBasePath
+      // pointing at a directory that does not exist yet (the typical state
+      // before PR4 lands `ai-issue kb download`).
+      execSync.mockReturnValue('1.0.0');
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        repoPath: '/test/repo',
+        reportPath: '/test/reports',
+        knowledgeBasePath: '/missing/kb-dir'
+      }));
+      fs.writeFileSync.mockReturnValue(undefined);
+      fs.unlinkSync.mockReturnValue(undefined);
+      // Everything else exists; only the KB dir is missing.
+      fs.existsSync.mockImplementation(p => p !== '/missing/kb-dir');
+      fs.statSync.mockImplementation(() => ({
+        isDirectory: () => true,
+      }));
+
+      try {
+        await cmdCheck();
+      } catch (_e) {
+        // process.exit may be triggered by GITHUB_TOKEN/agent checks in
+        // unrelated environments; we only care about the warning rendering.
+      }
+
+      const warningLines = warning.mock.calls.flat().join('\n');
+      const infoLines = info.mock.calls.flat().join('\n');
+      expect(warningLines).toContain('Configuration Validation');
+      expect(infoLines).toContain('/missing/kb-dir');
+      expect(success).not.toHaveBeenCalledWith(expect.stringContaining('0. ✅ Configuration Validation'));
+    });
   });
 
   describe('service connectivity integration', () => {

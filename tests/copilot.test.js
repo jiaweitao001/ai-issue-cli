@@ -134,6 +134,52 @@ describe('copilot', () => {
           })
         );
       });
+
+      it('should build spawn env from config without mutating process.env', async () => {
+        const original = process.env.AI_ISSUE_SERVICE_URL;
+        delete process.env.AI_ISSUE_SERVICE_URL;
+
+        const promise = runCopilot('test prompt', {
+          ...mockConfig,
+          serviceUrl: 'https://service.example.com'
+        });
+
+        mockProcess.emit('close', 0);
+
+        await promise;
+
+        expect(spawn.mock.calls[0][2].env.AI_ISSUE_SERVICE_URL).toBe('https://service.example.com');
+        expect(process.env.AI_ISSUE_SERVICE_URL).toBeUndefined();
+
+        if (original === undefined) {
+          delete process.env.AI_ISSUE_SERVICE_URL;
+        } else {
+          process.env.AI_ISSUE_SERVICE_URL = original;
+        }
+      });
+
+      it('should propagate knowledgeBasePath into spawn env', async () => {
+        const original = process.env.AI_ISSUE_KB_PATH;
+        delete process.env.AI_ISSUE_KB_PATH;
+
+        const promise = runCopilot('test prompt', {
+          ...mockConfig,
+          knowledgeBasePath: '/config/kb'
+        });
+
+        mockProcess.emit('close', 0);
+
+        await promise;
+
+        expect(spawn.mock.calls[0][2].env.AI_ISSUE_KB_PATH).toBe('/config/kb');
+        expect(process.env.AI_ISSUE_KB_PATH).toBeUndefined();
+
+        if (original === undefined) {
+          delete process.env.AI_ISSUE_KB_PATH;
+        } else {
+          process.env.AI_ISSUE_KB_PATH = original;
+        }
+      });
     });
 
     describe('on Windows systems', () => {

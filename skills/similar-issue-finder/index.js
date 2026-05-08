@@ -6,8 +6,17 @@ const {
   ListToolsRequestSchema,
 } = require('@modelcontextprotocol/sdk/types.js');
 
-const SERVICE_URL = process.env.AI_ISSUE_SERVICE_URL || 'http://localhost:8000';
+const SERVICE_URL = process.env.AI_ISSUE_SERVICE_URL || '';
 const API_KEY = process.env.AI_ISSUE_SERVICE_API_KEY || '';
+
+function deterministicEmpty() {
+  return {
+    content: [{
+      type: 'text',
+      text: 'No knowledge base or service URL configured. Skipping similar-issue lookup.'
+    }]
+  };
+}
 
 async function callService(endpoint, body) {
   const headers = {
@@ -124,97 +133,122 @@ When to use:
   ],
 }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+async function checkExistingResearch(args) {
+  if (!SERVICE_URL) return deterministicEmpty();
+
+  try {
+    const result = await callService('/knowledge/find', {
+      repo: args.repo,
+      issue_number: args.issue_number,
+      title: args.title,
+      body: args.body,
+      top_k: args.top_k || 3,
+    });
+
+    let output = '';
+    if (!Array.isArray(result) || result.length === 0) {
+      output = 'No verified historical solutions found for similar issues.\n';
+    } else {
+      output = `## Verified Historical Solutions Found: ${result.length}\n\n`;
+      for (const r of result) {
+        output += `### Issue #${r.issue}: ${r.issue_title} (relevance: ${r.score})\n`;
+        output += `- **PR**: ${r.pr_url}\n`;
+        output += `- **Changed files**: ${r.changed_files.join(', ')}\n`;
+        output += `- **Matched on**: ${r.matched_text}\n\n`;
+      }
+      output += `\n> These are verified solutions from merged PRs. Use them as reference for your implementation.\n`;
+    }
+
+    return { content: [{ type: 'text', text: output }] };
+  } catch (error) {
+    return {
+      content: [{ type: 'text', text: `⚠️ Knowledge base search failed: ${error.message}\nProceeding without historical knowledge.` }],
+      isError: true,
+    };
+  }
+}
+
+async function findSimilarIssues(args) {
+  if (!SERVICE_URL) return deterministicEmpty();
+
+  try {
+    const result = await callService('/search', {
+      repo: args.repo,
+      issue_number: args.issue_number,
+      title: args.title,
+      body: args.body,
+      top_k: args.top_k || 5,
+      include_solutions: args.include_solutions !== false,
+    });
+
+    // 格式化为可读文本
+    let output = `## Similar Issues Found: ${result.similar_issues.length}\n\n`;
+
+    if (result.similar_issues.length === 0) {
+      output += 'No similar issues found above the similarity threshold.\n';
+    } else {
+      for (const issue of result.similar_issues) {
+        output += `### #${issue.issue} (score: ${issue.score})\n`;
+        output += `- **Title**: ${issue.title}\n`;
+        output += `- **URL**: ${issue.url}\n`;
+        output += `- **State**: ${issue.state}\n`;
+        output += `- **Labels**: ${issue.labels.join(', ') || 'none'}\n`;
+        output += `- **Created**: ${issue.created_at}\n\n`;
+      }
+    }
+
+    if (result.solutions && result.solutions.length > 0) {
+      output += `## Extracted Solutions\n\n`;
+      for (let i = 0; i < result.solutions.length; i++) {
+        const sol = result.solutions[i];
+        output += `### Solution ${i + 1}\n${sol.solution}\n`;
+        if (sol.reference.length > 0) {
+          output += `**References**: ${sol.reference.join(', ')}\n`;
+        }
+        output += '\n';
+      }
+    }
+
+    return { content: [{ type: 'text', text: output }] };
+  } catch (error) {
+    return {
+      content: [{ type: 'text', text: `⚠️ Similar issue search failed: ${error.message}\nProceeding without historical issue context.` }],
+      isError: true,
+    };
+  }
+}
+
+async function handleToolRequest(request) {
   const toolName = request.params.name;
   const args = request.params.arguments;
 
   if (toolName === 'check_existing_research') {
-    try {
-      const result = await callService('/knowledge/find', {
-        repo: args.repo,
-        issue_number: args.issue_number,
-        title: args.title,
-        body: args.body,
-        top_k: args.top_k || 3,
-      });
-
-      let output = '';
-      if (!Array.isArray(result) || result.length === 0) {
-        output = 'No verified historical solutions found for similar issues.\n';
-      } else {
-        output = `## Verified Historical Solutions Found: ${result.length}\n\n`;
-        for (const r of result) {
-          output += `### Issue #${r.issue}: ${r.issue_title} (relevance: ${r.score})\n`;
-          output += `- **PR**: ${r.pr_url}\n`;
-          output += `- **Changed files**: ${r.changed_files.join(', ')}\n`;
-          output += `- **Matched on**: ${r.matched_text}\n\n`;
-        }
-        output += `\n> These are verified solutions from merged PRs. Use them as reference for your implementation.\n`;
-      }
-
-      return { content: [{ type: 'text', text: output }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `⚠️ Knowledge base search failed: ${error.message}\nProceeding without historical knowledge.` }],
-        isError: true,
-      };
-    }
+    return checkExistingResearch(args);
   }
 
   if (toolName === 'find_similar_issues') {
-    try {
-      const result = await callService('/search', {
-        repo: args.repo,
-        issue_number: args.issue_number,
-        title: args.title,
-        body: args.body,
-        top_k: args.top_k || 5,
-        include_solutions: args.include_solutions !== false,
-      });
-
-      // 格式化为可读文本
-      let output = `## Similar Issues Found: ${result.similar_issues.length}\n\n`;
-
-      if (result.similar_issues.length === 0) {
-        output += 'No similar issues found above the similarity threshold.\n';
-      } else {
-        for (const issue of result.similar_issues) {
-          output += `### #${issue.issue} (score: ${issue.score})\n`;
-          output += `- **Title**: ${issue.title}\n`;
-          output += `- **URL**: ${issue.url}\n`;
-          output += `- **State**: ${issue.state}\n`;
-          output += `- **Labels**: ${issue.labels.join(', ') || 'none'}\n`;
-          output += `- **Created**: ${issue.created_at}\n\n`;
-        }
-      }
-
-      if (result.solutions && result.solutions.length > 0) {
-        output += `## Extracted Solutions\n\n`;
-        for (let i = 0; i < result.solutions.length; i++) {
-          const sol = result.solutions[i];
-          output += `### Solution ${i + 1}\n${sol.solution}\n`;
-          if (sol.reference.length > 0) {
-            output += `**References**: ${sol.reference.join(', ')}\n`;
-          }
-          output += '\n';
-        }
-      }
-
-      return { content: [{ type: 'text', text: output }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `⚠️ Similar issue search failed: ${error.message}\nProceeding without historical issue context.` }],
-        isError: true,
-      };
-    }
+    return findSimilarIssues(args);
   }
 
   throw new Error(`Unknown tool: ${toolName}`);
-});
+}
+
+server.setRequestHandler(CallToolRequestSchema, handleToolRequest);
 
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
 
-main().catch(console.error);
+if (require.main === module) {
+  main().catch(console.error);
+}
+
+module.exports = {
+  handlers: {
+    checkExistingResearch,
+    findSimilarIssues,
+    handleToolRequest
+  },
+  deterministicEmpty
+};

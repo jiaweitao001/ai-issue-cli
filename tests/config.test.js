@@ -18,11 +18,30 @@ jest.mock('fs');
 // Mock child_process
 jest.mock('child_process');
 
-const { loadConfig, saveConfig, isConfigured, validateConfig, DEFAULT_CONFIG } = require('../lib/config');
+const { loadConfig, saveConfig, isConfigured, validateConfig, DEFAULT_CONFIG, expandHome } = require('../lib/config');
 
 describe('config', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('expandHome', () => {
+    it('expands home path forms and leaves other values unchanged', () => {
+      expect(expandHome('~')).toBe('/mock/home');
+      expect(expandHome('~/foo')).toBe('/mock/home/foo');
+      expect(expandHome('/abs/path')).toBe('/abs/path');
+      expect(expandHome('relative/path')).toBe('relative/path');
+      expect(expandHome('')).toBe('');
+      expect(expandHome(undefined)).toBeUndefined();
+    });
+  });
+
+  describe('DEFAULT_CONFIG', () => {
+    it('exposes knowledge base defaults', () => {
+      expect(DEFAULT_CONFIG.knowledgeBasePath).toBe('');
+      expect(DEFAULT_CONFIG.knowledgeBaseEnabled).toBe(true);
+      expect(DEFAULT_CONFIG.knowledgeBaseAutoUpdate).toBe(false);
+    });
   });
 
   describe('loadConfig', () => {
@@ -41,13 +60,17 @@ describe('config', () => {
     it('should merge user config with defaults', () => {
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue(JSON.stringify({
-        repoPath: '/custom/repo',
+        repoPath: '~/repo',
+        reportPath: '~/reports',
+        knowledgeBasePath: '~/kb',
         model: 'gpt-4'
       }));
       
       const config = loadConfig();
       
-      expect(config.repoPath).toBe('/custom/repo');
+      expect(config.repoPath).toBe('/mock/home/repo');
+      expect(config.reportPath).toBe('/mock/home/reports');
+      expect(config.knowledgeBasePath).toBe('/mock/home/kb');
       expect(config.model).toBe('gpt-4');
       expect(config.logLevel).toBe(DEFAULT_CONFIG.logLevel);
     });
@@ -213,9 +236,62 @@ describe('config', () => {
       };
       
       const { valid, errors } = validateConfig(config);
-      
+       
       expect(valid).toBe(true);
       expect(errors).toHaveLength(0);
+    });
+
+    it('should return warnings without invalidating config when knowledgeBasePath is missing', () => {
+      fs.existsSync.mockImplementation((p) => p !== '/missing/kb');
+
+      const result = validateConfig({
+        repoPath: '/valid/path',
+        issueBaseUrl: 'https://github.com/test/repo/issues',
+        reportPath: '/valid/reports',
+        knowledgeBasePath: '/missing/kb',
+        knowledgeBaseEnabled: true,
+        knowledgeBaseAutoUpdate: false
+      });
+
+      expect(result).toEqual(expect.objectContaining({
+        valid: true,
+        errors: [],
+        warnings: expect.arrayContaining([expect.stringContaining('knowledgeBasePath does not exist yet')])
+      }));
+    });
+
+    it('should warn when knowledgeBasePath is missing manifest.json', () => {
+      fs.existsSync.mockImplementation((p) => p !== '/valid/kb/manifest.json');
+      fs.statSync.mockReturnValue({ isDirectory: () => true });
+
+      const { valid, errors, warnings } = validateConfig({
+        repoPath: '/valid/path',
+        issueBaseUrl: 'https://github.com/test/repo/issues',
+        reportPath: '/valid/reports',
+        knowledgeBasePath: '/valid/kb',
+        knowledgeBaseEnabled: true,
+        knowledgeBaseAutoUpdate: false
+      });
+
+      expect(valid).toBe(true);
+      expect(errors).toHaveLength(0);
+      expect(warnings.some(w => w.includes('missing manifest.json'))).toBe(true);
+    });
+
+    it('should reject non-boolean knowledge base toggles', () => {
+      const { valid, errors } = validateConfig({
+        repoPath: '/valid/path',
+        issueBaseUrl: 'https://github.com/test/repo/issues',
+        reportPath: '/valid/reports',
+        knowledgeBaseEnabled: 'true',
+        knowledgeBaseAutoUpdate: 'false'
+      });
+
+      expect(valid).toBe(false);
+      expect(errors).toEqual(expect.arrayContaining([
+        'knowledgeBaseEnabled must be a boolean',
+        'knowledgeBaseAutoUpdate must be a boolean'
+      ]));
     });
 
     it('should accept missing agent as copilot for backward compatibility', () => {
