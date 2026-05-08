@@ -5,9 +5,30 @@ const {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } = require('@modelcontextprotocol/sdk/types.js');
+const fs = require('fs');
+const { LocalKnowledgeBase } = require('../../lib/local-knowledge-base');
 
+const KB_PATH = process.env.AI_ISSUE_KB_PATH || '';
 const SERVICE_URL = process.env.AI_ISSUE_SERVICE_URL || '';
 const API_KEY = process.env.AI_ISSUE_SERVICE_API_KEY || '';
+
+let localKb = null;
+let localKbLoadPromise = null;
+
+function warnLocalKbFailure(error) {
+  const code = error && error.code ? error.code : 'UNKNOWN';
+  const message = error && error.message ? error.message : String(error);
+  console.error(`[similar-issue-finder] local knowledge base disabled (${code}): ${message}`);
+}
+
+if (KB_PATH && fs.existsSync(KB_PATH)) {
+  try {
+    localKb = new LocalKnowledgeBase(KB_PATH, { env: process.env });
+  } catch (error) {
+    warnLocalKbFailure(error);
+    localKb = null;
+  }
+}
 
 function deterministicEmpty() {
   return {
@@ -38,6 +59,70 @@ async function callService(endpoint, body) {
   }
 
   return response.json();
+}
+
+async function getLocalKb() {
+  if (!localKb) return null;
+
+  try {
+    if (!localKb.manifest || !localKb.entries) {
+      if (!localKbLoadPromise) {
+        localKbLoadPromise = localKb.load();
+      }
+      await localKbLoadPromise;
+    }
+    return localKb;
+  } catch (error) {
+    warnLocalKbFailure(error);
+    localKb = null;
+    return null;
+  } finally {
+    localKbLoadPromise = null;
+  }
+}
+
+function detectResourceType(title, body) {
+  const match = `${title || ''}\n${body || ''}`.match(/\bazurerm_[a-z0-9_]+\b/i);
+  return match ? match[0].toLowerCase() : undefined;
+}
+
+function detectService(labels) {
+  if (!Array.isArray(labels)) return undefined;
+  const serviceLabel = labels.find(label => /^service\//.test(String(label)));
+  return serviceLabel ? String(serviceLabel).slice('service/'.length) : undefined;
+}
+
+function formatLocalResults(results) {
+  if (!Array.isArray(results) || results.length === 0) {
+    return {
+      content: [{ type: 'text', text: 'No similar issues found in local knowledge base.' }]
+    };
+  }
+
+  let output = `## Similar Issues Found in Local Knowledge Base: ${results.length}\n\n`;
+  for (const result of results) {
+    output += `### Issue #${result.issue_number}: ${result.title} (score: ${result.score})\n`;
+    if (result.pr_url) output += `- **PR**: ${result.pr_url}\n`;
+    if (result.solution_summary) output += `- **Solution**: ${result.solution_summary}\n`;
+    if (result.resource_type) output += `- **Resource**: ${result.resource_type}\n`;
+    if (result.service) output += `- **Service**: ${result.service}\n`;
+    output += '\n';
+  }
+
+  return { content: [{ type: 'text', text: output }] };
+}
+
+async function tryLocalResults(args, action) {
+  const kb = await getLocalKb();
+  if (!kb || !kb.shouldPreferLocal()) return null;
+
+  try {
+    return formatLocalResults(await action(kb));
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    console.error(`[similar-issue-finder] local knowledge base lookup failed: ${message}`);
+    return null;
+  }
 }
 
 const server = new Server(
@@ -134,6 +219,9 @@ When to use:
 }));
 
 async function checkExistingResearch(args) {
+  const localResult = await tryLocalResults(args, kb => kb.checkExistingResearch(args.title, args.body));
+  if (localResult) return localResult;
+
   if (!SERVICE_URL) return deterministicEmpty();
 
   try {
@@ -169,6 +257,14 @@ async function checkExistingResearch(args) {
 }
 
 async function findSimilarIssues(args) {
+  const localResult = await tryLocalResults(args, kb => kb.findSimilarIssues(`${args.title || ''}\n${args.body || ''}`, {
+    resourceType: detectResourceType(args.title, args.body),
+    service: detectService(args.labels),
+    labels: args.labels,
+    limit: args.top_k || 5,
+  }));
+  if (localResult) return localResult;
+
   if (!SERVICE_URL) return deterministicEmpty();
 
   try {
@@ -250,5 +346,6 @@ module.exports = {
     findSimilarIssues,
     handleToolRequest
   },
-  deterministicEmpty
+  deterministicEmpty,
+  formatLocalResults
 };
