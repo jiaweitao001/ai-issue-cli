@@ -1,4 +1,6 @@
 const { buildAgentEnv } = require('../../lib/agents/env-builder');
+const os = require('os');
+const path = require('path');
 
 describe('env-builder', () => {
   it('inherits the base environment without mutating it', () => {
@@ -34,5 +36,39 @@ describe('env-builder', () => {
 
     expect(env.AI_ISSUE_SERVICE_URL).toBe('https://env.example.com');
     expect(env.AI_ISSUE_SERVICE_API_KEY).toBe('env-secret');
+  });
+
+  it('adds knowledgeBasePath as AI_ISSUE_KB_PATH with home expansion', () => {
+    const env = buildAgentEnv({
+      knowledgeBasePath: '~/kb'
+    }, {});
+
+    expect(env.AI_ISSUE_KB_PATH).toBe(path.join(os.homedir(), 'kb'));
+  });
+
+  it('does not overwrite explicit AI_ISSUE_KB_PATH', () => {
+    const env = buildAgentEnv({
+      knowledgeBasePath: '/config/kb'
+    }, {
+      AI_ISSUE_KB_PATH: '/env/kb'
+    });
+
+    expect(env.AI_ISSUE_KB_PATH).toBe('/env/kb');
+  });
+
+  it('does not mutate process.env when called with default baseEnv', () => {
+    const original = process.env.AI_ISSUE_KB_PATH;
+    delete process.env.AI_ISSUE_KB_PATH;
+
+    const env = buildAgentEnv({ knowledgeBasePath: '/config/kb' });
+
+    expect(env.AI_ISSUE_KB_PATH).toBe('/config/kb');
+    expect(process.env.AI_ISSUE_KB_PATH).toBeUndefined();
+
+    if (original === undefined) {
+      delete process.env.AI_ISSUE_KB_PATH;
+    } else {
+      process.env.AI_ISSUE_KB_PATH = original;
+    }
   });
 });

@@ -12,5 +12,5 @@ Searches the ai-issue-service backend for issues similar to the current one, and
 
 ### Environment Variables
 
-- `AI_ISSUE_SERVICE_URL` — Backend service URL (default: `http://localhost:8000`)
+- `AI_ISSUE_SERVICE_URL` — Backend service URL. When unset, the skill returns empty results without making a network request.
 - `AI_ISSUE_SERVICE_API_KEY` — API key for authentication

@@ -18,6 +18,7 @@
       "args": ["../skills/similar-issue-finder/index.js"],
       "tools": ["*"],
       "env": {
+        "AI_ISSUE_KB_PATH": "${AI_ISSUE_KB_PATH}",
         "AI_ISSUE_SERVICE_URL": "${AI_ISSUE_SERVICE_URL}",
         "AI_ISSUE_SERVICE_API_KEY": "${AI_ISSUE_SERVICE_API_KEY}"
       }

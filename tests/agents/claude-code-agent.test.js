@@ -174,7 +174,13 @@ describe('ClaudeCodeAgent', () => {
     const child = mockSpawn.mock.results[0].value;
     expect(child.stdin.end).toHaveBeenCalledWith('prompt');
     expect(result.artifacts).toEqual({ stdout: 'plain stdout' });
-    expect(mockToClaudeMcpConfigFile).toHaveBeenCalledWith('phase1', { debugMode: false });
+    expect(mockToClaudeMcpConfigFile).toHaveBeenCalledWith('phase1', {
+      debugMode: false,
+      runtimeEnv: expect.objectContaining({
+        AI_ISSUE_SERVICE_URL: 'https://service.example.com',
+        AI_ISSUE_SERVICE_API_KEY: 'service-secret'
+      })
+    });
     expect(mockCleanupTempMcpConfig).toHaveBeenCalledWith('/tmp/mcp.json');
   });
 
