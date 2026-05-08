@@ -80,13 +80,18 @@ describe('environment', () => {
       expect(kbCheck.detail).toBe('not configured');
     });
 
-    it('should include redacted home path in local knowledge base placeholder', () => {
+    it('should include redacted home path in local knowledge base status', () => {
       fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        version: '2026.05.07',
+        kbSha256: 'a'.repeat(64),
+        entryCount: 5,
+      }));
 
       const checks = checkEnvironment({ ...mockConfig, knowledgeBasePath: '~/kb' });
 
       const kbCheck = checks.find(c => c.name === 'Local Knowledge Base');
-      expect(kbCheck.detail).toBe('configured: ~/kb');
+      expect(kbCheck.detail).toBe('~/kb @ 2026.05.07 (5 entries)');
     });
 
     it('should report Copilot CLI as missing when not installed', () => {

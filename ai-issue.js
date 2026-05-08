@@ -25,6 +25,7 @@ const { cmdSearch } = require('./lib/commands/search-cmd');
 const { cmdImport } = require('./lib/commands/import-cmd');
 const { cmdModel } = require('./lib/commands/model');
 const { cmdUpdate } = require('./lib/commands/update');
+const { cmdKb } = require('./lib/commands/kb');
 
 // Basic metadata
 program
@@ -270,6 +271,54 @@ modelCommand
   .option('--agent <agent>', 'Agent to show the current model for (copilot, claude-code)')
   .action(async (options) => {
     await cmdModel('current', options);
+  });
+
+
+// Command: kb
+const kbCommand = program
+  .command('kb')
+  .description('Manage the local knowledge base')
+  .action(async () => {
+    await cmdKb();
+  });
+
+kbCommand
+  .command('download')
+  .description('Download and install a released local knowledge base')
+  .option('--version <version>', 'Release tag/version to download')
+  .option('--source <repo>', 'GitHub source repository (owner/repo)', 'jiaweitao001/ai-issue-cli')
+  .action(async (options) => {
+    await cmdKb('download', options);
+  });
+
+kbCommand
+  .command('update')
+  .description('Update the local knowledge base to the latest release')
+  .option('--source <repo>', 'GitHub source repository (owner/repo)', 'jiaweitao001/ai-issue-cli')
+  .action(async (options) => {
+    await cmdKb('update', options);
+  });
+
+kbCommand
+  .command('info')
+  .description('Show local knowledge base metadata')
+  .action(async () => {
+    await cmdKb('info');
+  });
+
+kbCommand
+  .command('verify')
+  .description('Verify local knowledge base structure and checksums')
+  .action(async () => {
+    await cmdKb('verify');
+  });
+
+kbCommand
+  .command('remove')
+  .description('Remove the configured local knowledge base')
+  .option('--yes', 'Do not prompt for confirmation')
+  .action(async (options) => {
+    await cmdKb('remove', options);
   });
 
 // Command: update

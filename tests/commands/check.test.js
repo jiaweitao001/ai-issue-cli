@@ -161,6 +161,72 @@ describe('commands/check', () => {
       expect(infoLines).toContain('/missing/kb-dir');
       expect(success).not.toHaveBeenCalledWith(expect.stringContaining('0. ✅ Configuration Validation'));
     });
+
+    it('shows downloaded KB version and entry count', async () => {
+      execSync.mockReturnValue('1.0.0');
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockImplementation((p) => {
+        if (String(p).includes('manifest.json')) {
+          return JSON.stringify({
+            version: '2026.05.07',
+            kbSha256: 'a'.repeat(64),
+            entryCount: 3,
+          });
+        }
+        return JSON.stringify({
+          repoPath: '/test/repo',
+          reportPath: '/test/reports',
+          knowledgeBasePath: '/mock/home/.ai-issue/kb/2026.05.07',
+        });
+      });
+      fs.writeFileSync.mockReturnValue(undefined);
+      fs.unlinkSync.mockReturnValue(undefined);
+
+      await cmdCheck();
+
+      const messages = success.mock.calls.flat().join('\n');
+      expect(messages).toContain('Local Knowledge Base');
+      expect(messages).toContain('2026.05.07');
+      expect(messages).toContain('3 entries');
+      expect(messages).toContain('~/.ai-issue/kb/2026.05.07');
+    });
+
+    it('shows download hint when configured KB dir is missing', async () => {
+      execSync.mockReturnValue('1.0.0');
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        repoPath: '/test/repo',
+        reportPath: '/test/reports',
+        knowledgeBasePath: '/mock/home/.ai-issue/kb/missing',
+      }));
+      fs.existsSync.mockImplementation((p) => p !== '/mock/home/.ai-issue/kb/missing');
+
+      await expect(cmdCheck()).rejects.toThrow('process.exit called');
+
+      const errors = error.mock.calls.flat().join('\n');
+      const warnings = warning.mock.calls.flat().join('\n');
+      expect(errors).toContain('Local Knowledge Base');
+      expect(warnings).toContain('Run: ai-issue kb download');
+    });
+
+    it('shows verify hint when configured KB manifest is corrupted', async () => {
+      execSync.mockReturnValue('1.0.0');
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockImplementation((p) => {
+        if (String(p).includes('manifest.json')) return '{bad';
+        return JSON.stringify({
+          repoPath: '/test/repo',
+          reportPath: '/test/reports',
+          knowledgeBasePath: '/mock/home/.ai-issue/kb/corrupt',
+        });
+      });
+
+      await expect(cmdCheck()).rejects.toThrow('process.exit called');
+
+      const errors = error.mock.calls.flat().join('\n');
+      const warnings = warning.mock.calls.flat().join('\n');
+      expect(errors).toContain('Local Knowledge Base');
+      expect(warnings).toContain('Run: ai-issue kb verify');
+    });
   });
 
   describe('service connectivity integration', () => {
