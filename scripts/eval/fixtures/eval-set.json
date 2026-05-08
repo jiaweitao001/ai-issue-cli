@@ -1,0 +1,17 @@
+[
+  {
+    "query": "azurerm_key_vault_certificate timeout polling",
+    "resource_type": "azurerm_key_vault_certificate",
+    "ground_truth": [101]
+  },
+  {
+    "query": "azurerm_storage_account network rules crash bypass",
+    "resource_type": "azurerm_storage_account",
+    "ground_truth": [202]
+  },
+  {
+    "query": "key vault certificate creation custom poller retry",
+    "resource_type": "azurerm_key_vault_certificate",
+    "ground_truth": [101]
+  }
+]
