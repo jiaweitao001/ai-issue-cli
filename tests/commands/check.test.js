@@ -117,6 +117,18 @@ describe('commands/check', () => {
       await expect(cmdCheck()).rejects.toThrow('process.exit called');
       expect(warning).toHaveBeenCalled();
     });
+
+    it('should warn that repo .mcp.json is ignored for Claude Code strict MCP mode', async () => {
+      setupHappyPath();
+      fs.existsSync.mockImplementation((p) => {
+        if (p === '/test/repo/.mcp.json') return true;
+        return true;
+      });
+
+      await cmdCheck({ agent: 'claude-code' });
+
+      expect(info).toHaveBeenCalledWith(expect.stringContaining('repository .mcp.json will be ignored'));
+    });
   });
 
   describe('service connectivity integration', () => {

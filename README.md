@@ -1,13 +1,13 @@
 # AI Issue CLI
 
-AI Issue CLI is a Node.js command-line tool that uses GitHub Copilot CLI to research, solve, and evaluate GitHub issues against a local checkout of a target repository.
+AI Issue CLI is a Node.js command-line tool that uses GitHub Copilot CLI or Claude Code to research, solve, and evaluate GitHub issues against a local checkout of a target repository.
 
 It can run as a standalone local tool, or connect to `ai-issue-service` for team triage, historical issue search, pipeline management, Trello review boards, imports, metrics, and solution search.
 
 ## What it does
 
 - Runs a structured `Research -> Solution/Guidance -> Evaluation` workflow for a GitHub issue.
-- Gives Copilot phase-specific MCP tools for issue context, local code similarity, and optional historical issue search.
+- Gives the selected agent phase-specific MCP tools for issue context, local code similarity, and optional historical issue search.
 - Produces durable analysis and evaluation reports under `~/.ai-issue/reports` by default.
 - Can create fix branches and push them to a configured fork remote.
 - Supports batch solving with configurable concurrency.
@@ -19,7 +19,8 @@ It can run as a standalone local tool, or connect to `ai-issue-service` for team
 |-------------|------------|-------|
 | Node.js and npm | All usage | `package.json` declares Node.js `>=14.0.0`. |
 | Git | All solving workflows | The target repository must be cloned locally. |
-| GitHub Copilot CLI | All solving workflows | Install with `npm install -g @github/copilot`, then verify `copilot --version`. |
+| GitHub Copilot CLI | Default agent and post-Phase 2 auto-review | Install with `npm install -g @github/copilot`, then verify `copilot --version`. Auto-review is a soft dependency when another main agent is selected. |
+| Claude Code CLI | Optional `claude-code` agent | Install with `npm install -g @anthropic-ai/claude-code`, then verify `claude --version`. |
 | GitHub token | GitHub issue/PR context | Set `GITHUB_TOKEN` to a PAT with `repo` for private repos or `public_repo` for public repos. |
 | Azure CLI | Optional service auth | `ai-issue-service` CLI commands use `az account get-access-token` first, then API key fallback. |
 | `ai-issue-service` URL | Optional team features | Required for `triage`, `pipeline`, `watch`, `register`, `metrics`, `search`, `import`, and historical issue MCP search. |
@@ -77,7 +78,10 @@ Configuration is stored in `~/.ai-issue/config.json`. Environment variables are 
 | `repoPath` | `AI_ISSUE_REPO_PATH` | Yes | Absolute path to the local target repository. Must be a Git repository. |
 | `issueBaseUrl` | `AI_ISSUE_BASE_URL` | Yes | GitHub issue URL prefix. Must end with `/issues`. |
 | `reportPath` | `AI_ISSUE_REPORT_PATH` | No | Directory for generated reports. Default: `~/.ai-issue/reports`. |
-| `model` | `AI_ISSUE_MODEL` | No | Copilot model passed to `copilot --model`. Default: `claude-sonnet-4.5`. |
+| `agent` | `AI_ISSUE_AGENT` | No | Main agent for solve/evaluate/batch/watch. Supported: `copilot`, `claude-code`. Default: `copilot`. |
+| `model` | `AI_ISSUE_MODEL` | No | Copilot model fallback passed to `copilot --model`. Default: `claude-sonnet-4.5`. |
+| `agents.<agent>.model` | - | No | Per-agent model override, for example `agents.claude-code.model=sonnet`. |
+| `rubberDuckAgent` | `AI_ISSUE_RUBBER_DUCK_AGENT` | No | Optional agent override for the post-Phase 2 rubber-duck critique/fix pass. |
 | `logLevel` | `AI_ISSUE_LOG_LEVEL` | No | Copilot log level. Default: `info`; `--debug` uses debug logging. |
 | `serviceUrl` | `AI_ISSUE_SERVICE_URL` | Service features | Base URL for `ai-issue-service`. |
 | `serviceApiKey` | `AI_ISSUE_SERVICE_API_KEY` | Optional | Legacy service auth fallback. Also used by the Phase 1 `similar-issue-finder` MCP skill if your backend expects `X-Api-Key`. |
@@ -91,6 +95,9 @@ Common config commands:
 ```bash
 ai-issue config show
 ai-issue config get repoPath
+ai-issue config set agent claude-code
+ai-issue config set agents.claude-code.model sonnet
+ai-issue config set rubberDuckAgent copilot
 ai-issue config set model claude-sonnet-4.5
 ai-issue config reset
 ```
@@ -103,15 +110,48 @@ Typing model ids by hand (e.g. `claude-sonnet-4.5`) is error-prone. Use the `mod
 ai-issue model            # interactive picker (arrow keys in a TTY, numbered prompt over a pipe)
 ai-issue model list       # tabular preset catalog with ★ recommended and ✓ current markers
 ai-issue model current    # print just the effective model id (suitable for $(...))
+ai-issue model list --agent claude-code
+ai-issue model current --agent claude-code
 ```
 
-The picker pre-selects your current model, lets you pick a built-in preset, or pick `[Enter custom model ID...]` to type a BYOK / preview id.
+The picker pre-selects the current model for the chosen agent, lets you pick a built-in preset, or pick `[Enter custom model ID...]` to type a BYOK / preview id. Interactive selection writes to `agents.<agent>.model`; the legacy top-level `model` remains the Copilot fallback.
 
 Notes:
 
 - The catalog under `data/models.json` is a **curated preset list, not authoritative**. Newly released models that are not yet listed are still accepted — you'll just get a one-time warning per process explaining how to confirm the id.
-- You can extend or override the catalog by creating `~/.ai-issue/models.json` with the same schema. Entries with the same `id` replace the built-in metadata in place; new ids are appended.
-- The same warning fires once per process whenever any command uses an unknown model id, whether it was set via `config set model …`, `--model …`, or `AI_ISSUE_MODEL`. Validation is **warning-only** — it never blocks a run.
+- You can extend or override the catalog by creating `~/.ai-issue/models.json` with the same schema. Entries are merged by `(agent, id)`; entries without `agent` default to `copilot` for backward compatibility.
+- The same warning fires once per process per `(agent, model)` whenever any command uses an unknown model id, whether it was set via `config set ...`, `--model ...`, or environment defaults. Validation is **warning-only** — it never blocks a run.
+
+### Choosing an agent
+
+Copilot remains the default and is the required agent for the post-Phase 2 auto-review tool. Claude Code can be selected as the main solving/evaluation agent:
+
+```bash
+# Persistently use Claude Code for solve/evaluate/batch/watch
+ai-issue config set agent claude-code
+ai-issue config set agents.claude-code.model sonnet
+
+# Override for one run only
+ai-issue solve 30340 --agent claude-code --branch
+ai-issue evaluate 30340 --agent claude-code
+ai-issue batch 30340 31316 --agent claude-code
+ai-issue watch --owner alice --agent claude-code
+
+# Heterogeneous review: main agent writes, another agent rubber-duck reviews
+ai-issue config set rubberDuckAgent copilot
+```
+
+`--model` is also run-scoped: it applies to the agent selected for that command and does not rewrite `~/.ai-issue/config.json`.
+
+### Agent acceptance harness
+
+Use the acceptance harness to generate a manual comparison template for a five-issue agent smoke run:
+
+```bash
+npm run acceptance:agents -- --issues 30340,31316,31500,31501,31502 --output /tmp/phase5b-acceptance.md
+```
+
+By default it generates Copilot and Claude Code commands for each issue. Add `--branch` or `--skip-eval` to mirror the run mode you want to test. The output is a local template for recording Phase 1 classification, Phase 2 outcome, artifact validation, rubber-duck behavior, duration, and estimated cost.
 
 ## Main workflow
 
@@ -122,11 +162,12 @@ Notes:
 3. Phase 1 runs deep research with MCP tools and writes `issue-<N>-research.md`.
 4. The research report classifies the issue as `CODE_CHANGE` or `GUIDANCE`.
 5. Phase 2 either implements a solution or writes user guidance, then saves `issue-<N>-analysis-and-solution.md`.
-6. For `CODE_CHANGE`, the post-Phase 2 auto-review tool runs against the new changes.
-7. If `--push-fork` and `--branch` are both used, the branch is pushed to `forkRemote`.
-8. If service integration is enabled, the CLI reports `solved` or `failed` and uploads the solution summary when available.
-9. The temporary research report is deleted after Phase 2 succeeds.
-10. Phase 3 evaluation runs unless `--skip-eval` is set, writing `issue-<N>-evaluation.md`.
+6. For `CODE_CHANGE`, the always-on rubber-duck critique/fix pass reviews the Phase 2 changes.
+7. For `CODE_CHANGE`, the Copilot-backed post-Phase 2 auto-review tool runs when available. If Copilot is not installed and another main agent is selected, auto-review is skipped without failing the solve.
+8. If `--push-fork` and `--branch` are both used, the branch is pushed to `forkRemote`.
+9. If service integration is enabled, the CLI reports `solved` or `failed` and uploads the solution summary when available.
+10. The temporary research report is deleted after Phase 2 succeeds.
+11. Phase 3 evaluation runs unless `--skip-eval` is set, writing `issue-<N>-evaluation.md`.
 
 ## Command reference
 
@@ -134,7 +175,8 @@ Global options:
 
 | Option | Description |
 |--------|-------------|
-| `--model <model>` | Override the configured Copilot model for the current run. |
+| `--model <model>` | Override the selected agent model for the current run. |
+| `--agent <agent>` | Override the configured main agent for the current run (`copilot` or `claude-code`). |
 | `--skip-eval` | Skip Phase 3 evaluation after solving. |
 | `--concurrency <number>` | Batch concurrency. Default: `3`. |
 | `--debug` | Enable debug logging. |
@@ -145,8 +187,8 @@ Commands:
 |---------|------------------|-------------|
 | `ai-issue init` | No | Create `~/.ai-issue/config.json` and the report directory. |
 | `ai-issue config [show|get|set|reset]` | No | Manage configuration. |
-| `ai-issue model [list|current]` | No | List the preset model catalog, print the current model id, or run an interactive picker (no subcommand). See "Switching models" above. |
-| `ai-issue check` | No | Validate config, `GITHUB_TOKEN`, Copilot CLI, repo path, report path, prompt files, and (when `serviceUrl` is set) `ai-issue-service` reachability + authentication. |
+| `ai-issue model [list|current]` | No | List the preset model catalog, print the current model id, or run an interactive picker (no subcommand). Supports `--agent`. See "Switching models" above. |
+| `ai-issue check` | No | Validate config, `GITHUB_TOKEN`, selected agent CLI, repo path, report path, prompt files, and (when `serviceUrl` is set) `ai-issue-service` reachability + authentication. Supports `--agent`. |
 | `ai-issue solve <issue>` | No | Run research, solution/guidance, auto-review for code changes, and optional evaluation. |
 | `ai-issue evaluate <issue>` | No | Run evaluation against an existing analysis report. Alias: `eval`. |
 | `ai-issue batch <issues...>` | No | Solve multiple issues concurrently. |
@@ -175,6 +217,9 @@ ai-issue solve 30340 --branch --push-fork
 
 # Override a service triage recommendation
 ai-issue solve 30340 --force
+
+# Use Claude Code for a single run
+ai-issue solve 30340 --agent claude-code --branch
 
 # Batch solve with lower concurrency
 ai-issue --concurrency 2 batch 30340 31316 31500
@@ -290,7 +335,7 @@ ai-issue config set updateChannel branch    # always track branch HEAD
 
 
 
-The CLI passes a phase-specific MCP config to Copilot:
+The CLI passes a phase-specific MCP config to the selected agent. For Claude Code, the CLI normalizes the config to Claude's MCP format, strips Copilot-only fields, runs with `--strict-mcp-config`, and passes the prompt through stdin.
 
 | Phase | Config | Skills |
 |-------|--------|--------|
@@ -331,6 +376,7 @@ If a solve fails before cleanup, the research report may remain in the report di
 ai-issue-cli/
   ai-issue.js                    # Commander.js entry point
   lib/
+    agents/                      # AgentRunner adapters and shared agent helpers
     commands/                    # Command handlers
     config.js                    # ~/.ai-issue/config.json management
     copilot.js                   # Copilot CLI runner and phase MCP config selection
@@ -342,7 +388,7 @@ ai-issue-cli/
   config/                        # Phase-specific MCP configs
   prompts/                       # Prompt templates for each phase
   skills/                        # MCP servers used by Copilot
-  scripts/                       # Installer and utility scripts
+  scripts/                       # Installer, utility scripts, and agent acceptance harness
   tests/                         # Jest tests
 ```
 
@@ -368,6 +414,8 @@ The project uses CommonJS, JSDoc type annotations, and Jest. There is no build s
 | `issueBaseUrl format invalid` | Set a URL ending in `/issues`, for example `https://github.com/owner/repo/issues`. |
 | `GITHUB_TOKEN` check fails | Export `GITHUB_TOKEN` in the same shell that runs `ai-issue`. |
 | `Copilot CLI` check fails | Run `npm install -g @github/copilot`, then complete Copilot CLI authentication if prompted. |
+| `Claude Code` check fails | Run `npm install -g @anthropic-ai/claude-code`, then complete Claude Code authentication if prompted. |
+| `ai-issue check --agent claude-code` mentions `.mcp.json` | This is informational: Claude Code runs with strict phase-specific MCP config, so a repository-level `.mcp.json` is intentionally ignored for ai-issue tasks. |
 | Service commands fail auth | Run `az login`; if your deployment uses API keys, set `serviceApiKey` or `AI_ISSUE_SERVICE_API_KEY`. |
 | `Service Reachability` shows `INVALID_URL` / `INVALID_SCHEMA` in `ai-issue check` | `serviceUrl` must be the origin only (e.g. `https://svc.example.com`) using `http`/`https`; do not append paths, query strings, or fragments. The CLI builds `/health` and `/pipeline` from this base. |
 | `Service Reachability` shows `ENOTFOUND` / `ECONNREFUSED` / `ETIMEDOUT` | Verify VPN, corporate DNS, the backend process is up, and that the port/host in `serviceUrl` is correct. |

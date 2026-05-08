@@ -123,8 +123,10 @@ program
 program
   .command('check')
   .description('Check environment configuration (including optional ai-issue-service connectivity)')
-  .action(async () => {
-    await cmdCheck();
+  .option('--agent <agent>', 'Override configured agent for this check')
+  .action(async (cmdOpts) => {
+    const options = { ...program.opts(), ...cmdOpts };
+    await cmdCheck(options);
   });
 
 // Command: validate
