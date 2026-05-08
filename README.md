@@ -105,6 +105,26 @@ ai-issue config set model claude-sonnet-4.5
 ai-issue config reset
 ```
 
+### 本地知识库
+
+The local knowledge base lets historical issue search work without `ai-issue-service`, avoids a network round trip, and keeps common Terraform provider fixes available for faster offline lookups. It requires Node.js 18 or newer.
+
+Quick start:
+
+```bash
+ai-issue kb download              # latest release
+ai-issue kb info                  # see what's installed
+ai-issue kb verify                # integrity check
+ai-issue kb update                # check for newer
+ai-issue kb remove                # uninstall
+```
+
+Set `AI_ISSUE_KB_PATH` to point at a custom KB directory. Set `AI_ISSUE_KB_PREFER_LOCAL=true` to prefer the local KB even when a service URL is configured, or `false` to prefer the service unless local fallback is needed.
+
+This knowledge base is derived from public issues and PRs in the `hashicorp/terraform-provider-azurerm` repository, licensed under MPL-2.0. Source commit information is recorded in each KB manifest.
+
+Privacy notes: `ai-issue kb info` redacts `$HOME` paths in output, and manifests built from private forks are marked with `[private]`.
+
 ### Switching models
 
 Typing model ids by hand (e.g. `claude-sonnet-4.5`) is error-prone. Use the `model` command group instead:
@@ -191,6 +211,7 @@ Commands:
 | `ai-issue init` | No | Create `~/.ai-issue/config.json` and the report directory. |
 | `ai-issue config [show|get|set|reset]` | No | Manage configuration. |
 | `ai-issue model [list|current]` | No | List the preset model catalog, print the current model id, or run an interactive picker (no subcommand). Supports `--agent`. See "Switching models" above. |
+| `ai-issue kb [download|info|verify|update|remove]` | No | Manage the optional local knowledge base. |
 | `ai-issue check` | No | Validate config, `GITHUB_TOKEN`, selected agent CLI, repo path, report path, prompt files, and (when `serviceUrl` is set) `ai-issue-service` reachability + authentication. Supports `--agent`. |
 | `ai-issue solve <issue>` | No | Run research, solution/guidance, auto-review for code changes, and optional evaluation. |
 | `ai-issue evaluate <issue>` | No | Run evaluation against an existing analysis report. Alias: `eval`. |
