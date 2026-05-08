@@ -13,12 +13,24 @@ jest.mock('os', () => ({
 const { mockCreateLogger } = require('../helpers/mock-logger');
 jest.mock('../../lib/logger', () => mockCreateLogger());
 
+const mockPromptInput = jest.fn();
+jest.mock('../../lib/prompts', () => ({
+  promptInput: mockPromptInput,
+}));
+
+const mockInstallKnowledgeBase = jest.fn();
+jest.mock('../../lib/commands/kb', () => ({
+  installKnowledgeBase: mockInstallKnowledgeBase,
+}));
+
 const { cmdInit } = require('../../lib/commands/init');
 const { success, info, error } = require('../../lib/logger');
 
 describe('commands/init', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPromptInput.mockResolvedValue('n');
+    delete process.env.CI;
   });
 
   it('should skip initialization if config file already exists', async () => {
@@ -84,5 +96,21 @@ describe('commands/init', () => {
     await cmdInit();
     
     expect(info).toHaveBeenCalledWith(expect.stringContaining('repoPath'));
+  });
+
+  it('should skip KB prompt entirely in CI mode', async () => {
+    process.env.CI = 'true';
+    fs.existsSync.mockImplementation((path) => {
+      if (path.includes('config.json')) return false;
+      return true;
+    });
+    fs.writeFileSync.mockReturnValue(undefined);
+    fs.mkdirSync.mockReturnValue(undefined);
+
+    await cmdInit();
+
+    expect(mockPromptInput).not.toHaveBeenCalled();
+    expect(mockInstallKnowledgeBase).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('CI mode'));
   });
 });
