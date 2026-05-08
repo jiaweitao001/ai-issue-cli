@@ -242,23 +242,26 @@ program
 // Command: model
 const modelCommand = program
   .command('model')
-  .description('List or interactively select the LLM model used by Copilot')
-  .action(async () => {
-    await cmdModel();
+  .description('List or interactively select the LLM model used by an agent')
+  .option('--agent <agent>', 'Agent to configure (copilot, claude-code)')
+  .action(async (options) => {
+    await cmdModel(undefined, options);
   });
 
 modelCommand
   .command('list')
   .description('Print the known model preset catalog')
-  .action(async () => {
-    await cmdModel('list');
+  .option('--agent <agent>', 'Agent to list models for (copilot, claude-code)')
+  .action(async (options) => {
+    await cmdModel('list', options);
   });
 
 modelCommand
   .command('current')
-  .description("Print the effective model id (loadConfig().model)")
-  .action(async () => {
-    await cmdModel('current');
+  .description('Print the effective model id for an agent')
+  .option('--agent <agent>', 'Agent to show the current model for (copilot, claude-code)')
+  .action(async (options) => {
+    await cmdModel('current', options);
   });
 
 // Command: update

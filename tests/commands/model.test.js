@@ -85,6 +85,30 @@ describe('commands/model', () => {
       expect(info).toHaveBeenCalledWith(expect.stringContaining('preset list'));
     });
 
+    it('prints only models for the requested agent', async () => {
+      const withClaude = {
+        ...SAMPLE,
+        recommended: { copilot: 'claude-sonnet-4.6', 'claude-code': 'sonnet' },
+        models: [
+          ...SAMPLE.models,
+          { id: 'sonnet', agent: 'claude-code', vendor: 'Anthropic', tier: 'standard' }
+        ]
+      };
+      fs.readFileSync.mockImplementation((p) => {
+        if (p === modelCatalog._BUILTIN_PATH) return JSON.stringify(withClaude);
+        const err = new Error(`ENOENT: ${p}`);
+        err.code = 'ENOENT';
+        throw err;
+      });
+      modelCatalog._resetCache();
+
+      await cmdModel('list', { agent: 'claude-code' });
+
+      const allLogged = log.mock.calls.map((c) => c[0]).join('\n');
+      expect(allLogged).toContain('sonnet');
+      expect(allLogged).not.toContain('gpt-5.4');
+    });
+
     it('marks the recommended and current models', async () => {
       await cmdModel('list');
       const allLogged = log.mock.calls.map((c) => c[0]).join('\n');
@@ -111,10 +135,10 @@ describe('commands/model', () => {
       expect(log).toHaveBeenCalledWith('gpt-5.4');
     });
 
-    it('prints empty string when model is unset', async () => {
+    it('prints the default model when model is unset', async () => {
       mockLoadConfig.mockReturnValue({});
       await cmdModel('current');
-      expect(log).toHaveBeenCalledWith('');
+      expect(log).toHaveBeenCalledWith('claude-sonnet-4.5');
     });
   });
 
@@ -126,7 +150,7 @@ describe('commands/model', () => {
 
       expect(mockSaveConfig).toHaveBeenCalledTimes(1);
       const saved = mockSaveConfig.mock.calls[0][0];
-      expect(saved.model).toBe('gpt-5.4');
+      expect(saved.agents.copilot.model).toBe('gpt-5.4');
       expect(success).toHaveBeenCalledWith(expect.stringContaining('gpt-5.4'));
     });
 
@@ -158,7 +182,7 @@ describe('commands/model', () => {
       promptInput.mockResolvedValue('  my-private-byok  ');
       await cmdModel();
       expect(mockSaveConfig).toHaveBeenCalledTimes(1);
-      expect(mockSaveConfig.mock.calls[0][0].model).toBe('my-private-byok');
+      expect(mockSaveConfig.mock.calls[0][0].agents.copilot.model).toBe('my-private-byok');
       // Unknown id → warning from validateAndWarnModelOnce
       expect(warning).toHaveBeenCalledWith(expect.stringContaining('my-private-byok'));
     });

@@ -1,10 +1,14 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": "2026-04-30",
-  "recommended": "claude-sonnet-4.6",
+  "catalogVersion": "2026-05-08",
+  "recommended": {
+    "copilot": "claude-sonnet-4.6",
+    "claude-code": "sonnet"
+  },
   "models": [
     {
       "id": "claude-sonnet-4.6",
+      "agent": "copilot",
       "displayName": "Claude Sonnet 4.6",
       "vendor": "Anthropic",
       "tier": "standard",
@@ -12,6 +16,7 @@
     },
     {
       "id": "claude-sonnet-4.5",
+      "agent": "copilot",
       "displayName": "Claude Sonnet 4.5",
       "vendor": "Anthropic",
       "tier": "standard",
@@ -19,6 +24,7 @@
     },
     {
       "id": "claude-sonnet-4",
+      "agent": "copilot",
       "displayName": "Claude Sonnet 4",
       "vendor": "Anthropic",
       "tier": "standard",
@@ -26,6 +32,7 @@
     },
     {
       "id": "claude-haiku-4.5",
+      "agent": "copilot",
       "displayName": "Claude Haiku 4.5",
       "vendor": "Anthropic",
       "tier": "fast",
@@ -33,6 +40,7 @@
     },
     {
       "id": "claude-opus-4.7",
+      "agent": "copilot",
       "displayName": "Claude Opus 4.7",
       "vendor": "Anthropic",
       "tier": "premium",
@@ -40,6 +48,7 @@
     },
     {
       "id": "claude-opus-4.7-high",
+      "agent": "copilot",
       "displayName": "Claude Opus 4.7 (high reasoning)",
       "vendor": "Anthropic",
       "tier": "premium",
@@ -47,6 +56,7 @@
     },
     {
       "id": "claude-opus-4.7-xhigh",
+      "agent": "copilot",
       "displayName": "Claude Opus 4.7 (xhigh reasoning)",
       "vendor": "Anthropic",
       "tier": "premium",
@@ -54,6 +64,7 @@
     },
     {
       "id": "claude-opus-4.6",
+      "agent": "copilot",
       "displayName": "Claude Opus 4.6",
       "vendor": "Anthropic",
       "tier": "premium",
@@ -61,6 +72,7 @@
     },
     {
       "id": "claude-opus-4.5",
+      "agent": "copilot",
       "displayName": "Claude Opus 4.5",
       "vendor": "Anthropic",
       "tier": "premium",
@@ -68,6 +80,7 @@
     },
     {
       "id": "gpt-5.5",
+      "agent": "copilot",
       "displayName": "GPT-5.5",
       "vendor": "OpenAI",
       "tier": "premium",
@@ -75,6 +88,7 @@
     },
     {
       "id": "gpt-5.4",
+      "agent": "copilot",
       "displayName": "GPT-5.4",
       "vendor": "OpenAI",
       "tier": "standard",
@@ -82,6 +96,7 @@
     },
     {
       "id": "gpt-5.4-mini",
+      "agent": "copilot",
       "displayName": "GPT-5.4 mini",
       "vendor": "OpenAI",
       "tier": "fast",
@@ -89,6 +104,7 @@
     },
     {
       "id": "gpt-5.3-codex",
+      "agent": "copilot",
       "displayName": "GPT-5.3 Codex",
       "vendor": "OpenAI",
       "tier": "standard",
@@ -96,6 +112,7 @@
     },
     {
       "id": "gpt-5.2-codex",
+      "agent": "copilot",
       "displayName": "GPT-5.2 Codex",
       "vendor": "OpenAI",
       "tier": "standard",
@@ -103,6 +120,7 @@
     },
     {
       "id": "gpt-5.2",
+      "agent": "copilot",
       "displayName": "GPT-5.2",
       "vendor": "OpenAI",
       "tier": "standard",
@@ -110,6 +128,7 @@
     },
     {
       "id": "gpt-5-mini",
+      "agent": "copilot",
       "displayName": "GPT-5 mini",
       "vendor": "OpenAI",
       "tier": "fast",
@@ -117,10 +136,43 @@
     },
     {
       "id": "gpt-4.1",
+      "agent": "copilot",
       "displayName": "GPT-4.1",
       "vendor": "OpenAI",
       "tier": "fast",
       "tags": ["legacy"]
+    },
+    {
+      "id": "sonnet",
+      "agent": "claude-code",
+      "displayName": "Claude Code Sonnet",
+      "vendor": "Anthropic",
+      "tier": "standard",
+      "tags": ["coding"]
+    },
+    {
+      "id": "opus",
+      "agent": "claude-code",
+      "displayName": "Claude Code Opus",
+      "vendor": "Anthropic",
+      "tier": "premium",
+      "tags": ["deep-reasoning"]
+    },
+    {
+      "id": "haiku",
+      "agent": "claude-code",
+      "displayName": "Claude Code Haiku",
+      "vendor": "Anthropic",
+      "tier": "fast",
+      "tags": ["cheap", "fast"]
+    },
+    {
+      "id": "claude-sonnet-4-5-20250929",
+      "agent": "claude-code",
+      "displayName": "Claude Sonnet 4.5 (Claude Code)",
+      "vendor": "Anthropic",
+      "tier": "standard",
+      "tags": ["coding", "pinned"]
     }
   ]
 }

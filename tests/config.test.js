@@ -231,7 +231,7 @@ describe('config', () => {
       expect(errors).toHaveLength(0);
     });
 
-    it('should return error when agent is unsupported in 5A', () => {
+    it('should accept claude-code as supported agent in 5B', () => {
       const config = {
         repoPath: '/valid/path',
         issueBaseUrl: 'https://github.com/test/repo/issues',
@@ -241,8 +241,61 @@ describe('config', () => {
 
       const { valid, errors } = validateConfig(config);
 
+      expect(valid).toBe(true);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should return error when agent is unsupported', () => {
+      const config = {
+        repoPath: '/valid/path',
+        issueBaseUrl: 'https://github.com/test/repo/issues',
+        reportPath: '/valid/reports',
+        agent: 'unknown'
+      };
+
+      const { valid, errors } = validateConfig(config);
+
       expect(valid).toBe(false);
-      expect(errors).toContain('Unknown agent: claude-code. Available agents: copilot');
+      expect(errors).toContain('Unknown agent: unknown. Available agents: copilot, claude-code');
+    });
+
+    it('should validate rubberDuckAgent and per-agent model config', () => {
+      const config = {
+        repoPath: '/valid/path',
+        issueBaseUrl: 'https://github.com/test/repo/issues',
+        reportPath: '/valid/reports',
+        rubberDuckAgent: 'claude-code',
+        agents: {
+          'claude-code': { model: 'sonnet' }
+        }
+      };
+
+      const { valid, errors } = validateConfig(config);
+
+      expect(valid).toBe(true);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should reject invalid nested agents config', () => {
+      const config = {
+        repoPath: '/valid/path',
+        issueBaseUrl: 'https://github.com/test/repo/issues',
+        reportPath: '/valid/reports',
+        rubberDuckAgent: 'unknown',
+        agents: {
+          unknown: { model: 'x' },
+          copilot: { model: '' }
+        }
+      };
+
+      const { valid, errors } = validateConfig(config);
+
+      expect(valid).toBe(false);
+      expect(errors).toEqual(expect.arrayContaining([
+        'Unknown rubberDuckAgent: unknown. Available agents: copilot, claude-code',
+        'Unknown agents.unknown. Available agents: copilot, claude-code',
+        'agents.copilot.model must be a non-empty string'
+      ]));
     });
 
     it('should create reportPath if it does not exist', () => {
