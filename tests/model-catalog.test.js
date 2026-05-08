@@ -119,6 +119,53 @@ describe('model-catalog', () => {
       expect(catalog.loadCatalog().recommended).toBe('gpt-5.4');
     });
 
+    it('supports recommended models per agent', () => {
+      const withAgentRecommended = {
+        ...SAMPLE_BUILTIN,
+        recommended: {
+          copilot: 'claude-sonnet-4.6',
+          'claude-code': 'sonnet'
+        },
+        models: [
+          ...SAMPLE_BUILTIN.models,
+          { id: 'sonnet', agent: 'claude-code', vendor: 'Anthropic' }
+        ]
+      };
+      mockFsRead({ [BUILTIN_PATH]: JSON.stringify(withAgentRecommended) });
+
+      const c = catalog.loadCatalog();
+
+      expect(c.recommended).toBe('claude-sonnet-4.6');
+      expect(c.recommendedByAgent['claude-code']).toBe('sonnet');
+      expect(catalog.getRecommendedModel('claude-code')).toBe('sonnet');
+    });
+
+    it('merges override entries by agent and id', () => {
+      const builtin = {
+        ...SAMPLE_BUILTIN,
+        models: [
+          { id: 'shared', agent: 'copilot', tier: 'standard' },
+          { id: 'shared', agent: 'claude-code', tier: 'standard' }
+        ]
+      };
+      const override = {
+        schemaVersion: 1,
+        models: [
+          { id: 'shared', agent: 'claude-code', tier: 'premium' }
+        ]
+      };
+      mockFsRead({
+        [BUILTIN_PATH]: JSON.stringify(builtin),
+        [USER_OVERRIDE_PATH]: JSON.stringify(override),
+      });
+
+      const c = catalog.loadCatalog();
+
+      expect(c.models).toHaveLength(2);
+      expect(c.models.find(m => m.id === 'shared' && m.agent === 'copilot').tier).toBe('standard');
+      expect(c.models.find(m => m.id === 'shared' && m.agent === 'claude-code').tier).toBe('premium');
+    });
+
     it('falls back to builtin and warns when override JSON is corrupt', () => {
       mockFsRead({
         [BUILTIN_PATH]: JSON.stringify(SAMPLE_BUILTIN),
@@ -181,6 +228,21 @@ describe('model-catalog', () => {
       expect(catalog.isKnownModel('gpt-5.4')).toBe(true);
     });
 
+    it('filters known ids by agent when requested', () => {
+      const withClaude = {
+        ...SAMPLE_BUILTIN,
+        models: [
+          ...SAMPLE_BUILTIN.models,
+          { id: 'sonnet', agent: 'claude-code', vendor: 'Anthropic' }
+        ]
+      };
+      mockFsRead({ [BUILTIN_PATH]: JSON.stringify(withClaude) });
+      catalog._resetCache();
+
+      expect(catalog.isKnownModel('sonnet', 'claude-code')).toBe(true);
+      expect(catalog.isKnownModel('sonnet', 'copilot')).toBe(false);
+    });
+
     it('returns false for unknown ids', () => {
       expect(catalog.isKnownModel('claude-sonet-4.5')).toBe(false);
       expect(catalog.isKnownModel('totally-made-up')).toBe(false);
@@ -220,6 +282,22 @@ describe('model-catalog', () => {
 
     it('does not warn for known model ids', () => {
       catalog.validateAndWarnModelOnce('claude-sonnet-4.5');
+      expect(warning).not.toHaveBeenCalled();
+    });
+
+    it('does not warn for known model ids for the matching agent', () => {
+      const withClaude = {
+        ...SAMPLE_BUILTIN,
+        models: [
+          ...SAMPLE_BUILTIN.models,
+          { id: 'sonnet', agent: 'claude-code', vendor: 'Anthropic' }
+        ]
+      };
+      mockFsRead({ [BUILTIN_PATH]: JSON.stringify(withClaude) });
+      catalog._resetCache();
+
+      catalog.validateAndWarnModelOnce('sonnet', 'claude-code');
+
       expect(warning).not.toHaveBeenCalled();
     });
 

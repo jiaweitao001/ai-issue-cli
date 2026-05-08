@@ -54,6 +54,18 @@ describe('commands/config-cmd', () => {
       expect(success).toHaveBeenCalled();
     });
 
+    it('should set a dotted per-agent model value', () => {
+      cmdConfig('set', 'agents.claude-code.model', 'sonnet');
+
+      const saved = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
+      expect(saved.agents['claude-code'].model).toBe('sonnet');
+    });
+
+    it('should reject dotted per-agent model for unknown agents', () => {
+      expect(() => cmdConfig('set', 'agents.unknown.model', 'x')).toThrow('process.exit called');
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('Unknown agent'));
+    });
+
     it('should exit with error when key is missing', () => {
       expect(() => cmdConfig('set')).toThrow('process.exit called');
       expect(error).toHaveBeenCalled();
@@ -108,6 +120,16 @@ describe('commands/config-cmd', () => {
       cmdConfig('get', 'repoPath');
       
       expect(log).toHaveBeenCalledWith('/test/repo');
+    });
+
+    it('should get a dotted configuration value', () => {
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        agents: { 'claude-code': { model: 'sonnet' } }
+      }));
+
+      cmdConfig('get', 'agents.claude-code.model');
+
+      expect(log).toHaveBeenCalledWith('sonnet');
     });
 
     it('should return empty string for non-existent key', () => {
