@@ -230,5 +230,27 @@ describe('review-tool', () => {
       await runPostPhase2AutoReview('42', mockConfig, { silent: true }, 'oldhead');
       expect(warning).toHaveBeenCalledWith(expect.stringContaining('Auto review step failed'));
     });
+
+    it('should return early when AgentRunner reports auto-review skipped', async () => {
+      runGit.mockImplementation((_, cmd) => {
+        if (cmd.includes('rev-parse')) return 'newhead';
+        if (cmd.includes('status --porcelain')) return '';
+        return '';
+      });
+      fs.existsSync.mockReturnValue(true);
+      mockRunTask.mockResolvedValue({
+        success: true,
+        skipped: true,
+        reason: 'Auto review skipped: Copilot CLI is not installed.',
+        artifacts: {},
+        git: {}
+      });
+
+      await runPostPhase2AutoReview('42', mockConfig, { silent: true }, 'oldhead');
+
+      expect(info).toHaveBeenCalledWith('Auto review skipped: Copilot CLI is not installed.');
+      expect(runGit).not.toHaveBeenCalledWith('/repo', 'git add -A');
+      expect(success).not.toHaveBeenCalledWith('Auto review completed, no additional fixes required');
+    });
   });
 });

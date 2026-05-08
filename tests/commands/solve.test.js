@@ -436,7 +436,8 @@ describe('commands/solve', () => {
     for (const call of runTask.mock.calls) {
       const configArg = call[0];
       const requestArg = call[1];
-      expect(configArg.model).toBe('claude-opus-4.5');
+      expect(configArg.model).toBe('gpt-4');
+      expect(configArg.modelOverride).toBe('claude-opus-4.5');
       expect(requestArg.model).toBe('claude-opus-4.5');
     }
   });
