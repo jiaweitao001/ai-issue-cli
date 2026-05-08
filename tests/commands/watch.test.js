@@ -25,6 +25,9 @@ jest.mock('../../lib/commands/solve', () => ({
   cmdSolve: jest.fn(),
 }));
 
+const { mockCreateAgentModule, mockCreateAgent, mockResetAgentMocks } = require('../helpers/mock-agent');
+jest.mock('../../lib/agents', () => mockCreateAgentModule());
+
 const fs = require('fs');
 const { watchCycle, fetchQueuedIssues, cmdWatch } = require('../../lib/commands/watch');
 const { serviceRequest, getServiceUrl } = require('../../lib/service-client');
@@ -34,6 +37,12 @@ const { log, error, info, success, warning } = require('../../lib/logger');
 describe('commands/watch', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockResetAgentMocks();
+    mockCreateAgent.mockReturnValue({
+      name: 'copilot',
+      displayName: 'Copilot CLI',
+      validateInstallationSync: jest.fn(() => ({ installed: true, version: '1.0.0', errors: [] }))
+    });
     fs.existsSync.mockReturnValue(true);
     fs.readFileSync.mockReturnValue(JSON.stringify({
       repoPath: '/test/repo',

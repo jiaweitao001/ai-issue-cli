@@ -35,6 +35,7 @@ program
 // Global options
 program
   .option('-m, --model <model>', 'Specify AI model')
+  .option('-a, --agent <agent>', 'Specify AI agent (copilot or claude-code)')
   .option('--skip-eval', 'Skip evaluation phase after solving')
   .option('--concurrency <number>', 'Parallel instances for batch processing', '3')
   .option('--debug', 'Enable debug logging');
@@ -71,6 +72,7 @@ program
 program
   .command('solve <issue_number>')
   .description('Solve specified Issue (2-phase: research + solution)')
+  .option('--agent <agent>', 'Override configured agent for this solve')
   .option('--branch', 'Create a git branch fix/issue-<N> before solving')
   .option('--push-fork', 'Push branch to fork remote after solving')
   .option('--force', 'Override triage SKIP/NEEDS_HUMAN recommendation')
@@ -88,18 +90,21 @@ program
   .command('evaluate <issue_number>')
   .alias('eval')
   .description('Evaluate solved Issue')
-  .action(async (issueNumber) => {
+  .option('--agent <agent>', 'Override configured agent for this evaluation')
+  .action(async (issueNumber, cmdOpts) => {
     ensureConfig();
-    await cmdEvaluate(issueNumber, program.opts());
+    const options = { ...program.opts(), ...cmdOpts };
+    await cmdEvaluate(issueNumber, options);
   });
 
 // Command: batch
 program
   .command('batch <issues...>')
   .description('Batch process multiple Issues')
-  .action(async (issues) => {
+  .option('--agent <agent>', 'Override configured agent for this batch')
+  .action(async (issues, cmdOpts) => {
     ensureConfig();
-    const options = program.opts();
+    const options = { ...program.opts(), ...cmdOpts };
     await cmdBatch(issues, {
       ...options,
       concurrency: parseInt(options.concurrency)
@@ -118,8 +123,10 @@ program
 program
   .command('check')
   .description('Check environment configuration (including optional ai-issue-service connectivity)')
-  .action(async () => {
-    await cmdCheck();
+  .option('--agent <agent>', 'Override configured agent for this check')
+  .action(async (cmdOpts) => {
+    const options = { ...program.opts(), ...cmdOpts };
+    await cmdCheck(options);
   });
 
 // Command: validate
@@ -213,6 +220,7 @@ program
   .description('Watch daemon: auto-solve queued issues assigned to you')
   .requiredOption('--owner <owner>', 'Your owner identifier (as configured in resource_owners)')
   .option('--interval <seconds>', 'Poll interval in seconds', '300')
+  .option('--agent <agent>', 'Override configured agent for solves launched by watch')
   .option('--push-fork', 'Push branches to fork remote after solving')
   .action(async (cmdOpts) => {
     const options = { ...program.opts(), ...cmdOpts };
