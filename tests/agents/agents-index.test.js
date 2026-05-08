@@ -1,8 +1,12 @@
 const mockRunTask = jest.fn();
 const mockCopilotAgent = jest.fn(() => ({ runTask: mockRunTask }));
+const mockClaudeCodeAgent = jest.fn(() => ({ runTask: mockRunTask }));
 
 jest.mock('../../lib/agents/copilot-agent', () => ({
   CopilotAgent: mockCopilotAgent
+}));
+jest.mock('../../lib/agents/claude-code-agent', () => ({
+  ClaudeCodeAgent: mockClaudeCodeAgent
 }));
 
 const { createAgent, runTask, selectAgentForTask, REGISTRY } = require('../../lib/agents');
@@ -13,8 +17,8 @@ describe('agents index', () => {
     mockRunTask.mockResolvedValue({ success: true, artifacts: {}, git: {} });
   });
 
-  it('registers only copilot in 5A', () => {
-    expect(Object.keys(REGISTRY)).toEqual(['copilot']);
+  it('registers Copilot and Claude Code agents', () => {
+    expect(Object.keys(REGISTRY)).toEqual(['copilot', 'claude-code']);
   });
 
   it.each([
@@ -36,8 +40,16 @@ describe('agents index', () => {
     expect(agent).toEqual({ runTask: mockRunTask });
   });
 
+  it('createAgent creates a ClaudeCodeAgent when requested', () => {
+    const config = { agent: 'claude-code', model: 'm', repoPath: '/repo', reportPath: '/reports' };
+    const agent = createAgent(config);
+
+    expect(mockClaudeCodeAgent).toHaveBeenCalledWith(config);
+    expect(agent).toEqual({ runTask: mockRunTask });
+  });
+
   it('createAgent throws for unknown agents', () => {
-    expect(() => createAgent({ agent: 'claude-code' })).toThrow('Unknown agent: claude-code');
+    expect(() => createAgent({ agent: 'unknown' })).toThrow('Unknown agent: unknown');
   });
 
   it('runTask routes through selectAgentForTask and invokes agent.runTask', async () => {
