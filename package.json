@@ -39,7 +39,8 @@
   "homepage": "https://github.com/jiaweitao001/ai-issue-cli#readme",
   "dependencies": {
     "chalk": "^4.1.2",
-    "commander": "^14.0.2"
+    "commander": "^14.0.2",
+    "minisearch": "^7.1.0"
   },
   "devDependencies": {
     "jest": "^29.7.0"
