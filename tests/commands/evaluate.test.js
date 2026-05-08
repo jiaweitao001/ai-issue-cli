@@ -137,11 +137,14 @@ describe('commands/evaluate', () => {
     expect(error).toHaveBeenCalledWith(expect.stringContaining('Execution failed'));
   });
 
-  it('should override config model when --model option is specified', async () => {
+  it('should use --model as a run-scoped model override', async () => {
     await cmdEvaluate('12345', { model: 'claude-opus-4.5' });
 
     const configArg = runTask.mock.calls[0][0];
-    expect(configArg.model).toBe('claude-opus-4.5');
+    const requestArg = runTask.mock.calls[0][1];
+    expect(configArg.model).toBe('gpt-4');
+    expect(configArg.modelOverride).toBe('claude-opus-4.5');
+    expect(requestArg.model).toBe('claude-opus-4.5');
   });
 
   it('should use config file model when --model option is not specified', async () => {

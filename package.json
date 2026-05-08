@@ -10,6 +10,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "acceptance:agents": "node scripts/agent-acceptance.js",
     "skills:install": "cd skills/github-issue-fetcher && npm install && cd ../code-similarity-finder && npm install && cd ../similar-issue-finder && npm install"
   },
   "keywords": [
