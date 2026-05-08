@@ -65,6 +65,26 @@ describe('kb-resolver', () => {
         field: 'kbSha256'
       }));
     });
+
+    it('throws KB_CORRUPTED when manifest is a JSON array (not object)', () => {
+      const kbDir = path.join(fixtureRoot, 'array-manifest');
+      fs.mkdirSync(kbDir, { recursive: true });
+      fs.writeFileSync(path.join(kbDir, 'manifest.json'), JSON.stringify([1, 2, 3]));
+      expect(() => loadManifest(kbDir)).toThrow(expect.objectContaining({
+        code: kbErrors.KB_CORRUPTED,
+        path: path.join(kbDir, 'manifest.json')
+      }));
+    });
+
+    it('throws KB_CORRUPTED when manifest is JSON null', () => {
+      const kbDir = path.join(fixtureRoot, 'null-manifest');
+      fs.mkdirSync(kbDir, { recursive: true });
+      fs.writeFileSync(path.join(kbDir, 'manifest.json'), 'null');
+      expect(() => loadManifest(kbDir)).toThrow(expect.objectContaining({
+        code: kbErrors.KB_CORRUPTED,
+        path: path.join(kbDir, 'manifest.json')
+      }));
+    });
   });
 
   describe('verifySha256', () => {
@@ -73,6 +93,14 @@ describe('kb-resolver', () => {
       fs.writeFileSync(filePath, 'hello');
       const expected = crypto.createHash('sha256').update('hello').digest('hex');
       await expect(verifySha256(filePath, expected)).resolves.toEqual({ ok: true, actual: expected });
+    });
+
+    it('returns ok true on match when expected is uppercase', async () => {
+      const filePath = path.join(fixtureRoot, 'hash-upper.txt');
+      fs.writeFileSync(filePath, 'hello');
+      const expectedLower = crypto.createHash('sha256').update('hello').digest('hex');
+      const result = await verifySha256(filePath, expectedLower.toUpperCase());
+      expect(result).toEqual({ ok: true, actual: expectedLower });
     });
 
     it('returns ok false with expected and actual on mismatch', async () => {

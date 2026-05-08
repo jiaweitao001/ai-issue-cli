@@ -84,6 +84,41 @@ describe('LocalKnowledgeBase', () => {
       const { kbDir } = writeKbFixture(path.join(fixtureRoot, 'bad-sha'), { kbSha256: 'not-a-sha' });
       await expectLoadError(kbDir, kbErrors.KB_CORRUPTED);
     });
+
+    it('accepts uppercase manifest kbSha256 (normalized lowercase comparison)', async () => {
+      const { kbDir } = writeKbFixture(path.join(fixtureRoot, 'uppercase-sha'));
+      const manifestPath = path.join(kbDir, 'manifest.json');
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      manifest.kbSha256 = manifest.kbSha256.toUpperCase();
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+      await expect(new LocalKnowledgeBase(kbDir).load()).resolves.toBeInstanceOf(LocalKnowledgeBase);
+    });
+  });
+
+  it('memoizes the in-flight load() promise across concurrent callers', async () => {
+    const { kbDir } = writeKbFixture(path.join(fixtureRoot, 'concurrent-load'));
+    const kb = new LocalKnowledgeBase(kbDir);
+    const spy = jest.spyOn(kb, '_loadInternal');
+    const [r1, r2, r3] = await Promise.all([kb.load(), kb.load(), kb.load()]);
+    expect(r1).toBe(kb);
+    expect(r2).toBe(kb);
+    expect(r3).toBe(kb);
+    // _loadInternal must run exactly once even with three concurrent callers.
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(kb.entries.length).toBeGreaterThan(0);
+
+    // After completion, a follow-up load() short-circuits on cached entries/index.
+    await kb.load();
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
+
+  it('clears _loadPromise on failure so subsequent load() can retry', async () => {
+    const { kbDir } = writeKbFixture(path.join(fixtureRoot, 'retry-after-fail'), { kbSha256: '0'.repeat(64) });
+    const kb = new LocalKnowledgeBase(kbDir);
+    await expect(kb.load()).rejects.toThrow(expect.objectContaining({ code: kbErrors.KB_SHA256_MISMATCH }));
+    // _loadPromise must be cleared so a fresh attempt isn't blocked by the previous failure.
+    await expect(kb.load()).rejects.toThrow(expect.objectContaining({ code: kbErrors.KB_SHA256_MISMATCH }));
   });
 
   it('throws KB_CORRUPTED with line number for bad JSONL', async () => {
