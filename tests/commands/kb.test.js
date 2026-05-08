@@ -25,7 +25,7 @@ jest.mock('../../lib/logger', () => mockCreateLogger());
 
 jest.mock('https');
 const https = require('https');
-const { cmdInfo, cmdRemove, cmdVerify, installKnowledgeBase, _internal, _test } = require('../../lib/commands/kb');
+const { cmdInfo, cmdRemove, cmdVerify, cmdUpdate, installKnowledgeBase, _internal, _test } = require('../../lib/commands/kb');
 const { log, info, success, error } = require('../../lib/logger');
 
 const runtimeRoot = path.join(process.cwd(), '.ai-issue', 'test-runtime', 'kb-cmd');
@@ -184,5 +184,47 @@ describe('commands/kb verify info remove', () => {
     const cfg = { knowledgeBasePath: dir }; mockLoadConfig.mockReturnValue(cfg);
     await cmdRemove({ yes: true }); expect(fs.existsSync(dir)).toBe(false); expect(mockSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ knowledgeBasePath: '' }));
     mockLoadConfig.mockReturnValue({ knowledgeBasePath: '' }); await cmdRemove({ yes: true }); expect(info).toHaveBeenCalledWith('Nothing to remove');
+  });
+});
+
+describe('commands/kb update', () => {
+  test('returns early with "no KB configured" when knowledgeBasePath is unset', async () => {
+    mockLoadConfig.mockReturnValue({ knowledgeBasePath: '' });
+    await cmdUpdate();
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('No knowledge base configured'));
+    expect(https.get).not.toHaveBeenCalled();
+  });
+
+  test('reports "up to date" when current version equals latest', async () => {
+    mockLoadConfig.mockReturnValue({ knowledgeBasePath: `~/.ai-issue/kb/${version}` });
+    queueResponses([{ body: releaseJson(version) }]);
+    await cmdUpdate({ source: 'jiaweitao001/ai-issue-cli' });
+    expect(info).toHaveBeenCalledWith(expect.stringContaining(`up to date: ${version}`));
+    expect(mockSaveConfig).not.toHaveBeenCalled();
+  });
+
+  test('skips install with "KB outdated, skip update in CI" when CI=true and newer version exists', async () => {
+    process.env.CI = 'true';
+    mockLoadConfig.mockReturnValue({ knowledgeBasePath: `~/.ai-issue/kb/2026.01.01` });
+    queueResponses([{ body: releaseJson(version) }]);
+    await cmdUpdate({ source: 'jiaweitao001/ai-issue-cli' });
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('KB outdated, skip update in CI'));
+    expect(mockSaveConfig).not.toHaveBeenCalled();
+    expect(fs.existsSync(path.join(mockHome, '.ai-issue', 'kb', version))).toBe(false);
+  });
+
+  test('downloads newer version when not in CI', async () => {
+    mockLoadConfig.mockReturnValue({ knowledgeBasePath: `~/.ai-issue/kb/2026.01.01` });
+    const sample = path.join(runtimeRoot, 'sample-update'); writeSample(sample);
+    const tarBuf = await tarSample(sample); const digest = sha(tarBuf);
+    queueResponses([
+      { body: releaseJson(version) },
+      { body: releaseJson(version) },
+      { body: `${digest}  kb-${version}.tar.gz\n` },
+      { status: 200, body: tarBuf },
+    ]);
+    await cmdUpdate({ source: 'jiaweitao001/ai-issue-cli' });
+    expect(fs.existsSync(path.join(mockHome, '.ai-issue', 'kb', version, 'manifest.json'))).toBe(true);
+    expect(mockSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ knowledgeBasePath: `~/.ai-issue/kb/${version}` }));
   });
 });

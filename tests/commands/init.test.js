@@ -113,4 +113,37 @@ describe('commands/init', () => {
     expect(mockInstallKnowledgeBase).not.toHaveBeenCalled();
     expect(info).toHaveBeenCalledWith(expect.stringContaining('CI mode'));
   });
+
+  it('should NOT install KB when user declines the prompt in non-CI mode', async () => {
+    fs.existsSync.mockImplementation((path) => {
+      if (path.includes('config.json')) return false;
+      return true;
+    });
+    fs.writeFileSync.mockReturnValue(undefined);
+    fs.mkdirSync.mockReturnValue(undefined);
+    mockPromptInput.mockResolvedValue('n');
+
+    await cmdInit();
+
+    expect(mockPromptInput).toHaveBeenCalledTimes(1);
+    expect(mockInstallKnowledgeBase).not.toHaveBeenCalled();
+  });
+
+  it('should install KB when user accepts the prompt in non-CI mode', async () => {
+    fs.existsSync.mockImplementation((path) => {
+      if (path.includes('config.json')) return false;
+      return true;
+    });
+    fs.writeFileSync.mockReturnValue(undefined);
+    fs.mkdirSync.mockReturnValue(undefined);
+    mockPromptInput.mockResolvedValue('y');
+    mockInstallKnowledgeBase.mockResolvedValue({ version: '2026.05.07' });
+
+    await cmdInit();
+
+    expect(mockPromptInput).toHaveBeenCalledTimes(1);
+    expect(mockInstallKnowledgeBase).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'jiaweitao001/ai-issue-cli' })
+    );
+  });
 });
