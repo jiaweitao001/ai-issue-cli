@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "minCliVersion": "0.0.1",
-  "kbSha256": "abb26e5920465ea2af23696e16072da832f8ddd89ac61f96b0a9e1f84375287c",
+  "kbSha256": "5e9e7fdc9adfb779e4cccbbc15dd2e1d865db9413c874e7e0d8d0fe3a941761a",
   "qualityGate": "passed",
   "version": "2026.05.07"
 }

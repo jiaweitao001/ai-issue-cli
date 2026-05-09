@@ -36,12 +36,20 @@ const sampleEntries = [
   },
   {
     type: 'resource_index',
-    resource_type: 'azurerm_key_vault_certificate',
+    resource_type: 'key_vault_certificate',
     service: 'keyvault',
     source_files: ['internal/services/keyvault/key_vault_certificate_resource.go'],
     test_files: ['internal/services/keyvault/key_vault_certificate_resource_test.go'],
     doc_file: 'website/docs/r/key_vault_certificate.html.markdown',
     common_issues: ['timeout', 'polling', 'certificate']
+  },
+  {
+    type: 'resource_index',
+    resource_type: 'cognitive_*',
+    owners: ['promisinganuj'],
+    source_files: [],
+    test_files: [],
+    common_issues: []
   }
 ];
 

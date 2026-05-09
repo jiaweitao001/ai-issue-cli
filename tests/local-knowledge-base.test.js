@@ -30,7 +30,7 @@ describe('LocalKnowledgeBase', () => {
       const kb = new LocalKnowledgeBase(sampleKbDir);
       await kb.load();
       expect(kb.manifest.schemaVersion).toBe(LocalKnowledgeBase.SCHEMA_VERSION);
-      expect(kb.entries).toHaveLength(3);
+      expect(kb.entries).toHaveLength(4);
       expect(kb.df.timeout).toBe(1);
       expect(kb.searchIndex).toBeTruthy();
     });
@@ -134,7 +134,7 @@ describe('LocalKnowledgeBase', () => {
     await expect(new LocalKnowledgeBase(kbDir).load()).rejects.toThrow(expect.objectContaining({
       code: kbErrors.KB_CORRUPTED,
       path: path.join(kbDir, 'kb.jsonl'),
-      lineNumber: 4
+      lineNumber: 5
     }));
   });
 
@@ -196,6 +196,33 @@ describe('LocalKnowledgeBase', () => {
       const results = await new LocalKnowledgeBase(sampleKbDir).findSimilarIssues('runtime.goexit internal/services/foo.go:123 hcl:diag');
       expect(results).toEqual([]);
     });
+
+    it('treats empty entry.resource_type as wildcard (server emits "" for now)', async () => {
+      // Production /knowledge/export emits resource_type: "" for every entry
+      // (Phase 5C Q3: not derived server-side). Filter must NOT exclude these,
+      // otherwise every CLI lookup with a resourceType filter returns [].
+      const kbDir = path.join(fixtureRoot, 'empty-resource-type');
+      writeKbFixture(kbDir, {}, [{
+        type: 'resolved_issue',
+        issue_number: 999,
+        title: 'storage account crash on update',
+        body_summary: 'crash',
+        labels: [],
+        resource_type: '',
+        service: '',
+        pr_number: 9999,
+        pr_url: 'https://example/pr/9999',
+        changed_files: [],
+        solution_summary: 'fix the crash by guarding nil',
+        keywords: ['storage', 'crash']
+      }]);
+      const results = await new LocalKnowledgeBase(kbDir).findSimilarIssues('storage crash on update', {
+        resourceType: 'azurerm_storage_account',
+        service: 'storage'
+      });
+      expect(results).toHaveLength(1);
+      expect(results[0].issue_number).toBe(999);
+    });
   });
 
   describe('checkExistingResearch', () => {
@@ -207,17 +234,41 @@ describe('LocalKnowledgeBase', () => {
   });
 
   describe('getResourceInfo', () => {
-    it('returns matching resource_index entry', async () => {
+    it('returns matching resource_index entry via strip-prefix exact match', async () => {
+      // fixture entry has resource_type: 'key_vault_certificate' (bare, no azurerm_ prefix)
+      // input has 'azurerm_' prefix; should strip and exact-match
       const info = await new LocalKnowledgeBase(sampleKbDir).getResourceInfo('azurerm_key_vault_certificate');
       expect(info).toMatchObject({
         type: 'resource_index',
+        resource_type: 'key_vault_certificate',
         service: 'keyvault',
         common_issues: ['timeout', 'polling', 'certificate']
       });
     });
 
+    it('returns matching resource_index entry via glob match', async () => {
+      // fixture has resource_type: 'cognitive_*'; input azurerm_cognitive_account
+      // should strip prefix and glob-match against the * pattern
+      const info = await new LocalKnowledgeBase(sampleKbDir).getResourceInfo('azurerm_cognitive_account');
+      expect(info).toMatchObject({
+        type: 'resource_index',
+        resource_type: 'cognitive_*'
+      });
+    });
+
     it('returns null for unknown resource type', async () => {
-      await expect(new LocalKnowledgeBase(sampleKbDir).getResourceInfo('unknown_resource')).resolves.toBeNull();
+      await expect(new LocalKnowledgeBase(sampleKbDir).getResourceInfo('azurerm_unknown_resource')).resolves.toBeNull();
+    });
+
+    it('returns null for empty input', async () => {
+      await expect(new LocalKnowledgeBase(sampleKbDir).getResourceInfo('')).resolves.toBeNull();
+      await expect(new LocalKnowledgeBase(sampleKbDir).getResourceInfo(undefined)).resolves.toBeNull();
+    });
+
+    it('handles input without azurerm_ prefix (passes through unchanged)', async () => {
+      // bare input "key_vault_certificate" should still match the bare fixture entry
+      const info = await new LocalKnowledgeBase(sampleKbDir).getResourceInfo('key_vault_certificate');
+      expect(info).toMatchObject({ resource_type: 'key_vault_certificate' });
     });
   });
 });
