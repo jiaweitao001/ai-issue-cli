@@ -62,14 +62,23 @@ function joinUrl(base, pathname) {
   return `${String(base).replace(/\/+$/, '')}${pathname}`;
 }
 
-async function fetchExport(serviceUrl, apiKey, minConfidence = 0.8) {
-  const url = joinUrl(serviceUrl, `/knowledge/export?confidence_min=${encodeURIComponent(minConfidence)}`);
+async function fetchExport(serviceUrl, apiKey, minConfidence = 0.8, sourceRepo) {
+  if (!sourceRepo) throw new Error('fetchExport: sourceRepo is required');
+  const url = joinUrl(
+    serviceUrl,
+    `/knowledge/export?repo=${encodeURIComponent(sourceRepo)}&confidence_min=${encodeURIComponent(minConfidence)}`
+  );
   const payload = await requestJson(url, apiKey);
   return Array.isArray(payload) ? payload : (payload.entries || payload.results || []);
 }
 
-async function fetchResources(serviceUrl, apiKey) {
-  const payload = await requestJson(joinUrl(serviceUrl, '/resources/index'), apiKey);
+async function fetchResources(serviceUrl, apiKey, sourceRepo) {
+  if (!sourceRepo) throw new Error('fetchResources: sourceRepo is required');
+  const url = joinUrl(
+    serviceUrl,
+    `/resources/index?repo=${encodeURIComponent(sourceRepo)}`
+  );
+  const payload = await requestJson(url, apiKey);
   return Array.isArray(payload) ? payload : (payload.entries || payload.resources || []);
 }
 
@@ -136,8 +145,8 @@ async function main(options = parseArgv()) {
   for (const key of ['serviceUrl', 'serviceApiKey', 'output']) {
     if (!options[key]) throw new Error(`Missing required option --${key.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)}`);
   }
-  const resolvedIssues = await fetchExport(options.serviceUrl, options.serviceApiKey, options.minConfidence);
-  const resources = await fetchResources(options.serviceUrl, options.serviceApiKey);
+  const resolvedIssues = await fetchExport(options.serviceUrl, options.serviceApiKey, options.minConfidence, options.sourceRepo);
+  const resources = await fetchResources(options.serviceUrl, options.serviceApiKey, options.sourceRepo);
   const entries = [...resolvedIssues, ...resources]
     .map(sanitizeEntry)
     .filter(entry => !shouldExclude(entry));
