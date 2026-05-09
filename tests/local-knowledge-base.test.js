@@ -3,26 +3,28 @@ const fs = require('fs');
 const path = require('path');
 const { LocalKnowledgeBase, _internal } = require('../lib/local-knowledge-base');
 const { kbErrors } = require('../lib/kb-resolver');
-const { fixtureRoot, sampleKbDir, writeKbFixture, resetFixtureRoot } = require('./helpers/kb-fixture');
+const {
+  writeKbFixture,
+  createScratchRoot,
+  cleanupScratchRoot
+} = require('./helpers/kb-fixture');
 
 async function expectLoadError(kbDir, code) {
   await expect(new LocalKnowledgeBase(kbDir).load()).rejects.toThrow(expect.objectContaining({ code }));
 }
 
 describe('LocalKnowledgeBase', () => {
-  beforeAll(() => {
-    resetFixtureRoot();
-    writeKbFixture(sampleKbDir);
-  });
+  let scratchRoot;
+  let sampleKbDir;
 
   beforeEach(() => {
-    resetFixtureRoot();
+    scratchRoot = createScratchRoot('local-kb');
+    sampleKbDir = path.join(scratchRoot, 'sample');
     writeKbFixture(sampleKbDir);
   });
 
-  afterAll(() => {
-    resetFixtureRoot();
-    writeKbFixture(sampleKbDir);
+  afterEach(() => {
+    cleanupScratchRoot(scratchRoot);
   });
 
   describe('load', () => {
@@ -36,7 +38,7 @@ describe('LocalKnowledgeBase', () => {
     });
 
     it('loads df from manifest indexes when provided', async () => {
-      const kbDir = path.join(fixtureRoot, 'with-df');
+      const kbDir = path.join(scratchRoot, 'with-df');
       writeKbFixture(kbDir, { indexes: { df: 'kb-df.json' } });
       fs.writeFileSync(path.join(kbDir, 'kb-df.json'), JSON.stringify({ custom: 3 }));
       const kb = new LocalKnowledgeBase(kbDir);
@@ -47,31 +49,31 @@ describe('LocalKnowledgeBase', () => {
 
   describe('checkSchemaCompat', () => {
     it('throws KB_SCHEMA_TOO_NEW', async () => {
-      const { kbDir } = writeKbFixture(path.join(fixtureRoot, 'too-new'), {
+      const { kbDir } = writeKbFixture(path.join(scratchRoot, 'too-new'), {
         schemaVersion: LocalKnowledgeBase.SCHEMA_VERSION + 1
       });
       await expectLoadError(kbDir, kbErrors.KB_SCHEMA_TOO_NEW);
     });
 
     it('throws KB_SCHEMA_TOO_OLD', async () => {
-      const { kbDir } = writeKbFixture(path.join(fixtureRoot, 'too-old'), { schemaVersion: 0 });
+      const { kbDir } = writeKbFixture(path.join(scratchRoot, 'too-old'), { schemaVersion: 0 });
       await expectLoadError(kbDir, kbErrors.KB_SCHEMA_TOO_OLD);
     });
 
     it('throws CLI_TOO_OLD', async () => {
-      const { kbDir } = writeKbFixture(path.join(fixtureRoot, 'cli-too-old'), { minCliVersion: '99.0.0' });
+      const { kbDir } = writeKbFixture(path.join(scratchRoot, 'cli-too-old'), { minCliVersion: '99.0.0' });
       await expectLoadError(kbDir, kbErrors.CLI_TOO_OLD);
     });
 
     it('throws KB_CORRUPTED when minCliVersion is missing', async () => {
-      const { kbDir } = writeKbFixture(path.join(fixtureRoot, 'missing-min-cli'), { minCliVersion: undefined });
+      const { kbDir } = writeKbFixture(path.join(scratchRoot, 'missing-min-cli'), { minCliVersion: undefined });
       await expectLoadError(kbDir, kbErrors.KB_CORRUPTED);
     });
   });
 
   describe('checkSha256', () => {
     it('throws KB_SHA256_MISMATCH with expected, actual, and path', async () => {
-      const { kbDir } = writeKbFixture(path.join(fixtureRoot, 'sha-mismatch'), { kbSha256: '0'.repeat(64) });
+      const { kbDir } = writeKbFixture(path.join(scratchRoot, 'sha-mismatch'), { kbSha256: '0'.repeat(64) });
       await expect(new LocalKnowledgeBase(kbDir).load()).rejects.toThrow(expect.objectContaining({
         code: kbErrors.KB_SHA256_MISMATCH,
         expected: '0'.repeat(64),
@@ -81,12 +83,12 @@ describe('LocalKnowledgeBase', () => {
     });
 
     it('throws KB_CORRUPTED when kbSha256 is not 64 hex characters', async () => {
-      const { kbDir } = writeKbFixture(path.join(fixtureRoot, 'bad-sha'), { kbSha256: 'not-a-sha' });
+      const { kbDir } = writeKbFixture(path.join(scratchRoot, 'bad-sha'), { kbSha256: 'not-a-sha' });
       await expectLoadError(kbDir, kbErrors.KB_CORRUPTED);
     });
 
     it('accepts uppercase manifest kbSha256 (normalized lowercase comparison)', async () => {
-      const { kbDir } = writeKbFixture(path.join(fixtureRoot, 'uppercase-sha'));
+      const { kbDir } = writeKbFixture(path.join(scratchRoot, 'uppercase-sha'));
       const manifestPath = path.join(kbDir, 'manifest.json');
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
       manifest.kbSha256 = manifest.kbSha256.toUpperCase();
@@ -96,7 +98,7 @@ describe('LocalKnowledgeBase', () => {
   });
 
   it('memoizes the in-flight load() promise across concurrent callers', async () => {
-    const { kbDir } = writeKbFixture(path.join(fixtureRoot, 'concurrent-load'));
+    const { kbDir } = writeKbFixture(path.join(scratchRoot, 'concurrent-load'));
     const kb = new LocalKnowledgeBase(kbDir);
     const spy = jest.spyOn(kb, '_loadInternal');
     const [r1, r2, r3] = await Promise.all([kb.load(), kb.load(), kb.load()]);
@@ -114,7 +116,7 @@ describe('LocalKnowledgeBase', () => {
   });
 
   it('clears _loadPromise on failure so subsequent load() can retry', async () => {
-    const { kbDir } = writeKbFixture(path.join(fixtureRoot, 'retry-after-fail'), { kbSha256: '0'.repeat(64) });
+    const { kbDir } = writeKbFixture(path.join(scratchRoot, 'retry-after-fail'), { kbSha256: '0'.repeat(64) });
     const kb = new LocalKnowledgeBase(kbDir);
     await expect(kb.load()).rejects.toThrow(expect.objectContaining({ code: kbErrors.KB_SHA256_MISMATCH }));
     // _loadPromise must be cleared so a fresh attempt isn't blocked by the previous failure.
@@ -122,7 +124,7 @@ describe('LocalKnowledgeBase', () => {
   });
 
   it('throws KB_CORRUPTED with line number for bad JSONL', async () => {
-    const { kbDir } = writeKbFixture(path.join(fixtureRoot, 'bad-jsonl'));
+    const { kbDir } = writeKbFixture(path.join(scratchRoot, 'bad-jsonl'));
     const content = fs.readFileSync(path.join(kbDir, 'kb.jsonl'), 'utf8');
     const badContent = `${content}{bad json}\n`;
     fs.writeFileSync(path.join(kbDir, 'kb.jsonl'), badContent);
@@ -146,7 +148,7 @@ describe('LocalKnowledgeBase', () => {
       ['env true overrides failed quality', { qualityGate: 'failed' }, { AI_ISSUE_KB_PREFER_LOCAL: 'true' }, true],
       ['env false overrides passed quality', { qualityGate: 'passed' }, { AI_ISSUE_KB_PREFER_LOCAL: 'false' }, false]
     ])('%s', async (_name, manifestOverrides, env, expected) => {
-      const { kbDir } = writeKbFixture(path.join(fixtureRoot, `prefer-${_name.replace(/\W+/g, '-')}`), manifestOverrides);
+      const { kbDir } = writeKbFixture(path.join(scratchRoot, `prefer-${_name.replace(/\W+/g, '-')}`), manifestOverrides);
       const kb = new LocalKnowledgeBase(kbDir, { env });
       await kb.load();
       expect(kb.shouldPreferLocal()).toBe(expected);
@@ -201,7 +203,7 @@ describe('LocalKnowledgeBase', () => {
       // Production /knowledge/export emits resource_type: "" for every entry
       // (Phase 5C Q3: not derived server-side). Filter must NOT exclude these,
       // otherwise every CLI lookup with a resourceType filter returns [].
-      const kbDir = path.join(fixtureRoot, 'empty-resource-type');
+      const kbDir = path.join(scratchRoot, 'empty-resource-type');
       writeKbFixture(kbDir, {}, [{
         type: 'resolved_issue',
         issue_number: 999,

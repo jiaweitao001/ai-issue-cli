@@ -1,9 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
-
-const fixtureRoot = path.join(__dirname, '..', 'fixtures', 'kb');
-const sampleKbDir = path.join(fixtureRoot, 'sample');
 
 const sampleEntries = [
   {
@@ -53,7 +51,10 @@ const sampleEntries = [
   }
 ];
 
-function writeKbFixture(kbDir = sampleKbDir, overrides = {}, entries = sampleEntries) {
+function writeKbFixture(kbDir, overrides = {}, entries = sampleEntries) {
+  if (!kbDir) {
+    throw new Error('writeKbFixture: kbDir is required (use createScratchRoot to obtain one)');
+  }
   fs.mkdirSync(kbDir, { recursive: true });
   const kbJsonl = entries.map(entry => JSON.stringify(entry)).join('\n') + '\n';
   fs.writeFileSync(path.join(kbDir, 'kb.jsonl'), kbJsonl);
@@ -72,15 +73,22 @@ function writeKbFixture(kbDir = sampleKbDir, overrides = {}, entries = sampleEnt
   return { kbDir, manifest, entries, kbJsonl };
 }
 
-function resetFixtureRoot() {
-  fs.rmSync(fixtureRoot, { recursive: true, force: true });
-  fs.mkdirSync(fixtureRoot, { recursive: true });
+// Returns a fresh, unique tmpdir for one test suite. Suites that share the
+// same on-disk dir race when jest runs them in parallel workers — see
+// docs/PHASE5_AUDIT_2026-05-09.md (gap-kb-fixture-race).
+function createScratchRoot(label = 'kb') {
+  const safe = String(label).replace(/[^a-zA-Z0-9_-]+/g, '-');
+  return fs.mkdtempSync(path.join(os.tmpdir(), `ai-issue-${safe}-`));
+}
+
+function cleanupScratchRoot(root) {
+  if (!root) return;
+  fs.rmSync(root, { recursive: true, force: true });
 }
 
 module.exports = {
-  fixtureRoot,
-  sampleKbDir,
   sampleEntries,
   writeKbFixture,
-  resetFixtureRoot
+  createScratchRoot,
+  cleanupScratchRoot
 };

@@ -2,9 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { computeMetrics, evaluate, main } = require('../../scripts/eval/kb-quality-eval');
-const { writeKbFixture, sampleEntries } = require('../helpers/kb-fixture');
-
-const workRoot = path.join(__dirname, '..', 'fixtures', 'kb-eval-work');
+const {
+  writeKbFixture,
+  sampleEntries,
+  createScratchRoot,
+  cleanupScratchRoot
+} = require('../helpers/kb-fixture');
 
 function writeEvalSet(filePath, entries) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -21,17 +24,17 @@ function refreshSha(kbDir) {
 
 describe('kb-quality-eval', () => {
   let originalExitCode;
+  let workRoot;
 
   beforeEach(() => {
     originalExitCode = process.exitCode;
     process.exitCode = undefined;
-    fs.rmSync(workRoot, { recursive: true, force: true });
-    fs.mkdirSync(workRoot, { recursive: true });
+    workRoot = createScratchRoot('kb-eval-work');
   });
 
   afterEach(() => {
     process.exitCode = originalExitCode;
-    fs.rmSync(workRoot, { recursive: true, force: true });
+    cleanupScratchRoot(workRoot);
   });
 
   test('computeMetrics returns perfect scores for perfect top results', () => {
