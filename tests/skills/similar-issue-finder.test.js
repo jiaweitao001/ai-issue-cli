@@ -1,9 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const {
-  fixtureRoot,
   sampleEntries,
-  writeKbFixture
+  writeKbFixture,
+  createScratchRoot,
+  cleanupScratchRoot
 } = require('../helpers/kb-fixture');
 
 const mockSetRequestHandler = jest.fn();
@@ -26,7 +27,7 @@ jest.mock('@modelcontextprotocol/sdk/types.js', () => ({
 }), { virtual: true });
 
 describe('similar-issue-finder skill', () => {
-  const scratchRoot = path.join(fixtureRoot, 'skill-dual-mode');
+  let scratchRoot;
   const originalServiceUrl = process.env.AI_ISSUE_SERVICE_URL;
   const originalKbPath = process.env.AI_ISSUE_KB_PATH;
   const originalPreferLocal = process.env.AI_ISSUE_KB_PREFER_LOCAL;
@@ -36,8 +37,7 @@ describe('similar-issue-finder skill', () => {
     jest.resetModules();
     mockSetRequestHandler.mockClear();
     mockConnect.mockClear();
-    fs.rmSync(scratchRoot, { recursive: true, force: true });
-    fs.mkdirSync(scratchRoot, { recursive: true });
+    scratchRoot = createScratchRoot('skill-dual-mode');
     delete process.env.AI_ISSUE_SERVICE_URL;
     delete process.env.AI_ISSUE_KB_PATH;
     delete process.env.AI_ISSUE_KB_PREFER_LOCAL;
@@ -51,7 +51,7 @@ describe('similar-issue-finder skill', () => {
     else process.env.AI_ISSUE_KB_PATH = originalKbPath;
     if (originalPreferLocal === undefined) delete process.env.AI_ISSUE_KB_PREFER_LOCAL;
     else process.env.AI_ISSUE_KB_PREFER_LOCAL = originalPreferLocal;
-    fs.rmSync(scratchRoot, { recursive: true, force: true });
+    cleanupScratchRoot(scratchRoot);
     global.fetch = originalFetch;
   });
 

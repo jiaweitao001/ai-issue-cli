@@ -3,16 +3,17 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { expandHome, resolveKbPath, loadManifest, verifySha256, kbErrors } = require('../lib/kb-resolver');
-const { fixtureRoot, sampleKbDir, writeKbFixture, resetFixtureRoot } = require('./helpers/kb-fixture');
+const { writeKbFixture, createScratchRoot, cleanupScratchRoot } = require('./helpers/kb-fixture');
 
 describe('kb-resolver', () => {
+  let scratchRoot;
+
   beforeEach(() => {
-    resetFixtureRoot();
+    scratchRoot = createScratchRoot('kb-resolver');
   });
 
-  afterAll(() => {
-    resetFixtureRoot();
-    writeKbFixture(sampleKbDir);
+  afterEach(() => {
+    cleanupScratchRoot(scratchRoot);
   });
 
   describe('expandHome', () => {
@@ -33,12 +34,12 @@ describe('kb-resolver', () => {
 
   describe('loadManifest', () => {
     it('loads a valid manifest', () => {
-      const { kbDir, manifest } = writeKbFixture(path.join(fixtureRoot, 'valid'));
+      const { kbDir, manifest } = writeKbFixture(path.join(scratchRoot, 'valid'));
       expect(loadManifest(kbDir)).toMatchObject(manifest);
     });
 
     it('throws KB_CORRUPTED when manifest is missing', () => {
-      const kbDir = path.join(fixtureRoot, 'missing');
+      const kbDir = path.join(scratchRoot, 'missing');
       fs.mkdirSync(kbDir, { recursive: true });
       expect(() => loadManifest(kbDir)).toThrow(expect.objectContaining({
         code: kbErrors.KB_CORRUPTED,
@@ -47,7 +48,7 @@ describe('kb-resolver', () => {
     });
 
     it('throws KB_CORRUPTED when manifest JSON is invalid', () => {
-      const kbDir = path.join(fixtureRoot, 'bad-json');
+      const kbDir = path.join(scratchRoot, 'bad-json');
       fs.mkdirSync(kbDir, { recursive: true });
       fs.writeFileSync(path.join(kbDir, 'manifest.json'), '{bad');
       expect(() => loadManifest(kbDir)).toThrow(expect.objectContaining({
@@ -57,7 +58,7 @@ describe('kb-resolver', () => {
     });
 
     it('throws KB_CORRUPTED when required fields are missing', () => {
-      const kbDir = path.join(fixtureRoot, 'missing-field');
+      const kbDir = path.join(scratchRoot, 'missing-field');
       fs.mkdirSync(kbDir, { recursive: true });
       fs.writeFileSync(path.join(kbDir, 'manifest.json'), JSON.stringify({ schemaVersion: 1, minCliVersion: '0.0.1' }));
       expect(() => loadManifest(kbDir)).toThrow(expect.objectContaining({
@@ -67,7 +68,7 @@ describe('kb-resolver', () => {
     });
 
     it('throws KB_CORRUPTED when manifest is a JSON array (not object)', () => {
-      const kbDir = path.join(fixtureRoot, 'array-manifest');
+      const kbDir = path.join(scratchRoot, 'array-manifest');
       fs.mkdirSync(kbDir, { recursive: true });
       fs.writeFileSync(path.join(kbDir, 'manifest.json'), JSON.stringify([1, 2, 3]));
       expect(() => loadManifest(kbDir)).toThrow(expect.objectContaining({
@@ -77,7 +78,7 @@ describe('kb-resolver', () => {
     });
 
     it('throws KB_CORRUPTED when manifest is JSON null', () => {
-      const kbDir = path.join(fixtureRoot, 'null-manifest');
+      const kbDir = path.join(scratchRoot, 'null-manifest');
       fs.mkdirSync(kbDir, { recursive: true });
       fs.writeFileSync(path.join(kbDir, 'manifest.json'), 'null');
       expect(() => loadManifest(kbDir)).toThrow(expect.objectContaining({
@@ -89,14 +90,14 @@ describe('kb-resolver', () => {
 
   describe('verifySha256', () => {
     it('returns ok true on match', async () => {
-      const filePath = path.join(fixtureRoot, 'hash.txt');
+      const filePath = path.join(scratchRoot, 'hash.txt');
       fs.writeFileSync(filePath, 'hello');
       const expected = crypto.createHash('sha256').update('hello').digest('hex');
       await expect(verifySha256(filePath, expected)).resolves.toEqual({ ok: true, actual: expected });
     });
 
     it('returns ok true on match when expected is uppercase', async () => {
-      const filePath = path.join(fixtureRoot, 'hash-upper.txt');
+      const filePath = path.join(scratchRoot, 'hash-upper.txt');
       fs.writeFileSync(filePath, 'hello');
       const expectedLower = crypto.createHash('sha256').update('hello').digest('hex');
       const result = await verifySha256(filePath, expectedLower.toUpperCase());
@@ -104,7 +105,7 @@ describe('kb-resolver', () => {
     });
 
     it('returns ok false with expected and actual on mismatch', async () => {
-      const filePath = path.join(fixtureRoot, 'hash-mismatch.txt');
+      const filePath = path.join(scratchRoot, 'hash-mismatch.txt');
       fs.writeFileSync(filePath, 'hello');
       const expected = '0'.repeat(64);
       const result = await verifySha256(filePath, expected);
