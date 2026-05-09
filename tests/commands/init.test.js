@@ -14,8 +14,10 @@ const { mockCreateLogger } = require('../helpers/mock-logger');
 jest.mock('../../lib/logger', () => mockCreateLogger());
 
 const mockPromptInput = jest.fn();
+const mockPromptSelect = jest.fn();
 jest.mock('../../lib/prompts', () => ({
   promptInput: mockPromptInput,
+  promptSelect: mockPromptSelect,
 }));
 
 const mockInstallKnowledgeBase = jest.fn();
@@ -23,14 +25,36 @@ jest.mock('../../lib/commands/kb', () => ({
   installKnowledgeBase: mockInstallKnowledgeBase,
 }));
 
-const { cmdInit } = require('../../lib/commands/init');
+const mockSaveConfig = jest.fn();
+jest.mock('../../lib/config', () => ({
+  saveConfig: mockSaveConfig,
+  DEFAULT_CONFIG: { agent: 'copilot', reportPath: '/mock/home/.ai-issue/reports' },
+  CONFIG_FILE: '/mock/home/.ai-issue/config.json',
+}));
+
+const { cmdInit, _internal } = require('../../lib/commands/init');
 const { success, info, error } = require('../../lib/logger');
 
 describe('commands/init', () => {
+  let originalIsTTY;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPromptInput.mockReset();
+    mockPromptSelect.mockReset();
+    mockSaveConfig.mockReset();
+    mockInstallKnowledgeBase.mockReset();
     mockPromptInput.mockResolvedValue('n');
+    mockPromptSelect.mockResolvedValue(0);
+    mockSaveConfig.mockImplementation(() => undefined);
     delete process.env.CI;
+    originalIsTTY = process.stdout.isTTY;
+    // Default: simulate non-TTY so existing tests don't try to render a picker.
+    Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(process.stdout, 'isTTY', { value: originalIsTTY, configurable: true });
   });
 
   it('should skip initialization if config file already exists', async () => {
@@ -40,6 +64,7 @@ describe('commands/init', () => {
     
     expect(info).toHaveBeenCalledWith(expect.stringContaining('already exists'));
     expect(fs.writeFileSync).not.toHaveBeenCalled();
+    expect(mockSaveConfig).not.toHaveBeenCalled();
   });
 
   it('should create config file when it does not exist', async () => {
@@ -49,10 +74,10 @@ describe('commands/init', () => {
     });
     fs.writeFileSync.mockReturnValue(undefined);
     fs.mkdirSync.mockReturnValue(undefined);
-    
+
     await cmdInit();
-    
-    expect(fs.writeFileSync).toHaveBeenCalled();
+
+    expect(mockSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ agent: 'copilot' }));
     expect(success).toHaveBeenCalledWith(expect.stringContaining('Initialization complete'));
   });
 
@@ -75,13 +100,13 @@ describe('commands/init', () => {
 
   it('should handle initialization errors gracefully', async () => {
     fs.existsSync.mockReturnValue(false);
-    fs.writeFileSync.mockImplementation(() => {
+    mockSaveConfig.mockImplementation(() => {
       throw new Error('Permission denied');
     });
     fs.mkdirSync.mockReturnValue(undefined);
-    
+
     await cmdInit();
-    
+
     expect(error).toHaveBeenCalledWith(expect.stringContaining('Failed to initialize'));
   });
 
@@ -111,7 +136,7 @@ describe('commands/init', () => {
 
     expect(mockPromptInput).not.toHaveBeenCalled();
     expect(mockInstallKnowledgeBase).not.toHaveBeenCalled();
-    expect(info).toHaveBeenCalledWith(expect.stringContaining('CI mode'));
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('CI mode: skipping local knowledge base'));
   });
 
   it('should NOT install KB when user declines the prompt in non-CI mode', async () => {
@@ -145,5 +170,88 @@ describe('commands/init', () => {
     expect(mockInstallKnowledgeBase).toHaveBeenCalledWith(
       expect.objectContaining({ source: 'jiaweitao001/ai-issue-cli' })
     );
+  });
+
+  describe('agent picker (PHASE5B §3.9)', () => {
+    beforeEach(() => {
+      fs.existsSync.mockImplementation((path) => {
+        if (path.includes('config.json')) return false;
+        return true;
+      });
+      fs.writeFileSync.mockReturnValue(undefined);
+      fs.mkdirSync.mockReturnValue(undefined);
+    });
+
+    it('CI mode: skips picker and persists copilot without calling promptSelect', async () => {
+      process.env.CI = 'true';
+
+      await cmdInit();
+
+      expect(mockPromptSelect).not.toHaveBeenCalled();
+      expect(mockSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ agent: 'copilot' }));
+      expect(info).toHaveBeenCalledWith(expect.stringContaining('CI mode: defaulting agent to copilot'));
+    });
+
+    it('non-TTY: skips picker and persists copilot without calling promptSelect', async () => {
+      Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true });
+
+      await cmdInit();
+
+      expect(mockPromptSelect).not.toHaveBeenCalled();
+      expect(mockSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ agent: 'copilot' }));
+      expect(info).toHaveBeenCalledWith(expect.stringContaining('Non-TTY environment: defaulting agent to copilot'));
+    });
+
+    it('TTY + user picks copilot (index 0): persists copilot', async () => {
+      Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+      mockPromptSelect.mockResolvedValue(0);
+
+      await cmdInit();
+
+      expect(mockPromptSelect).toHaveBeenCalledTimes(1);
+      // Verify the picker was offered with both agents and copilot first (recommended)
+      const [labels, opts] = mockPromptSelect.mock.calls[0];
+      expect(labels).toEqual(expect.arrayContaining([
+        expect.stringMatching(/^copilot/),
+        expect.stringMatching(/^claude-code/)
+      ]));
+      expect(labels[0]).toMatch(/^copilot/);
+      expect(opts).toMatchObject({ initialIndex: 0 });
+      expect(opts.header).toMatch(/Choose default agent/i);
+      expect(mockSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ agent: 'copilot' }));
+    });
+
+    it('TTY + user picks claude-code (index 1): persists claude-code and prints model hint', async () => {
+      Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+      mockPromptSelect.mockResolvedValue(1);
+
+      await cmdInit();
+
+      expect(mockSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ agent: 'claude-code' }));
+      expect(info).toHaveBeenCalledWith(expect.stringContaining('agents.claude-code.model'));
+    });
+
+    it('TTY + user cancels picker: defaults to copilot and continues', async () => {
+      Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+      mockPromptSelect.mockResolvedValue(null);
+
+      await cmdInit();
+
+      expect(mockSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ agent: 'copilot' }));
+      expect(info).toHaveBeenCalledWith(expect.stringContaining('No agent selected; defaulting to copilot'));
+      expect(success).toHaveBeenCalledWith(expect.stringContaining('Initialization complete'));
+    });
+
+    it('buildAgentChoices: returns recommended agent (copilot) first', () => {
+      const choices = _internal.buildAgentChoices();
+      expect(choices.length).toBeGreaterThanOrEqual(2);
+      expect(choices[0].name).toBe('copilot');
+      expect(choices.find(c => c.name === 'claude-code')).toBeDefined();
+      // Every choice has a non-empty label
+      for (const c of choices) {
+        expect(typeof c.label).toBe('string');
+        expect(c.label.length).toBeGreaterThan(0);
+      }
+    });
   });
 });
