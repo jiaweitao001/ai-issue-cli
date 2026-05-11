@@ -15,6 +15,14 @@ const {
 // GitHub API 基础配置
 const GITHUB_API_BASE = 'https://api.github.com';
 
+// Context-budget caps (see docs/SKILLS_ENHANCEMENT_PLAN.md §3 / §上下文预算契约)
+const COMMENT_CAP_TOTAL = 20;
+const COMMENT_CAP_ELEVATED = 15;
+const PAGINATION_PAGE_LIMIT = 5;
+const PAGINATION_PER_PAGE = 100;
+const DIFF_TRUNCATE_CHARS = 4000;
+const ELEVATED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+
 /**
  * 获取 GitHub Token
  */
@@ -23,26 +31,137 @@ function getGitHubToken() {
 }
 
 /**
- * 发送 GitHub API 请求
+ * Build a structured rate-limit error from an HTTP response.
+ * Returns null if the response is not a rate-limit failure.
  */
-async function githubRequest(endpoint, token) {
+function buildRateLimitError(response, bodyText) {
+  const remaining = response.headers.get('x-ratelimit-remaining');
+  const isRateLimited =
+    response.status === 429 ||
+    (response.status === 403 && remaining === '0');
+  if (!isRateLimited) return null;
+
+  const resetUnix = response.headers.get('x-ratelimit-reset');
+  const retryAfter = response.headers.get('retry-after');
+  const resetAt = resetUnix
+    ? new Date(parseInt(resetUnix, 10) * 1000).toISOString()
+    : null;
+  const retryAfterSeconds = retryAfter
+    ? parseInt(retryAfter, 10)
+    : (resetUnix ? Math.max(0, parseInt(resetUnix, 10) - Math.floor(Date.now() / 1000)) : null);
+
+  // Bake the meta into the message so MCP clients (which handle the optional
+  // `data` field inconsistently) still surface it to the LLM.
+  const parts = [
+    `GitHub API rate limit hit (status ${response.status}).`,
+    resetAt ? `Reset at ${resetAt}.` : null,
+    retryAfterSeconds != null ? `Retry after ${retryAfterSeconds}s.` : null,
+  ].filter(Boolean);
+  const err = new Error(parts.join(' '));
+  err.meta = {
+    rate_limited: true,
+    status: response.status,
+    reset_at: resetAt,
+    retry_after_seconds: retryAfterSeconds,
+  };
+  return err;
+}
+
+/**
+ * Low-level fetch wrapper that returns the Response object so callers can
+ * inspect headers (needed for pagination Link header + rate-limit detection).
+ *
+ * `endpointOrUrl` may be either an API-relative path (e.g. `/repos/x/y/issues`)
+ * or an absolute URL returned by GitHub's pagination Link header.
+ */
+async function githubFetch(endpointOrUrl, token, extraHeaders = {}) {
   const headers = {
     'Accept': 'application/vnd.github.v3+json',
     'User-Agent': 'ai-issue-cli-mcp-server',
+    ...extraHeaders,
   };
-  
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  
-  const response = await fetch(`${GITHUB_API_BASE}${endpoint}`, { headers });
-  
+  const url = /^https?:\/\//i.test(endpointOrUrl)
+    ? endpointOrUrl
+    : `${GITHUB_API_BASE}${endpointOrUrl}`;
+  return fetch(url, { headers });
+}
+
+/**
+ * 发送 GitHub API 请求并解析为 JSON。
+ * Throws structured rate-limit error when applicable.
+ */
+async function githubRequest(endpoint, token) {
+  const response = await githubFetch(endpoint, token);
+
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`GitHub API error: ${response.status} - ${error}`);
+    // Read body once; we may need it both for rate-limit context and the
+    // generic error path below.
+    const errorBody = await response.text();
+    const rlErr = buildRateLimitError(response, errorBody);
+    if (rlErr) throw rlErr;
+    throw new Error(`GitHub API error: ${response.status} - ${errorBody}`);
   }
-  
+
   return response.json();
+}
+
+/**
+ * Parse the GitHub `Link` header and return the URL marked rel="next", or null.
+ */
+function parseNextPageUrl(linkHeader) {
+  if (!linkHeader) return null;
+  // Link: <https://api.github.com/...?page=2>; rel="next", <...>; rel="last"
+  const parts = linkHeader.split(',');
+  for (const part of parts) {
+    const match = part.match(/<([^>]+)>;\s*rel="next"/);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+/**
+ * Apply role-based truncation per docs/SKILLS_ENHANCEMENT_PLAN.md §3 +
+ * plan.md A1.1 v3 algorithm.
+ *
+ * @param {Array<{author_association: string, created_at: string}>} comments raw comments
+ * @returns {{kept: Array, total: number, truncated: number, included_associations: object}}
+ */
+function applyCommentTruncation(comments) {
+  const total = comments.length;
+  const sortedDesc = [...comments].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  const elevated = sortedDesc.filter((c) =>
+    ELEVATED_ASSOCIATIONS.has(c.author_association)
+  );
+  const others = sortedDesc.filter(
+    (c) => !ELEVATED_ASSOCIATIONS.has(c.author_association)
+  );
+
+  const elevatedTaken = elevated.slice(0, Math.min(COMMENT_CAP_ELEVATED, elevated.length));
+  const remainingQuota = COMMENT_CAP_TOTAL - elevatedTaken.length;
+  const othersTaken = others.slice(0, Math.min(remainingQuota, others.length));
+
+  const merged = [...elevatedTaken, ...othersTaken].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  const includedAssociations = {};
+  for (const c of merged) {
+    const key = c.author_association || 'NONE';
+    includedAssociations[key] = (includedAssociations[key] || 0) + 1;
+  }
+
+  return {
+    kept: merged,
+    total,
+    truncated: Math.max(0, total - merged.length),
+    included_associations: includedAssociations,
+  };
 }
 
 /**
@@ -64,15 +183,57 @@ async function fetchIssue(repo, number, token) {
 
 /**
  * 获取 Issue 评论
+ *
+ * - 翻页：以 ?per_page=100 起拉，跟 Link rel="next" 翻页直到无 next
+ * - 上限：最多翻 PAGINATION_PAGE_LIMIT 页（默认 5 = 500 条），超过则停止；total 标注 ">N"
+ * - 截断：客户端按 author_association 角色优先策略保留 ≤ COMMENT_CAP_TOTAL（默认 20）
  */
 async function fetchComments(repo, number, token) {
-  const data = await githubRequest(`/repos/${repo}/issues/${number}/comments`, token);
-  
-  return data.map(comment => ({
-    author: comment.user.login,
+  const collected = [];
+  let nextEndpoint = `/repos/${repo}/issues/${number}/comments?per_page=${PAGINATION_PER_PAGE}`;
+  let pageCount = 0;
+  let hitPageLimit = false;
+
+  while (nextEndpoint && pageCount < PAGINATION_PAGE_LIMIT) {
+    const response = await githubFetch(nextEndpoint, token);
+    if (!response.ok) {
+      const errorBody = await response.text();
+      const rlErr = buildRateLimitError(response, errorBody);
+      if (rlErr) throw rlErr;
+      throw new Error(`GitHub API error: ${response.status} - ${errorBody}`);
+    }
+    const pageData = await response.json();
+    collected.push(...pageData);
+    pageCount += 1;
+
+    const nextUrl = parseNextPageUrl(response.headers.get('link'));
+    if (!nextUrl) {
+      nextEndpoint = null;
+    } else if (pageCount >= PAGINATION_PAGE_LIMIT) {
+      hitPageLimit = true;
+      nextEndpoint = null;
+    } else {
+      // githubFetch accepts both relative endpoints and absolute URLs
+      nextEndpoint = nextUrl;
+    }
+  }
+
+  const raw = collected.map((comment) => ({
+    author: comment.user?.login,
     body: comment.body,
     created_at: comment.created_at,
+    author_association: comment.author_association || 'NONE',
   }));
+
+  const truncation = applyCommentTruncation(raw);
+
+  return {
+    total_comments: hitPageLimit ? `>${collected.length}` : truncation.total,
+    truncated_count: truncation.truncated + (hitPageLimit ? 1 : 0),
+    included_associations: truncation.included_associations,
+    page_limit_hit: hitPageLimit,
+    items: truncation.kept,
+  };
 }
 
 /**
@@ -181,9 +342,9 @@ async function fetchLinkedPRs(repo, number, token) {
           
           if (diffResponse.ok) {
             let diff = await diffResponse.text();
-            // 限制 diff 大小，避免上下文过长
-            if (diff.length > 10000) {
-              diff = diff.substring(0, 10000) + '\n\n... [diff truncated, total length: ' + diff.length + ' characters]';
+            // 限制 diff 大小，避免上下文过长（plan A1.2: 10000 → 4000）
+            if (diff.length > DIFF_TRUNCATE_CHARS) {
+              diff = diff.substring(0, DIFF_TRUNCATE_CHARS) + '\n\n... [diff truncated, total length: ' + diff.length + ' characters]';
             }
             prInfo.diff = diff;
           }
@@ -319,4 +480,21 @@ async function main() {
   console.error('GitHub Issue Fetcher MCP Server running on stdio');
 }
 
-main().catch(console.error);
+if (require.main === module) {
+  main().catch(console.error);
+}
+
+// Exports for unit tests (not used by MCP runtime)
+module.exports = {
+  applyCommentTruncation,
+  parseNextPageUrl,
+  buildRateLimitError,
+  fetchComments,
+  __constants: {
+    COMMENT_CAP_TOTAL,
+    COMMENT_CAP_ELEVATED,
+    PAGINATION_PAGE_LIMIT,
+    PAGINATION_PER_PAGE,
+    DIFF_TRUNCATE_CHARS,
+  },
+};
