@@ -7,6 +7,7 @@ const {
 } = require('@modelcontextprotocol/sdk/types.js');
 const fs = require('fs');
 const { LocalKnowledgeBase } = require('../../lib/local-knowledge-base');
+const { wrapToolHandler } = require('../../lib/skills-metrics');
 
 const KB_PATH = process.env.AI_ISSUE_KB_PATH || '';
 const SERVICE_URL = process.env.AI_ISSUE_SERVICE_URL || '';
@@ -329,7 +330,7 @@ async function handleToolRequest(request) {
   throw new Error(`Unknown tool: ${toolName}`);
 }
 
-server.setRequestHandler(CallToolRequestSchema, handleToolRequest);
+server.setRequestHandler(CallToolRequestSchema, wrapToolHandler(handleToolRequest, 'similar-issue-finder'));
 
 async function main() {
   const transport = new StdioServerTransport();

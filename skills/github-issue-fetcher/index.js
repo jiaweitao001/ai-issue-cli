@@ -11,6 +11,7 @@ const {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } = require('@modelcontextprotocol/sdk/types.js');
+const { wrapToolHandler } = require('../../lib/skills-metrics');
 
 // GitHub API 基础配置
 const GITHUB_API_BASE = 'https://api.github.com';
@@ -443,9 +444,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 });
 
 // 处理工具调用
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+async function handleToolRequest(request) {
   const { name, arguments: args } = request.params;
-  
+
   if (name === 'get_issue_context') {
     try {
       const result = await getIssueContext(args);
@@ -469,9 +470,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
   }
-  
+
   throw new Error(`Unknown tool: ${name}`);
-});
+}
+
+server.setRequestHandler(CallToolRequestSchema, wrapToolHandler(handleToolRequest, 'github-issue-fetcher'));
 
 // 启动服务器
 async function main() {
