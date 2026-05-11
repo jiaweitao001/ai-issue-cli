@@ -1,3 +1,4 @@
+// @ts-check
 const PII_PATTERNS = {
   email: /[\w.+-]+@[\w-]+\.[\w.-]+/g,
   githubToken: /\bgh[ps]_[A-Za-z0-9]{20,}/g,
