@@ -27,6 +27,11 @@
       "command": "node",
       "args": ["../skills/report-validator/index.js"],
       "tools": ["*"]
+    },
+    "git-history-analyzer": {
+      "command": "node",
+      "args": ["../skills/git-history-analyzer/index.js"],
+      "tools": ["*"]
     }
   }
 }

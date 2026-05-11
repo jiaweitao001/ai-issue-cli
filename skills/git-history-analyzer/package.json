@@ -1,0 +1,15 @@
+{
+  "name": "git-history-analyzer",
+  "version": "1.0.0",
+  "description": "MCP server exposing focused git-history queries (file history, related-change search) for Phase 1 issue research",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "author": "",
+  "license": "MIT"
+}

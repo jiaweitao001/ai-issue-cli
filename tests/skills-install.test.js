@@ -18,6 +18,7 @@ describe('skills:install script', () => {
     'similar-issue-finder',
     'report-validator',
     'terraform-validator',
+    'git-history-analyzer',
   ];
 
   it('should cover all expected skill directories', () => {
