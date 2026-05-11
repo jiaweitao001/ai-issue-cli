@@ -5,11 +5,6 @@ MCP server providing pre-commit static checks for
 style Go changes. Designed to be called from Phase 2 (and the rubber-duck
 critique pass) before committing.
 
-> **B-MVP scope**: field-naming consistency only (`d.Set/Get("key")` ↔
-> Schema declarations). Schema-rule checks (Optional+Computed,
-> `Get`-vs-`GetOk`) and Read-function nil-safety land in **B-Extend** as a
-> follow-up PR.
-
 ## Tool
 
 ### `validate_terraform_changes`
@@ -32,7 +27,7 @@ Returns:
       "message": "d.Set(\"runtime_env\", ...) references a key not declared in any top-level Schema in this file."
     }
   ],
-  "summary": "Validated 1 terraform file(s); found 1 finding(s) (high=1, medium=0)."
+  "summary": "Validated 1 terraform file(s); found 1 finding(s) (high=1, medium=0, warning=0)."
 }
 ```
 
@@ -52,8 +47,10 @@ poisoning non-Terraform projects.
 
 | Rule | Severity | Trigger |
 |---|---|---|
-| `field-naming-undeclared` | **high** | `d.Set/Get/GetOk/GetOkExists("key")` where `"key"` is not declared in any top-level Schema in the file. Indicates a typo or missing Schema entry — must be fixed before commit. |
-| `field-naming-case` | **medium** | Same call but the snake↔camel counterpart is declared (e.g. Schema has `runtime_environment`, accessor uses `runtimeEnvironment`). Align the accessor with the schema spelling. |
+| `field-naming-undeclared` | **high** (must fix) | `d.Set/Get/GetOk/GetOkExists("key")` where `"key"` is not declared in any top-level Schema in the file. Indicates a typo or missing Schema entry. |
+| `field-naming-case` | **medium** (should fix) | Same call but the snake↔camel counterpart is declared (e.g. Schema has `runtime_environment`, accessor uses `runtimeEnvironment`). Align the accessor with the schema spelling. |
+| `schema-optional-get` | **medium** (should fix) | `<rd>.Get("key")` reads an inline Schema entry that is `Optional: true`, has no `Default:`, and is not `Computed: true`. `Get()` returns the zero value when unset, indistinguishable from explicit zero — switch to `GetOk()` if the distinction matters. |
+| `pointer-from-unchecked-chain` | **warning** (advisory) | `pointer.From(a.b.c…)` chain has ≥2 levels of pointer field access AND at least one intermediate prefix (e.g. `a.b`) is not nil-checked earlier in the same function body. Audit and either add a guard or document why the chain is safe. False positives possible — see limitations. |
 
 ## How it works
 
@@ -63,12 +60,24 @@ poisoning non-Terraform projects.
    comments — pure regex is insufficient because schemas commonly nest
    via `Elem: &pluginsdk.Resource{Schema: ...}`.
 2. Determine top-level vs nested via byte-range containment.
-3. Collect direct-child keys at depth 1 of each top-level Schema.
+3. For each top-level Schema entry:
+   - Extract the key.
+   - If the value is an inline `{...}` literal, also parse its property
+     flags (`Required`, `Optional`, `Computed`, `Default:`).
+   - If the value is a helper function call (e.g.
+     `commonschema.Location()`), record the key only — properties are
+     opaque (`inline: false`).
 4. Find all parameter names declared as `*schema.ResourceData` or
    `*pluginsdk.ResourceData` (varname doesn't have to be `d`; `rd`,
    `data`, `resourceData` all work).
 5. Cross-check every `<varname>.(Set|Get|GetOk|GetOkExists)("key")` call
-   against the top-level key set; emit findings.
+   against the top-level key set and the per-key property flags; emit
+   findings.
+6. For nil-safety: walk every `pointer.From(<chain>)` call. If the chain
+   has ≥2 levels of pointer field access and at least one intermediate
+   prefix has no `X == nil` / `X != nil` check earlier in the *same Go
+   function body* (boundaries detected via brace-balanced function
+   walker), emit a `pointer-from-unchecked-chain` warning.
 
 ## Hard input contract
 
@@ -83,7 +92,7 @@ This is deliberate — the validator must NOT do whole-repo scans and must
 NOT read files outside the repo. The agent is responsible for passing the
 modified file list (typically derived from `git diff --name-only`).
 
-## Known B-MVP limitations
+## Known limitations
 
 - **Dot-navigation skipped**: `d.Get("network_rule_set.0.bypass")` is
   intentionally not validated. Nested-resource accessor validation is
@@ -96,9 +105,31 @@ modified file list (typically derived from `git diff --name-only`).
 - **Cross-SDK validation out of scope**: Whether a schema field name
   matches an external SDK struct field is the LLM's job (use
   `grep_search` against the upstream SDK source).
-- **Per-function scoping**: ResourceData varname identification is
-  file-scoped, not function-scoped. Functions in the same file that reuse
-  a varname for an unrelated purpose may produce false positives.
+- **Per-function scoping (field-naming)**: ResourceData varname
+  identification is file-scoped, not function-scoped. Functions in the
+  same file that reuse a varname for an unrelated purpose may produce
+  false positives.
+- **Helper-built schema entries are opaque**: Schema entries built via
+  helper functions (`commonschema.Location()`, `tags.Schema()`, etc.)
+  cannot be evaluated for `Optional`/`Default`/`Computed` flags — the
+  `schema-optional-get` rule skips them. False negatives possible if the
+  helper returns an Optional-without-Default field. Both `Default:` and
+  `DefaultFunc:` (runtime-computed default) are recognised; entries using
+  either are not flagged.
+- **`pointer-from-unchecked-chain` is advisory and heuristic**: it does
+  not have full Go type info, so:
+  - intermediate fields that are value types (not pointers) are still
+    counted as "unchecked" → false positive
+  - struct embedding may flatten access without an explicit nil check →
+    false positive
+  - closures that read variables nil-checked in the *outer* function are
+    function-scoped to the closure body → false positive
+  - chain arguments that contain parens (e.g. `pointer.From(getX())`)
+    are not matched → false negative
+  Treat findings as prompts to audit, not as hard blockers.
+- **`go vet` / `staticcheck` / `nilness` shell-out**: out of scope. A
+  proper SSA-based nil-deref analysis is best done by `staticcheck` or
+  `nilness` and may land as a separate skill in the future.
 
 ## Installation
 

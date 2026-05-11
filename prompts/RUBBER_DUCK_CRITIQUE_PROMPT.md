@@ -63,9 +63,13 @@ side. Stay read-only.
 
 > **terraform-provider note**: If the diff touches `*_resource.go`,
 > `*_resource_gen.go`, or `*_data_source.go` files, also re-run
-> `validate_terraform_changes` (MCP tool) on the changed files and treat any
-> `severity: "high"` finding as a real critique item. Non-Terraform diffs:
-> ignore.
+> `validate_terraform_changes` (MCP tool) on the changed files. Treat any
+> `severity: "high"` finding as a real critique item; treat
+> `severity: "medium"` and `severity: "warning"` findings as candidate
+> critique items — include them only if the evidence is clear (e.g. for
+> `pointer-from-unchecked-chain`, only flag if you can confirm the
+> intermediate is genuinely a pointer that may be nil at this call site).
+> Non-Terraform diffs: ignore.
 
 ---
 

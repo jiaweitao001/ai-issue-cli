@@ -518,3 +518,523 @@ describe('handleToolRequest (MCP plumbing)', () => {
     expect(res.content[0].text).toMatch(/INVALID_INPUT/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// B-Extend rule fixtures
+// ---------------------------------------------------------------------------
+
+const FIXTURE_OPT_GET_BAD = `package foo
+
+import "github.com/hashicorp/terraform-provider-azurerm/internal/tf/pluginsdk"
+
+func resourceFoo() *pluginsdk.Resource {
+  return &pluginsdk.Resource{
+    Schema: map[string]*pluginsdk.Schema{
+      "tag": {
+        Type:     pluginsdk.TypeString,
+        Optional: true,
+      },
+    },
+  }
+}
+
+func resourceFooRead(d *pluginsdk.ResourceData, meta interface{}) error {
+  v := d.Get("tag").(string)
+  _ = v
+  return nil
+}
+`;
+
+const FIXTURE_OPT_GET_OK_GETOK = `package foo
+
+import "github.com/hashicorp/terraform-provider-azurerm/internal/tf/pluginsdk"
+
+func resourceFoo() *pluginsdk.Resource {
+  return &pluginsdk.Resource{
+    Schema: map[string]*pluginsdk.Schema{
+      "tag": {
+        Type:     pluginsdk.TypeString,
+        Optional: true,
+      },
+    },
+  }
+}
+
+func resourceFooRead(d *pluginsdk.ResourceData, meta interface{}) error {
+  if v, ok := d.GetOk("tag"); ok {
+    _ = v
+  }
+  return nil
+}
+`;
+
+const FIXTURE_OPT_GET_WITH_DEFAULT = `package foo
+
+import "github.com/hashicorp/terraform-provider-azurerm/internal/tf/pluginsdk"
+
+func resourceFoo() *pluginsdk.Resource {
+  return &pluginsdk.Resource{
+    Schema: map[string]*pluginsdk.Schema{
+      "tag": {
+        Type:     pluginsdk.TypeString,
+        Optional: true,
+        Default:  "prod",
+      },
+    },
+  }
+}
+
+func resourceFooRead(d *pluginsdk.ResourceData, meta interface{}) error {
+  v := d.Get("tag").(string)
+  _ = v
+  return nil
+}
+`;
+
+const FIXTURE_OPT_COMPUTED_GET = `package foo
+
+import "github.com/hashicorp/terraform-provider-azurerm/internal/tf/pluginsdk"
+
+func resourceFoo() *pluginsdk.Resource {
+  return &pluginsdk.Resource{
+    Schema: map[string]*pluginsdk.Schema{
+      "tag": {
+        Type:     pluginsdk.TypeString,
+        Optional: true,
+        Computed: true,
+      },
+    },
+  }
+}
+
+func resourceFooRead(d *pluginsdk.ResourceData, meta interface{}) error {
+  v := d.Get("tag").(string)
+  _ = v
+  return nil
+}
+`;
+
+const FIXTURE_REQUIRED_GET = `package foo
+
+import "github.com/hashicorp/terraform-provider-azurerm/internal/tf/pluginsdk"
+
+func resourceFoo() *pluginsdk.Resource {
+  return &pluginsdk.Resource{
+    Schema: map[string]*pluginsdk.Schema{
+      "name": {
+        Type:     pluginsdk.TypeString,
+        Required: true,
+      },
+    },
+  }
+}
+
+func resourceFooRead(d *pluginsdk.ResourceData, meta interface{}) error {
+  v := d.Get("name").(string)
+  _ = v
+  return nil
+}
+`;
+
+const FIXTURE_OPT_GET_HELPER_FN = `package foo
+
+import "github.com/hashicorp/terraform-provider-azurerm/internal/tf/pluginsdk"
+
+func resourceFoo() *pluginsdk.Resource {
+  return &pluginsdk.Resource{
+    Schema: map[string]*pluginsdk.Schema{
+      "location": commonschema.Location(),
+    },
+  }
+}
+
+func resourceFooRead(d *pluginsdk.ResourceData, meta interface{}) error {
+  v := d.Get("location").(string)
+  _ = v
+  return nil
+}
+`;
+
+const FIXTURE_NIL_UNCHECKED = `package foo
+
+func read(d *pluginsdk.ResourceData, meta interface{}) error {
+  resp, err := client.Get(ctx, id)
+  if err != nil {
+    return err
+  }
+  d.Set("foo", pointer.From(resp.Model.Properties.Foo))
+  return nil
+}
+`;
+
+const FIXTURE_NIL_CHECKED = `package foo
+
+func read(d *pluginsdk.ResourceData, meta interface{}) error {
+  resp, err := client.Get(ctx, id)
+  if err != nil {
+    return err
+  }
+  if resp.Model == nil || resp.Model.Properties == nil {
+    return nil
+  }
+  d.Set("foo", pointer.From(resp.Model.Properties.Foo))
+  return nil
+}
+`;
+
+const FIXTURE_NIL_PARTIAL = `package foo
+
+func read(d *pluginsdk.ResourceData, meta interface{}) error {
+  resp, err := client.Get(ctx, id)
+  if err != nil {
+    return err
+  }
+  if resp.Model != nil {
+    d.Set("foo", pointer.From(resp.Model.Properties.Foo))
+  }
+  return nil
+}
+`;
+
+const FIXTURE_NIL_GUARDED_AND = `package foo
+
+func read(d *pluginsdk.ResourceData, meta interface{}) error {
+  resp, _ := client.Get(ctx, id)
+  if resp.Model != nil && resp.Model.Properties != nil {
+    d.Set("foo", pointer.From(resp.Model.Properties.Foo))
+  }
+  return nil
+}
+`;
+
+const FIXTURE_NIL_SHORT_CHAIN = `package foo
+
+func read(d *pluginsdk.ResourceData, meta interface{}) error {
+  resp, _ := client.Get(ctx, id)
+  d.Set("foo", pointer.From(resp.Foo))
+  return nil
+}
+`;
+
+const FIXTURE_NIL_FUNC_CALL_ARG = `package foo
+
+func read(d *pluginsdk.ResourceData, meta interface{}) error {
+  d.Set("foo", pointer.From(getValue()))
+  return nil
+}
+`;
+
+const FIXTURE_NIL_TWO_FUNCS = `package foo
+
+func helperA(resp *Response) {
+  if resp.Model == nil || resp.Model.Properties == nil { return }
+  _ = pointer.From(resp.Model.Properties.Foo)
+}
+
+func helperB(resp *Response) {
+  _ = pointer.From(resp.Model.Properties.Foo)
+}
+`;
+
+// ---------------------------------------------------------------------------
+// B-Extend: extractSchemaEntriesFromBlock unit tests
+// ---------------------------------------------------------------------------
+
+describe('extractSchemaEntriesFromBlock (B-Extend)', () => {
+  it('extracts inline entries with property flags', () => {
+    const block = `{
+      "name": {Required: true},
+      "tag": {Optional: true},
+      "computed_only": {Computed: true},
+      "with_default": {Optional: true, Default: "x"},
+    }`;
+    const entries = __internal.extractSchemaEntriesFromBlock(block);
+    expect(entries).toEqual([
+      { key: 'name', optional: false, required: true, computed: false, hasDefault: false, inline: true },
+      { key: 'tag', optional: true, required: false, computed: false, hasDefault: false, inline: true },
+      { key: 'computed_only', optional: false, required: false, computed: true, hasDefault: false, inline: true },
+      { key: 'with_default', optional: true, required: false, computed: false, hasDefault: true, inline: true },
+    ]);
+  });
+
+  it('marks function-call values as inline:false (opaque)', () => {
+    const block = `{
+      "location": commonschema.Location(),
+      "tag": {Optional: true},
+    }`;
+    const entries = __internal.extractSchemaEntriesFromBlock(block);
+    expect(entries[0]).toEqual({ key: 'location', inline: false });
+    expect(entries[1].inline).toBe(true);
+    expect(entries[1].optional).toBe(true);
+  });
+
+  it('does not mistake property names inside a nested Elem block for top-level entries', () => {
+    const block = `{
+      "outer": {
+        Type: pluginsdk.TypeList,
+        Optional: true,
+        Elem: &pluginsdk.Resource{
+          Schema: map[string]*pluginsdk.Schema{
+            "inner": {
+              Type: pluginsdk.TypeString,
+              Required: true,
+            },
+          },
+        },
+      },
+    }`;
+    const entries = __internal.extractSchemaEntriesFromBlock(block);
+    expect(entries.map(e => e.key)).toEqual(['outer']);
+    expect(entries[0].optional).toBe(true);
+  });
+
+  it('does NOT inherit a nested entry\'s flags into the outer (regression: rubber-duck v6)', () => {
+    const block = `{
+      "outer": {
+        Type: pluginsdk.TypeList,
+        Required: true,
+        Elem: &pluginsdk.Resource{
+          Schema: map[string]*pluginsdk.Schema{
+            "inner": {
+              Type: pluginsdk.TypeString,
+              Optional: true,
+              Default: "x",
+            },
+          },
+        },
+      },
+    }`;
+    const entries = __internal.extractSchemaEntriesFromBlock(block);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].key).toBe('outer');
+    expect(entries[0].required).toBe(true);
+    expect(entries[0].optional).toBe(false);
+    expect(entries[0].hasDefault).toBe(false);
+  });
+
+  it('treats DefaultFunc as a default (Get() is safe)', () => {
+    const block = `{
+      "tag": {
+        Type: pluginsdk.TypeString,
+        Optional: true,
+        DefaultFunc: schema.EnvDefaultFunc("MY_VAR", "fallback"),
+      },
+    }`;
+    const entries = __internal.extractSchemaEntriesFromBlock(block);
+    expect(entries[0].optional).toBe(true);
+    expect(entries[0].hasDefault).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B-Extend: checkSchemaOptionalGet
+// ---------------------------------------------------------------------------
+
+describe('checkSchemaOptionalGet (B-Extend)', () => {
+  it('flags Get() on Optional field without Default → medium', () => {
+    const findings = __internal.checkSchemaOptionalGet(FIXTURE_OPT_GET_BAD);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe('schema-optional-get');
+    expect(findings[0].severity).toBe('medium');
+    expect(findings[0].message).toMatch(/GetOk/);
+  });
+
+  it('does not flag GetOk() on Optional field', () => {
+    expect(__internal.checkSchemaOptionalGet(FIXTURE_OPT_GET_OK_GETOK)).toEqual([]);
+  });
+
+  it('does not flag Get() on Optional field WITH Default', () => {
+    expect(__internal.checkSchemaOptionalGet(FIXTURE_OPT_GET_WITH_DEFAULT)).toEqual([]);
+  });
+
+  it('does not flag Get() on Optional+Computed field', () => {
+    expect(__internal.checkSchemaOptionalGet(FIXTURE_OPT_COMPUTED_GET)).toEqual([]);
+  });
+
+  it('does not flag Get() on Required field', () => {
+    expect(__internal.checkSchemaOptionalGet(FIXTURE_REQUIRED_GET)).toEqual([]);
+  });
+
+  it('does not flag Get() on entry built via helper function (opaque)', () => {
+    expect(__internal.checkSchemaOptionalGet(FIXTURE_OPT_GET_HELPER_FN)).toEqual([]);
+  });
+
+  it('does not flag Get() on dot-navigation key', () => {
+    const code = `
+      package foo
+      func resourceFoo() *pluginsdk.Resource {
+        return &pluginsdk.Resource{
+          Schema: map[string]*pluginsdk.Schema{
+            "outer": {Optional: true, Type: pluginsdk.TypeList},
+          },
+        }
+      }
+      func r(d *pluginsdk.ResourceData) {
+        _ = d.Get("outer.0.field")
+      }
+    `;
+    expect(__internal.checkSchemaOptionalGet(code)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B-Extend: findGoFunctionBodies / findEnclosingFunction
+// ---------------------------------------------------------------------------
+
+describe('findGoFunctionBodies / findEnclosingFunction (B-Extend)', () => {
+  it('finds top-level function bodies', () => {
+    const code = `package x\nfunc foo() {\n  return\n}\nfunc bar(a int) (int, error) {\n  return 0, nil\n}`;
+    const funcs = __internal.findGoFunctionBodies(code);
+    expect(funcs).toHaveLength(2);
+    expect(code[funcs[0].bodyStart]).toBe('{');
+    expect(code[funcs[0].bodyEnd]).toBe('}');
+  });
+
+  it('finds methods with receiver', () => {
+    const code = `package x\nfunc (r *Resource) Foo() {\n  return\n}`;
+    const funcs = __internal.findGoFunctionBodies(code);
+    expect(funcs).toHaveLength(1);
+  });
+
+  it('finds function literals (closures)', () => {
+    const code = `package x\nfunc outer() {\n  fn := func(a int) {\n    return\n  }\n  _ = fn\n}`;
+    const funcs = __internal.findGoFunctionBodies(code);
+    expect(funcs).toHaveLength(2);
+  });
+
+  it('findEnclosingFunction returns smallest containing function', () => {
+    const code = `package x\nfunc outer() {\n  fn := func() { /*INNER*/ }\n  _ = fn\n}`;
+    const funcs = __internal.findGoFunctionBodies(code);
+    const innerOffset = code.indexOf('INNER');
+    const enclosing = __internal.findEnclosingFunction(funcs, innerOffset);
+    expect(enclosing).toBeTruthy();
+    expect(enclosing.bodyEnd - enclosing.bodyStart).toBeLessThan(
+      Math.max(...funcs.map(f => f.bodyEnd - f.bodyStart))
+    );
+  });
+
+  it('returns null for offset outside any function (top-level code)', () => {
+    const code = `package x\nvar x = 1\nfunc foo() {}\n`;
+    const funcs = __internal.findGoFunctionBodies(code);
+    const topOffset = code.indexOf('var');
+    expect(__internal.findEnclosingFunction(funcs, topOffset)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B-Extend: checkPointerFromForFile
+// ---------------------------------------------------------------------------
+
+describe('checkPointerFromForFile (B-Extend)', () => {
+  it('flags pointer.From with unchecked 3-level chain → warning', () => {
+    const findings = __internal.checkPointerFromForFile(FIXTURE_NIL_UNCHECKED);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe('pointer-from-unchecked-chain');
+    expect(findings[0].severity).toBe('warning');
+    expect(findings[0].message).toMatch(/resp\.Model/);
+  });
+
+  it('does not flag when both intermediates are nil-checked via ||', () => {
+    expect(__internal.checkPointerFromForFile(FIXTURE_NIL_CHECKED)).toEqual([]);
+  });
+
+  it('does not flag when both intermediates are nil-checked via &&', () => {
+    expect(__internal.checkPointerFromForFile(FIXTURE_NIL_GUARDED_AND)).toEqual([]);
+  });
+
+  it('still flags when only outer is checked (Properties unchecked)', () => {
+    const findings = __internal.checkPointerFromForFile(FIXTURE_NIL_PARTIAL);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].message).toMatch(/resp\.Model\.Properties/);
+  });
+
+  it('does not flag short chain (resp.Foo, only 1 access level)', () => {
+    expect(__internal.checkPointerFromForFile(FIXTURE_NIL_SHORT_CHAIN)).toEqual([]);
+  });
+
+  it('does not flag pointer.From with function-call argument', () => {
+    expect(__internal.checkPointerFromForFile(FIXTURE_NIL_FUNC_CALL_ARG)).toEqual([]);
+  });
+
+  it('checks nil-safety per function (helperA clean, helperB flagged)', () => {
+    const findings = __internal.checkPointerFromForFile(FIXTURE_NIL_TWO_FUNCS);
+    expect(findings).toHaveLength(1);
+    // Only helperB's call should fire
+    const helperBOffset = FIXTURE_NIL_TWO_FUNCS.indexOf('helperB');
+    const beforeHelperB = FIXTURE_NIL_TWO_FUNCS.slice(0, helperBOffset);
+    const lineOfHelperB = (beforeHelperB.match(/\n/g) || []).length + 1;
+    expect(findings[0].line).toBeGreaterThan(lineOfHelperB);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B-Extend: end-to-end through validateTerraformChanges
+// ---------------------------------------------------------------------------
+
+describe('validateTerraformChanges (B-Extend integration)', () => {
+  let repo;
+  afterEach(() => {
+    cleanup(repo);
+    repo = null;
+  });
+
+  it('surfaces schema-optional-get finding end-to-end', async () => {
+    repo = makeRepo({ 'foo_resource.go': FIXTURE_OPT_GET_BAD });
+    const res = await validateTerraformChanges({
+      repoPath: repo,
+      files: ['foo_resource.go'],
+    });
+    expect(res.findings).toHaveLength(1);
+    expect(res.findings[0].rule).toBe('schema-optional-get');
+    expect(res.findings[0].file).toBe('foo_resource.go');
+    expect(res.summary).toMatch(/medium=1/);
+  });
+
+  it('surfaces pointer-from-unchecked-chain finding end-to-end', async () => {
+    repo = makeRepo({ 'foo_resource.go': FIXTURE_NIL_UNCHECKED });
+    const res = await validateTerraformChanges({
+      repoPath: repo,
+      files: ['foo_resource.go'],
+    });
+    expect(res.findings).toHaveLength(1);
+    expect(res.findings[0].rule).toBe('pointer-from-unchecked-chain');
+    expect(res.findings[0].severity).toBe('warning');
+    expect(res.summary).toMatch(/warning=1/);
+  });
+
+  it('reports all rule classes together with correct counts', async () => {
+    const combined = `package foo
+import "github.com/hashicorp/terraform-provider-azurerm/internal/tf/pluginsdk"
+func resourceFoo() *pluginsdk.Resource {
+  return &pluginsdk.Resource{
+    Schema: map[string]*pluginsdk.Schema{
+      "name": {Type: pluginsdk.TypeString, Required: true},
+      "tag": {Type: pluginsdk.TypeString, Optional: true},
+    },
+  }
+}
+func resourceFooRead(d *pluginsdk.ResourceData) error {
+  d.Set("nope", "x")
+  v := d.Get("tag").(string)
+  _ = v
+  d.Set("foo", pointer.From(resp.Model.Properties.Foo))
+  return nil
+}
+`;
+    repo = makeRepo({ 'foo_resource.go': combined });
+    const res = await validateTerraformChanges({
+      repoPath: repo,
+      files: ['foo_resource.go'],
+    });
+    const rules = res.findings.map(f => f.rule).sort();
+    expect(rules).toEqual([
+      'field-naming-undeclared', // d.Set("nope", ...)
+      'field-naming-undeclared', // d.Set("foo", pointer.From(...))
+      'pointer-from-unchecked-chain',
+      'schema-optional-get',
+    ]);
+    expect(res.summary).toMatch(/high=2/);
+    expect(res.summary).toMatch(/medium=1/);
+    expect(res.summary).toMatch(/warning=1/);
+  });
+});
