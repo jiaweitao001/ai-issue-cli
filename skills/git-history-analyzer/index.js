@@ -53,6 +53,7 @@ const {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } = require('@modelcontextprotocol/sdk/types.js');
+const { wrapToolHandler } = require('../../lib/skills-metrics');
 
 const MAX_FILE_HISTORY = 50;
 const DEFAULT_FILE_HISTORY = 10;
@@ -382,7 +383,7 @@ async function handleToolRequest(request) {
   }
 }
 
-server.setRequestHandler(CallToolRequestSchema, handleToolRequest);
+server.setRequestHandler(CallToolRequestSchema, wrapToolHandler(handleToolRequest, 'git-history-analyzer'));
 
 async function main() {
   const transport = new StdioServerTransport();

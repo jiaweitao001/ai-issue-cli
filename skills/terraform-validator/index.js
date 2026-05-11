@@ -53,6 +53,7 @@ const {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } = require('@modelcontextprotocol/sdk/types.js');
+const { wrapToolHandler } = require('../../lib/skills-metrics');
 
 const TERRAFORM_FILE_SUFFIXES = ['_resource.go', '_resource_gen.go', '_data_source.go'];
 
@@ -812,7 +813,7 @@ async function handleToolRequest(request) {
   }
 }
 
-server.setRequestHandler(CallToolRequestSchema, handleToolRequest);
+server.setRequestHandler(CallToolRequestSchema, wrapToolHandler(handleToolRequest, 'terraform-validator'));
 
 async function main() {
   const transport = new StdioServerTransport();

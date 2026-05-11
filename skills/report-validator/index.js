@@ -18,6 +18,7 @@ const {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } = require('@modelcontextprotocol/sdk/types.js');
+const { wrapToolHandler } = require('../../lib/skills-metrics');
 
 const SECTIONS = require(path.join(__dirname, '..', '..', 'data', 'report-sections.json'));
 
@@ -160,7 +161,7 @@ async function handleToolRequest(request) {
   }
 }
 
-server.setRequestHandler(CallToolRequestSchema, handleToolRequest);
+server.setRequestHandler(CallToolRequestSchema, wrapToolHandler(handleToolRequest, 'report-validator'));
 
 async function main() {
   const transport = new StdioServerTransport();

@@ -113,6 +113,29 @@ describe('commands/config-cmd', () => {
       cmdConfig('set', 'repoPath', '/some/path');
       expect(warning).not.toHaveBeenCalled();
     });
+
+    it('should coerce skillsMetricsEnabled "true" to native boolean true', () => {
+      cmdConfig('set', 'skillsMetricsEnabled', 'true');
+      const saved = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
+      expect(saved.skillsMetricsEnabled).toBe(true);
+    });
+
+    it('should coerce skillsMetricsEnabled "false" to native boolean false', () => {
+      cmdConfig('set', 'skillsMetricsEnabled', 'false');
+      const saved = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
+      expect(saved.skillsMetricsEnabled).toBe(false);
+    });
+
+    it('should reject skillsMetricsEnabled with a non-boolean string', () => {
+      expect(() => cmdConfig('set', 'skillsMetricsEnabled', 'yes')).toThrow('process.exit called');
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('must be "true" or "false"'));
+    });
+
+    it('should accept skillsMetricsPath as a plain string', () => {
+      cmdConfig('set', 'skillsMetricsPath', '/custom/metrics.jsonl');
+      const saved = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
+      expect(saved.skillsMetricsPath).toBe('/custom/metrics.jsonl');
+    });
   });
 
   describe('get action', () => {

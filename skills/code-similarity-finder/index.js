@@ -13,6 +13,7 @@ const {
 } = require('@modelcontextprotocol/sdk/types.js');
 const fs = require('fs');
 const path = require('path');
+const { wrapToolHandler } = require('../../lib/skills-metrics');
 
 /**
  * 提取 Go 文件的特征
@@ -361,9 +362,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 });
 
 // 处理工具调用
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+async function handleToolRequest(request) {
   const { name, arguments: args } = request.params;
-  
+
   if (name === 'find_similar_implementations') {
     try {
       const result = await findSimilarImplementations(args);
@@ -387,9 +388,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
   }
-  
+
   throw new Error(`Unknown tool: ${name}`);
-});
+}
+
+server.setRequestHandler(CallToolRequestSchema, wrapToolHandler(handleToolRequest, 'code-similarity-finder'));
 
 // 启动服务器
 async function main() {

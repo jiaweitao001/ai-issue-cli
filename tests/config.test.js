@@ -294,6 +294,34 @@ describe('config', () => {
       ]));
     });
 
+    it('should reject non-boolean skillsMetricsEnabled and non-string skillsMetricsPath', () => {
+      const { valid, errors } = validateConfig({
+        repoPath: '/valid/path',
+        issueBaseUrl: 'https://github.com/test/repo/issues',
+        reportPath: '/valid/reports',
+        skillsMetricsEnabled: 'yes',
+        skillsMetricsPath: 12345
+      });
+
+      expect(valid).toBe(false);
+      expect(errors).toEqual(expect.arrayContaining([
+        'skillsMetricsEnabled must be a boolean',
+        'skillsMetricsPath must be a string'
+      ]));
+    });
+
+    it('should accept valid skillsMetrics config', () => {
+      const { valid } = validateConfig({
+        repoPath: '/valid/path',
+        issueBaseUrl: 'https://github.com/test/repo/issues',
+        reportPath: '/valid/reports',
+        skillsMetricsEnabled: true,
+        skillsMetricsPath: '~/.ai-issue/metrics/skills.jsonl'
+      });
+
+      expect(valid).toBe(true);
+    });
+
     it('should accept missing agent as copilot for backward compatibility', () => {
       const config = {
         repoPath: '/valid/path',
