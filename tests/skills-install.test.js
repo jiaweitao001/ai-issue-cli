@@ -16,6 +16,7 @@ describe('skills:install script', () => {
     'github-issue-fetcher',
     'code-similarity-finder',
     'similar-issue-finder',
+    'report-validator',
   ];
 
   it('should cover all expected skill directories', () => {
