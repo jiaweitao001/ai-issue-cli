@@ -12,6 +12,11 @@
       "command": "node",
       "args": ["../skills/report-validator/index.js"],
       "tools": ["*"]
+    },
+    "terraform-validator": {
+      "command": "node",
+      "args": ["../skills/terraform-validator/index.js"],
+      "tools": ["*"]
     }
   }
 }

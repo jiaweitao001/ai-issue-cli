@@ -79,6 +79,31 @@ Before writing code, must read and follow the azurerm project's code style guide
 
 ---
 
+## 🛡️ Pre-commit Validation (terraform-provider only)
+
+**If this changeset includes any `*_resource.go`, `*_resource_gen.go`, or `*_data_source.go` files** (i.e. terraform-provider Go code):
+
+1. Before `git commit`, call the `validate_terraform_changes` MCP tool with:
+   - `repoPath`: absolute path to the repo
+   - `files`: the list of modified files (e.g. from `git diff --name-only`)
+2. Triage findings by severity:
+   - `severity: "high"` (e.g. `field-naming-undeclared` — `d.Set/Get("key")`
+     referring to a key not declared in any Schema) **must be fixed before
+     committing**. These almost always indicate a typo or a forgotten Schema
+     entry.
+   - `severity: "medium"` (e.g. `field-naming-case` — snake↔camel drift,
+     `schema-optional-get` — Get on Optional-no-Default field) should be
+     fixed unless there's a documented reason not to.
+   - `severity: "warning"` (e.g. `pointer-from-unchecked-chain` — pointer.From
+     on a chain whose intermediates are not nil-checked in the same function)
+     is **advisory**: review each one and either add a guard or briefly note
+     in the commit body why the chain is safe. Do NOT silently ignore.
+
+The validator self-skips on non-terraform-provider changesets, so calling it
+is cheap. **Non-Terraform projects can ignore this section entirely.**
+
+---
+
 ## Output Requirements
 
 ⚠️ **Only create `issue-[number]-analysis-and-solution.md` - delete all other temporary files before finishing**
