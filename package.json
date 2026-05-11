@@ -12,7 +12,7 @@
     "test:coverage": "jest --coverage",
     "acceptance:agents": "node scripts/agent-acceptance.js",
     "smoke:claude-mcp": "node scripts/claude-mcp-smoke.js",
-    "skills:install": "cd skills/github-issue-fetcher && npm install && cd ../code-similarity-finder && npm install && cd ../similar-issue-finder && npm install && cd ../report-validator && npm install && cd ../terraform-validator && npm install"
+    "skills:install": "cd skills/github-issue-fetcher && npm install && cd ../code-similarity-finder && npm install && cd ../similar-issue-finder && npm install && cd ../report-validator && npm install && cd ../terraform-validator && npm install && cd ../git-history-analyzer && npm install"
   },
   "keywords": [
     "ai",

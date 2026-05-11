@@ -197,6 +197,11 @@ process.stdin.on('end', () => {
     expect(mcp.mcpServers['report-validator'].args.some(
       (a) => typeof a === 'string' && a.endsWith(path.join('skills', 'report-validator', 'index.js'))
     )).toBe(true);
+    // git-history-analyzer is a phase1-only skill (SKILLS_ENHANCEMENT_PLAN §C1)
+    expect(mcp.mcpServers).toHaveProperty('git-history-analyzer');
+    expect(mcp.mcpServers['git-history-analyzer'].args.some(
+      (a) => typeof a === 'string' && a.endsWith(path.join('skills', 'git-history-analyzer', 'index.js'))
+    )).toBe(true);
     for (const [name, server] of Object.entries(mcp.mcpServers)) {
       expect(server).not.toHaveProperty('tools');
       if (Array.isArray(server.args)) {
