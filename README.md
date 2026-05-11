@@ -422,12 +422,16 @@ ai-issue-cli/
 npm install
 npm run skills:install
 npm test
+npm run typecheck     # tsc --noEmit against files marked // @ts-check
 
 # Run one test file
 npx jest tests/commands/solve.test.js
 ```
 
-The project uses CommonJS, JSDoc type annotations, and Jest. There is no build step or configured linter.
+The project uses CommonJS, JSDoc type annotations, and Jest. There is no build
+step. `npm run typecheck` runs the TypeScript compiler in `--noEmit` mode against
+all `.js` files that opt in via `// @ts-check`; new files should add the pragma
+to be covered.
 
 ## Troubleshooting
 

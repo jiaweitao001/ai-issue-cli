@@ -12,7 +12,7 @@ const { log } = require('../lib/logger');
 describe('display-helpers', () => {
   describe('STATUS_STYLE', () => {
     it('should define all pipeline statuses', () => {
-      const expectedStatuses = ['triaged', 'queued', 'solving', 'solved', 'pr_created', 'rejected', 'failed'];
+      const expectedStatuses = ['triaged', 'queued', 'solving', 'solved', 'skipped', 'pr_created', 'rejected', 'failed'];
       for (const status of expectedStatuses) {
         expect(STATUS_STYLE[status]).toBeDefined();
         expect(STATUS_STYLE[status].emoji).toBeDefined();
