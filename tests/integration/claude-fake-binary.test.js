@@ -233,6 +233,11 @@ process.stdin.on('end', () => {
     expect(captured.mcpConfigContent).toBeTruthy();
     const mcp = JSON.parse(captured.mcpConfigContent);
     expect(mcp.mcpServers).toHaveProperty('report-validator');
+    // terraform-validator is also a phase2-only skill (B-MVP §B3)
+    expect(mcp.mcpServers).toHaveProperty('terraform-validator');
+    expect(mcp.mcpServers['terraform-validator'].args.some(
+      (a) => typeof a === 'string' && a.endsWith(path.join('skills', 'terraform-validator', 'index.js'))
+    )).toBe(true);
     expect(result.success).toBe(true);
   });
 

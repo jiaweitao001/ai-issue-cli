@@ -61,6 +61,12 @@ side. Stay read-only.
 - ❌ comments / docstrings completeness
 - ❌ commit message style
 
+> **terraform-provider note**: If the diff touches `*_resource.go`,
+> `*_resource_gen.go`, or `*_data_source.go` files, also re-run
+> `validate_terraform_changes` (MCP tool) on the changed files and treat any
+> `severity: "high"` finding as a real critique item. Non-Terraform diffs:
+> ignore.
+
 ---
 
 ## Evidence Rule (HARD)
