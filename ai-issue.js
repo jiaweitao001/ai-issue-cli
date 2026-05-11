@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * AI Issue CLI - Automated Issue Resolution and Evaluation Tool
  * Based on GitHub Copilot CLI
