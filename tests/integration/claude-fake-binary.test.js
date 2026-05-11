@@ -191,6 +191,12 @@ process.stdin.on('end', () => {
     expect(captured.mcpConfigContent).toBeTruthy();
     const mcp = JSON.parse(captured.mcpConfigContent);
     expect(mcp.mcpServers).toBeTruthy();
+    // report-validator skill must be visible to the agent in both phase1 and
+    // phase2 MCP profiles (this assertion + test #4 below cover both phases).
+    expect(mcp.mcpServers).toHaveProperty('report-validator');
+    expect(mcp.mcpServers['report-validator'].args.some(
+      (a) => typeof a === 'string' && a.endsWith(path.join('skills', 'report-validator', 'index.js'))
+    )).toBe(true);
     for (const [name, server] of Object.entries(mcp.mcpServers)) {
       expect(server).not.toHaveProperty('tools');
       if (Array.isArray(server.args)) {
@@ -202,6 +208,31 @@ process.stdin.on('end', () => {
       }
     }
 
+    expect(result.success).toBe(true);
+  });
+
+  it('exposes report-validator in the phase2 MCP profile too', async () => {
+    const agent = new ClaudeCodeAgent({
+      agent: 'claude-code',
+      agents: { 'claude-code': { model: 'sonnet' } }
+    });
+
+    const result = await agent.runTask({
+      taskType: 'solution',
+      prompt: 'verify phase2 mcp wiring',
+      repoPath,
+      reportPath: repoPath,
+      mcpProfile: 'phase2',
+      permissionProfile: 'noninteractive-full-auto',
+      gitPolicy: { commitBehavior: 'no-commit' },
+      expectedArtifacts: [{ kind: 'stdout', path: 'stdout' }],
+      silent: true
+    });
+
+    const captured = readCaptured();
+    expect(captured.mcpConfigContent).toBeTruthy();
+    const mcp = JSON.parse(captured.mcpConfigContent);
+    expect(mcp.mcpServers).toHaveProperty('report-validator');
     expect(result.success).toBe(true);
   });
 

@@ -1,0 +1,15 @@
+{
+  "name": "report-validator",
+  "version": "1.0.0",
+  "description": "MCP server for validating Phase 1 / Phase 2 report structure against the canonical templates",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "author": "",
+  "license": "MIT"
+}

@@ -22,6 +22,11 @@
         "AI_ISSUE_SERVICE_URL": "${AI_ISSUE_SERVICE_URL}",
         "AI_ISSUE_SERVICE_API_KEY": "${AI_ISSUE_SERVICE_API_KEY}"
       }
+    },
+    "report-validator": {
+      "command": "node",
+      "args": ["../skills/report-validator/index.js"],
+      "tools": ["*"]
     }
   }
 }

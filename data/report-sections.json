@@ -1,0 +1,54 @@
+{
+  "_comment": "Single source of truth for report section names. Consumed by lib/report-validator.js (CLI-side validation) and skills/report-validator/index.js (MCP-side validation). Keep these arrays in lockstep with prompts/PHASE1_RESEARCH_PROMPT.md and prompts/PHASE2_SOLUTION_PROMPT.md templates.",
+  "PHASE1_REQUIRED_SECTIONS": [
+    "## Problem Classification",
+    "## Problem Overview",
+    "## Initial Hypotheses",
+    "## Code Location",
+    "## Similar Implementation Comparison",
+    "## SDK Tools",
+    "## History Analysis",
+    "## Global Impact",
+    "## Key Findings",
+    "## Next Steps"
+  ],
+  "PHASE2_REQUIRED_SECTIONS": [
+    "Problem Analysis",
+    "Git Operation Record",
+    "Pre-submission Checklist",
+    "Issue Reply"
+  ],
+  "FORBIDDEN_SECTIONS": [
+    "## Technical Implementation",
+    "## Solution Summary",
+    "## Issue Information",
+    "## Files Changed",
+    "## Verification",
+    "## Usage Example",
+    "## API Reference",
+    "## Notes",
+    "## Import",
+    "## Summary",
+    "## Conclusion",
+    "## Recommendations",
+    "## Additional Notes",
+    "## Code Changes Summary",
+    "## Before/After Comparison"
+  ],
+  "PROBLEM_ANALYSIS_FIELDS": [
+    "**Problem symptoms**:",
+    "**Root cause**:",
+    "**Impact scope**:",
+    "**Swagger link**:"
+  ],
+  "CHECKLIST_ITEMS": [
+    "Modified files match Issue target?",
+    "Modification scope within Issue description?",
+    "No new functions/abstractions introduced?",
+    "No logs added that Issue didn't request?",
+    "Reasonable code line changes?",
+    "Referenced similar PR fix styles?",
+    "Field names exactly match SDK struct?",
+    "New fields have acceptance tests?"
+  ]
+}

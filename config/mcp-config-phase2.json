@@ -7,6 +7,11 @@
       "env": {
         "GITHUB_TOKEN": "${GITHUB_TOKEN}"
       }
+    },
+    "report-validator": {
+      "command": "node",
+      "args": ["../skills/report-validator/index.js"],
+      "tools": ["*"]
     }
   }
 }
