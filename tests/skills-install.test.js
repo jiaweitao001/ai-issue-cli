@@ -17,6 +17,7 @@ describe('skills:install script', () => {
     'code-similarity-finder',
     'similar-issue-finder',
     'report-validator',
+    'terraform-validator',
   ];
 
   it('should cover all expected skill directories', () => {
