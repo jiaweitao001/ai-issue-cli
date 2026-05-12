@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * Git History Analyzer - MCP Server (SKILLS_ENHANCEMENT_PLAN §C1 / §5)
  *

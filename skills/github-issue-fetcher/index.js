@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * GitHub Issue Fetcher - MCP Server
  * 
@@ -58,7 +59,7 @@ function buildRateLimitError(response, bodyText) {
     resetAt ? `Reset at ${resetAt}.` : null,
     retryAfterSeconds != null ? `Retry after ${retryAfterSeconds}s.` : null,
   ].filter(Boolean);
-  const err = new Error(parts.join(' '));
+  const err = /** @type {Error & { meta?: object }} */ (new Error(parts.join(' ')));
   err.meta = {
     rate_limited: true,
     status: response.status,
@@ -93,6 +94,7 @@ async function githubFetch(endpointOrUrl, token, extraHeaders = {}) {
 /**
  * 发送 GitHub API 请求并解析为 JSON。
  * Throws structured rate-limit error when applicable.
+ * @returns {Promise<any>}
  */
 async function githubRequest(endpoint, token) {
   const response = await githubFetch(endpoint, token);
@@ -203,7 +205,7 @@ async function fetchComments(repo, number, token) {
       if (rlErr) throw rlErr;
       throw new Error(`GitHub API error: ${response.status} - ${errorBody}`);
     }
-    const pageData = await response.json();
+    const pageData = /** @type {any[]} */ (await response.json());
     collected.push(...pageData);
     pageCount += 1;
 

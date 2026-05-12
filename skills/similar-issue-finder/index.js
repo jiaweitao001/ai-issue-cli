@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
 const {
@@ -40,6 +41,9 @@ function deterministicEmpty() {
   };
 }
 
+/**
+ * @returns {Promise<any>}
+ */
 async function callService(endpoint, body) {
   const headers = {
     'Content-Type': 'application/json',
