@@ -68,7 +68,7 @@ function parseArgs(argv) {
 }
 
 /**
- * @param {{ issues: string[], agents: string[], skipEval: boolean, branch: boolean, allowPartial: boolean }} args
+ * @param {{ help?: boolean, issues: string[], agents: string[], skipEval: boolean, branch: boolean, allowPartial: boolean }} args
  */
 function validateArgs(args) {
   if (args.help) return;

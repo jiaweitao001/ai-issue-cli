@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["es2022"],
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": false,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "ignoreDeprecations": "6.0",
+    "types": ["node", "jest"]
+  },
+  "include": [
+    "ai-issue.js",
+    "lib/**/*.js",
+    "skills/**/index.js",
+    "scripts/**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/node_modules/**",
+    "tests"
+  ]
+}
