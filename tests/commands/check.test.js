@@ -50,8 +50,16 @@ function setupHappyPath() {
 }
 
 describe('commands/check', () => {
+  let originalGithubToken;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    // Pin GITHUB_TOKEN so the environment.js GITHUB_TOKEN check passes
+    // regardless of host shell (tests assert "All checks passed", which
+    // is only true when every probe is green; a missing GITHUB_TOKEN
+    // would make cmdCheck call process.exit(1) and trip the spy below).
+    originalGithubToken = process.env.GITHUB_TOKEN;
+    process.env.GITHUB_TOKEN = 'ghp_test_token_for_unit_tests';
     // Default: service not configured (so most tests don't need to set it).
     mockCheckServiceConnectivity.mockResolvedValue({
       configured: false,
@@ -69,6 +77,11 @@ describe('commands/check', () => {
 
   afterEach(() => {
     process.exit.mockRestore();
+    if (originalGithubToken === undefined) {
+      delete process.env.GITHUB_TOKEN;
+    } else {
+      process.env.GITHUB_TOKEN = originalGithubToken;
+    }
   });
 
   describe('local environment checks (existing behavior)', () => {
