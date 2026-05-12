@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 const crypto = require('crypto');
 const fs = require('fs');
 const http = require('http');
