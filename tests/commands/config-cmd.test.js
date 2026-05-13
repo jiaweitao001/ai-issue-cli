@@ -136,6 +136,36 @@ describe('commands/config-cmd', () => {
       const saved = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
       expect(saved.skillsMetricsPath).toBe('/custom/metrics.jsonl');
     });
+
+    // TUI proposal §5.2 PR-0 (v1.1 N8): uiMode reuses the existing v3.4
+    // ENUM_VALUES framework. Tests live here (not a new file) per N8.
+    it('should accept uiMode "auto"', () => {
+      cmdConfig('set', 'uiMode', 'auto');
+      const saved = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
+      expect(saved.uiMode).toBe('auto');
+    });
+
+    it('should accept uiMode "plain"', () => {
+      cmdConfig('set', 'uiMode', 'plain');
+      const saved = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
+      expect(saved.uiMode).toBe('plain');
+    });
+
+    it('should accept uiMode "tui"', () => {
+      cmdConfig('set', 'uiMode', 'tui');
+      const saved = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
+      expect(saved.uiMode).toBe('tui');
+    });
+
+    it('should reject invalid uiMode (case-sensitive enum)', () => {
+      expect(() => cmdConfig('set', 'uiMode', 'TUI')).toThrow('process.exit called');
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('Invalid uiMode'));
+    });
+
+    it('should reject unknown uiMode value', () => {
+      expect(() => cmdConfig('set', 'uiMode', 'fancy')).toThrow('process.exit called');
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('Invalid uiMode'));
+    });
   });
 
   describe('get action', () => {

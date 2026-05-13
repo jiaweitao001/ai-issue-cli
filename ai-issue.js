@@ -40,7 +40,9 @@ program
   .option('-a, --agent <agent>', 'Specify AI agent (copilot or claude-code)')
   .option('--skip-eval', 'Skip evaluation phase after solving')
   .option('--concurrency <number>', 'Parallel instances for batch processing', '3')
-  .option('--debug', 'Enable debug logging');
+  .option('--debug', 'Enable debug logging')
+  .option('--plain', 'Force plain text output (disable TUI)')
+  .option('--tui', 'Force TUI output (exit 22 if unsupported)');
 
 // Check configuration for relevant commands
 function ensureConfig() {

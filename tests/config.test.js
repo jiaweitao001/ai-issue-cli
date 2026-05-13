@@ -491,5 +491,49 @@ describe('config', () => {
         expect(errors.some(e => e.includes('query/fragment'))).toBe(true);
       });
     });
+
+    // TUI proposal §4.2 v1.1 N7: validateConfig warns on bad uiMode but does
+    // NOT fail. Capability detection falls back to 'auto' for unknown values.
+    describe('uiMode validation (warn-only)', () => {
+      const baseConfig = {
+        repoPath: '/valid/path',
+        issueBaseUrl: 'https://github.com/test/repo/issues',
+        reportPath: '/valid/reports'
+      };
+
+      it('should accept missing uiMode silently (default behavior)', () => {
+        const { valid, warnings } = validateConfig(baseConfig);
+        expect(valid).toBe(true);
+        expect(warnings.some(w => w.includes('uiMode'))).toBe(false);
+      });
+
+      it('should accept uiMode "auto" / "plain" / "tui" silently', () => {
+        for (const v of ['auto', 'plain', 'tui']) {
+          const { valid, warnings } = validateConfig({ ...baseConfig, uiMode: v });
+          expect(valid).toBe(true);
+          expect(warnings.some(w => w.includes('uiMode'))).toBe(false);
+        }
+      });
+
+      it('should warn (not fail) on hand-edited typo "TUI" uppercase', () => {
+        const { valid, errors, warnings } = validateConfig({ ...baseConfig, uiMode: 'TUI' });
+        expect(valid).toBe(true); // warn-only
+        expect(errors).toHaveLength(0);
+        expect(warnings.some(w => w.includes('uiMode'))).toBe(true);
+        expect(warnings.some(w => w.includes("falling back to 'auto'"))).toBe(true);
+      });
+
+      it('should warn on completely unknown uiMode value', () => {
+        const { valid, warnings } = validateConfig({ ...baseConfig, uiMode: 'fancy' });
+        expect(valid).toBe(true);
+        expect(warnings.some(w => w.includes('uiMode'))).toBe(true);
+      });
+
+      it('should warn on non-string uiMode (e.g. boolean from misedit)', () => {
+        const { valid, warnings } = validateConfig({ ...baseConfig, uiMode: true });
+        expect(valid).toBe(true);
+        expect(warnings.some(w => w.includes('uiMode'))).toBe(true);
+      });
+    });
   });
 });
