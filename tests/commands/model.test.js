@@ -167,11 +167,16 @@ describe('commands/model', () => {
       uiPrompts.select.mockResolvedValue(null);
       // Make stdin look readable+TTY-ish so we hit the "Cancelled" branch, not non-interactive
       const origReadable = Object.getOwnPropertyDescriptor(process.stdin, 'readable');
-      Object.defineProperty(process.stdin, 'readable', { value: true, configurable: true });
+      const origStdinTTY = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
+      Object.defineProperty(process.stdin, 'readable', { value: true, writable: true, configurable: true });
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, writable: true, configurable: true });
       try {
         await cmdModel();
       } finally {
         if (origReadable) Object.defineProperty(process.stdin, 'readable', origReadable);
+        else { try { delete process.stdin.readable; } catch (_) { /* ignore */ } }
+        if (origStdinTTY) Object.defineProperty(process.stdin, 'isTTY', origStdinTTY);
+        else { try { delete process.stdin.isTTY; } catch (_) { /* ignore */ } }
       }
       expect(mockSaveConfig).not.toHaveBeenCalled();
       expect(info).toHaveBeenCalledWith(expect.stringContaining('Cancelled'));
@@ -198,19 +203,22 @@ describe('commands/model', () => {
 
     it('exits 1 when fully non-interactive (no TTY, stdin not readable)', async () => {
       uiPrompts.select.mockResolvedValue(null);
-      const origStdinTTY = process.stdin.isTTY;
-      const origStdoutTTY = process.stdout.isTTY;
+      const origStdinTTY = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
+      const origStdoutTTY = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
       const origReadable = Object.getOwnPropertyDescriptor(process.stdin, 'readable');
-      process.stdin.isTTY = false;
-      process.stdout.isTTY = false;
-      Object.defineProperty(process.stdin, 'readable', { value: false, configurable: true });
+      Object.defineProperty(process.stdin, 'isTTY', { value: false, writable: true, configurable: true });
+      Object.defineProperty(process.stdout, 'isTTY', { value: false, writable: true, configurable: true });
+      Object.defineProperty(process.stdin, 'readable', { value: false, writable: true, configurable: true });
       try {
         await expect(cmdModel()).rejects.toThrow('process.exit called');
         expect(error).toHaveBeenCalledWith(expect.stringContaining('Non-interactive'));
       } finally {
-        process.stdin.isTTY = origStdinTTY;
-        process.stdout.isTTY = origStdoutTTY;
+        if (origStdinTTY) Object.defineProperty(process.stdin, 'isTTY', origStdinTTY);
+        else { try { delete process.stdin.isTTY; } catch (_) { /* ignore */ } }
+        if (origStdoutTTY) Object.defineProperty(process.stdout, 'isTTY', origStdoutTTY);
+        else { try { delete process.stdout.isTTY; } catch (_) { /* ignore */ } }
         if (origReadable) Object.defineProperty(process.stdin, 'readable', origReadable);
+        else { try { delete process.stdin.readable; } catch (_) { /* ignore */ } }
       }
     });
   });

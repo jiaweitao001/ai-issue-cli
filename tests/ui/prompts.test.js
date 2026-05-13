@@ -19,8 +19,8 @@ jest.mock('../../lib/prompts', () => ({
 
 describe('lib/ui/prompts', () => {
   let uiPrompts;
-  let origStdinTTY;
-  let origStdoutTTY;
+  let origStdinTTYDesc;
+  let origStdoutTTYDesc;
   let origCI;
 
   beforeEach(() => {
@@ -33,19 +33,33 @@ describe('lib/ui/prompts', () => {
     mockFallbackSelect.mockReset();
     mockFallbackInput.mockReset();
 
-    origStdinTTY = process.stdin.isTTY;
-    origStdoutTTY = process.stdout.isTTY;
+    // Snapshot original property descriptors so afterEach can faithfully
+    // restore them. Plain assignment is unreliable because makeTTY/
+    // makeNonTTY redefine these as data properties whose descriptor
+    // attributes we then take over — see Node #18 worker pollution.
+    origStdinTTYDesc = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
+    origStdoutTTYDesc = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
     origCI = process.env.CI;
     delete process.env.CI;
   });
 
   afterEach(() => {
-    process.stdin.isTTY = origStdinTTY;
-    process.stdout.isTTY = origStdoutTTY;
+    restoreTTYDesc(process.stdin, 'isTTY', origStdinTTYDesc);
+    restoreTTYDesc(process.stdout, 'isTTY', origStdoutTTYDesc);
     if (origCI === undefined) delete process.env.CI;
     else process.env.CI = origCI;
     jest.dontMock('enquirer');
   });
+
+  function restoreTTYDesc(target, prop, desc) {
+    if (desc) {
+      Object.defineProperty(target, prop, desc);
+    } else {
+      // No original own descriptor -> remove the own property we may have
+      // added so that the prototype value (or undefined) shows through.
+      try { delete target[prop]; } catch (_) { /* ignore */ }
+    }
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // Helpers
@@ -57,13 +71,13 @@ describe('lib/ui/prompts', () => {
   }
 
   function makeNonTTY() {
-    Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true });
-    Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true });
+    Object.defineProperty(process.stdin, 'isTTY', { value: false, writable: true, configurable: true });
+    Object.defineProperty(process.stdout, 'isTTY', { value: false, writable: true, configurable: true });
   }
 
   function makeTTY() {
-    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
-    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, writable: true, configurable: true });
+    Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true, configurable: true });
   }
 
   /**

@@ -53,11 +53,11 @@ describe('commands/init', () => {
     delete process.env.CI;
     originalIsTTY = process.stdout.isTTY;
     // Default: simulate non-TTY so existing tests don't try to render a picker.
-    Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true });
+    Object.defineProperty(process.stdout, 'isTTY', { value: false, writable: true, configurable: true });
   });
 
   afterEach(() => {
-    Object.defineProperty(process.stdout, 'isTTY', { value: originalIsTTY, configurable: true });
+    Object.defineProperty(process.stdout, 'isTTY', { value: originalIsTTY, writable: true, configurable: true });
   });
 
   it('should skip initialization if config file already exists', async () => {
@@ -199,7 +199,7 @@ describe('commands/init', () => {
     });
 
     it('non-TTY: skips picker and persists copilot without calling select', async () => {
-      Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true });
+      Object.defineProperty(process.stdout, 'isTTY', { value: false, writable: true, configurable: true });
 
       await cmdInit();
 
@@ -209,7 +209,7 @@ describe('commands/init', () => {
     });
 
     it('TTY + user picks copilot: persists copilot', async () => {
-      Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+      Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true, configurable: true });
       mockUiSelect.mockResolvedValue('copilot');
 
       await cmdInit();
@@ -230,7 +230,7 @@ describe('commands/init', () => {
     });
 
     it('TTY + user picks claude-code: persists claude-code and prints model hint', async () => {
-      Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+      Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true, configurable: true });
       mockUiSelect.mockResolvedValue('claude-code');
 
       await cmdInit();
@@ -240,7 +240,7 @@ describe('commands/init', () => {
     });
 
     it('TTY + user cancels picker: defaults to copilot and continues', async () => {
-      Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+      Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true, configurable: true });
       mockUiSelect.mockResolvedValue(null);
 
       await cmdInit();
