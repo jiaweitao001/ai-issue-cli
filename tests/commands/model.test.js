@@ -12,11 +12,11 @@ jest.mock('os', () => ({
 const { mockCreateLogger } = require('../helpers/mock-logger');
 jest.mock('../../lib/logger', () => mockCreateLogger());
 
-// Mock prompts so we can drive promptSelect/promptInput from tests
-jest.mock('../../lib/prompts', () => ({
-  promptSelect: jest.fn(),
-  promptInput: jest.fn(),
-  selectionStateMachine: jest.requireActual('../../lib/prompts').selectionStateMachine,
+// Mock ui/prompts so we can drive select/input from tests (PR-1: §5.3 I4 mock migration).
+jest.mock('../../lib/ui/prompts', () => ({
+  select: jest.fn(),
+  input: jest.fn(),
+  confirm: jest.fn(),
 }));
 
 // Mock config so we don't depend on a real ~/.ai-issue/config.json
@@ -31,7 +31,7 @@ jest.mock('../../lib/config', () => ({
 
 const { cmdModel } = require('../../lib/commands/model');
 const { log, info, success, warning, error } = require('../../lib/logger');
-const { promptSelect, promptInput } = require('../../lib/prompts');
+const uiPrompts = require('../../lib/ui/prompts');
 const modelCatalog = require('../../lib/model-catalog');
 
 const SAMPLE = {
@@ -63,8 +63,9 @@ describe('commands/model', () => {
     mockCatalogFs();
     mockLoadConfig.mockReturnValue({ model: 'claude-sonnet-4.5' });
     mockSaveConfig.mockReset();
-    promptSelect.mockReset();
-    promptInput.mockReset();
+    uiPrompts.select.mockReset();
+    uiPrompts.input.mockReset();
+    if (uiPrompts.confirm && uiPrompts.confirm.mockReset) uiPrompts.confirm.mockReset();
 
     jest.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit called');
@@ -144,8 +145,8 @@ describe('commands/model', () => {
 
   describe('default action (selector)', () => {
     it('saves the picked model via saveConfig', async () => {
-      // Pick index 2 → gpt-5.4
-      promptSelect.mockResolvedValue(2);
+      // Pick gpt-5.4 by name
+      uiPrompts.select.mockResolvedValue('gpt-5.4');
       await cmdModel();
 
       expect(mockSaveConfig).toHaveBeenCalledTimes(1);
@@ -155,15 +156,15 @@ describe('commands/model', () => {
     });
 
     it('does nothing when picked id matches current', async () => {
-      // Pick index 1 → claude-sonnet-4.5 (which is the current)
-      promptSelect.mockResolvedValue(1);
+      // Pick claude-sonnet-4.5 (which is the current)
+      uiPrompts.select.mockResolvedValue('claude-sonnet-4.5');
       await cmdModel();
       expect(mockSaveConfig).not.toHaveBeenCalled();
       expect(info).toHaveBeenCalledWith(expect.stringContaining('unchanged'));
     });
 
     it('handles cancellation (null) gracefully', async () => {
-      promptSelect.mockResolvedValue(null);
+      uiPrompts.select.mockResolvedValue(null);
       // Make stdin look readable+TTY-ish so we hit the "Cancelled" branch, not non-interactive
       const origReadable = Object.getOwnPropertyDescriptor(process.stdin, 'readable');
       Object.defineProperty(process.stdin, 'readable', { value: true, configurable: true });
@@ -177,9 +178,9 @@ describe('commands/model', () => {
     });
 
     it('handles the "Enter custom model ID" path', async () => {
-      // Last index = custom option
-      promptSelect.mockImplementation(async (lines) => lines.length - 1);
-      promptInput.mockResolvedValue('  my-private-byok  ');
+      // Last item's name is the custom-option sentinel
+      uiPrompts.select.mockImplementation(async (items) => items[items.length - 1].name);
+      uiPrompts.input.mockResolvedValue('  my-private-byok  ');
       await cmdModel();
       expect(mockSaveConfig).toHaveBeenCalledTimes(1);
       expect(mockSaveConfig.mock.calls[0][0].agents.copilot.model).toBe('my-private-byok');
@@ -188,15 +189,15 @@ describe('commands/model', () => {
     });
 
     it('does nothing when custom input is empty', async () => {
-      promptSelect.mockImplementation(async (lines) => lines.length - 1);
-      promptInput.mockResolvedValue('');
+      uiPrompts.select.mockImplementation(async (items) => items[items.length - 1].name);
+      uiPrompts.input.mockResolvedValue('');
       await cmdModel();
       expect(mockSaveConfig).not.toHaveBeenCalled();
       expect(info).toHaveBeenCalledWith(expect.stringContaining('No id provided'));
     });
 
     it('exits 1 when fully non-interactive (no TTY, stdin not readable)', async () => {
-      promptSelect.mockResolvedValue(null);
+      uiPrompts.select.mockResolvedValue(null);
       const origStdinTTY = process.stdin.isTTY;
       const origStdoutTTY = process.stdout.isTTY;
       const origReadable = Object.getOwnPropertyDescriptor(process.stdin, 'readable');
