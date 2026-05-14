@@ -5,13 +5,21 @@
  *   - mode='plain' (any reason)        → returns PlainRenderer.
  *   - mode='tui' implicit (auto/etc.)  → silent fallback to PlainRenderer.
  *   - mode='tui' explicit (flag/env/config) → process.exit(22) (FR-3).
+ *
+ * PR-2 additions:
+ *   - defaultUi() singleton + _resetDefaultUi().
  */
 
 // Mock logger so PlainRenderer's forwarded methods don't print during tests.
 const { mockCreateLogger } = require('../helpers/mock-logger');
 jest.mock('../../lib/logger', () => mockCreateLogger());
 
-const { createUi, TUI_REQUIRED_EXIT_CODE } = require('../../lib/ui');
+const {
+  createUi,
+  defaultUi,
+  TUI_REQUIRED_EXIT_CODE,
+  _resetDefaultUi
+} = require('../../lib/ui');
 const { PlainRenderer } = require('../../lib/ui/plain-renderer');
 
 function tty() { return { isTTY: true }; }
@@ -136,6 +144,47 @@ describe('lib/ui — createUi() (PR-0)', () => {
       // In Jest, process.stdout.isTTY is usually false → plain auto path.
       const ui = createUi();
       expect(ui).toBeInstanceOf(PlainRenderer);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // defaultUi() singleton (PR-2 / B2)
+  // ─────────────────────────────────────────────────────────────────────
+
+  describe('defaultUi() singleton', () => {
+    beforeEach(() => {
+      _resetDefaultUi();
+    });
+
+    afterEach(() => {
+      _resetDefaultUi();
+    });
+
+    it('returns a PlainRenderer instance', () => {
+      expect(defaultUi()).toBeInstanceOf(PlainRenderer);
+    });
+
+    it('returns the SAME instance on repeated calls (singleton identity)', () => {
+      const a = defaultUi();
+      const b = defaultUi();
+      const c = defaultUi();
+      expect(a).toBe(b);
+      expect(b).toBe(c);
+    });
+
+    it('_resetDefaultUi() clears the cached instance', () => {
+      const before = defaultUi();
+      _resetDefaultUi();
+      const after = defaultUi();
+      expect(after).toBeInstanceOf(PlainRenderer);
+      expect(after).not.toBe(before);
+    });
+
+    it('does NOT throw or call process.exit even with no input streams', () => {
+      // defaultUi is the "just give me a sink" convenience used by the
+      // logger forwarding shim; it must never escalate to fatal behavior.
+      expect(() => defaultUi()).not.toThrow();
+      expect(exitSpy).not.toHaveBeenCalled();
     });
   });
 });
