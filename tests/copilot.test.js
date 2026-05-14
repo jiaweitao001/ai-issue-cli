@@ -14,7 +14,7 @@ jest.mock('os', () => ({
   tmpdir: jest.fn(() => '/tmp')
 }));
 
-const { runCopilot } = require('../lib/copilot');
+const { runCopilot, forwardChildOutput } = require('../lib/copilot');
 
 describe('copilot', () => {
   let mockProcess;
@@ -103,7 +103,7 @@ describe('copilot', () => {
         );
       });
 
-      it('should use silent stdio when silent flag is true', async () => {
+      it('should ignore all child stdio when silent flag is true', async () => {
         const promise = runCopilot('test prompt', mockConfig, { silent: true });
         
         mockProcess.emit('close', 0);
@@ -114,12 +114,12 @@ describe('copilot', () => {
           'copilot',
           expect.any(Array),
           expect.objectContaining({
-            stdio: 'ignore'
+            stdio: ['ignore', 'ignore', 'ignore']
           })
         );
       });
 
-      it('should use inherit stdio when silent flag is false', async () => {
+      it('should pipe child stdout/stderr when silent flag is false', async () => {
         const promise = runCopilot('test prompt', mockConfig, { silent: false });
         
         mockProcess.emit('close', 0);
@@ -130,9 +130,37 @@ describe('copilot', () => {
           'copilot',
           expect.any(Array),
           expect.objectContaining({
-            stdio: 'inherit'
+            stdio: ['inherit', 'pipe', 'pipe']
           })
         );
+      });
+
+      it('should forward piped child stdout and stderr to parent streams', async () => {
+        mockProcess.stdout = new EventEmitter();
+        mockProcess.stderr = new EventEmitter();
+        const stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+        const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+        const promise = runCopilot('test prompt', mockConfig, { silent: false });
+
+        mockProcess.stdout.emit('data', Buffer.from('hello stdout\n'));
+        mockProcess.stderr.emit('data', Buffer.from('hello stderr\n'));
+        mockProcess.emit('close', 0);
+
+        await promise;
+        expect(stdoutSpy).toHaveBeenCalledWith(Buffer.from('hello stdout\n'));
+        expect(stderrSpy).toHaveBeenCalledWith(Buffer.from('hello stderr\n'));
+        stdoutSpy.mockRestore();
+        stderrSpy.mockRestore();
+      });
+
+      it('should reject when a forwarded child stream errors', async () => {
+        mockProcess.stdout = new EventEmitter();
+        mockProcess.stderr = new EventEmitter();
+        const promise = runCopilot('test prompt', mockConfig, { silent: false });
+
+        mockProcess.stdout.emit('error', new Error('stdout pipe failed'));
+
+        await expect(promise).rejects.toThrow('stdout pipe failed');
       });
 
       it('should build spawn env from config without mutating process.env', async () => {
@@ -265,6 +293,49 @@ describe('copilot', () => {
         await expect(runCopilot('test prompt', mockConfig))
           .rejects.toThrow('Failed to write prompt file: write failed');
       });
+    });
+  });
+
+  describe('forwardChildOutput', () => {
+    it('is a no-op for missing source streams', () => {
+      const target = { write: jest.fn() };
+      expect(() => forwardChildOutput(null, target)).not.toThrow();
+      expect(target.write).not.toHaveBeenCalled();
+    });
+
+    it('forwards raw chunks without stringifying', () => {
+      const source = new EventEmitter();
+      const target = { write: jest.fn() };
+      const chunk = Buffer.from('raw');
+
+      forwardChildOutput(source, target);
+      source.emit('data', chunk);
+
+      expect(target.write).toHaveBeenCalledWith(chunk);
+    });
+
+    it('passes source stream errors to onError', () => {
+      const source = new EventEmitter();
+      const target = { write: jest.fn() };
+      const onError = jest.fn();
+      const err = new Error('read failed');
+
+      forwardChildOutput(source, target, onError);
+      source.emit('error', err);
+
+      expect(onError).toHaveBeenCalledWith(err);
+    });
+
+    it('passes target write errors to onError', () => {
+      const source = new EventEmitter();
+      const err = new Error('write failed');
+      const target = { write: jest.fn(() => { throw err; }) };
+      const onError = jest.fn();
+
+      forwardChildOutput(source, target, onError);
+      source.emit('data', Buffer.from('x'));
+
+      expect(onError).toHaveBeenCalledWith(err);
     });
   });
 });
