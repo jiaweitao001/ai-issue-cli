@@ -68,8 +68,9 @@ function ensureConfig() {
 program
   .command('init')
   .description('Initialize configuration and directories')
-  .action(async () => {
-    await cmdInit();
+  .option('--reconfigure', 'Review and edit an existing configuration')
+  .action(async (cmdOpts) => {
+    await cmdInit(cmdOpts);
   });
 
 // Command: solve
