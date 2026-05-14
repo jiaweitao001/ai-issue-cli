@@ -280,13 +280,13 @@ describe('lib/ui/plain-renderer — PlainRenderer (PR-2 facade)', () => {
         }
       ]);
       const stdoutLines = logSpy.mock.calls.map((c) => c[0]);
-      const stderrLines = errSpy.mock.calls.map((c) => c[0]);
-      // Group 1: blank, title, item1 (ok→stdout), item2 (fail→stderr) + help→stdout
+      // Group 1: blank, title, item1, item2 + help all stay on stdout so
+      // redirected check output preserves panel ordering.
       // Group 2: blank, title, item3 (warn→stdout)
       expect(stdoutLines).toContain('');
       expect(stdoutLines).toContain('Core');
       expect(stdoutLines).toContain('1. ✅ Node version    [v20.10]');
-      expect(stderrLines).toContain('2. ❌ Config file');
+      expect(stdoutLines).toContain('2. ❌ Config file');
       expect(stdoutLines).toContain('   💡 Run ai-issue init');
       expect(stdoutLines).toContain('Agents');
       expect(stdoutLines).toContain('3. ⚠️  claude binary    [not on PATH]');

@@ -3,8 +3,8 @@
  *
  * PR-0 invariants:
  *   - mode='plain' (any reason)        → returns PlainRenderer.
- *   - mode='tui' implicit (auto/etc.)  → silent fallback to PlainRenderer.
- *   - mode='tui' explicit (flag/env/config) → process.exit(22) (FR-3).
+ *   - mode='tui' with TTY streams → returns TuiRenderer.
+ *   - mode='tui' explicit but unsupported → process.exit(22) (FR-3).
  *
  * PR-2 additions:
  *   - defaultUi() singleton + _resetDefaultUi().
@@ -14,6 +14,18 @@
 const { mockCreateLogger } = require('../helpers/mock-logger');
 jest.mock('../../lib/logger', () => mockCreateLogger());
 
+jest.mock('../../lib/ui/tui-renderer', () => {
+  class MockTuiRenderer {
+    constructor(opts) {
+      if (!opts || !opts.stdout || !opts.stdout.isTTY) {
+        throw new Error('TUI requires a TTY stdout');
+      }
+      this.mode = 'tui';
+    }
+  }
+  return { TuiRenderer: MockTuiRenderer };
+});
+
 const {
   createUi,
   defaultUi,
@@ -21,6 +33,7 @@ const {
   _resetDefaultUi
 } = require('../../lib/ui');
 const { PlainRenderer } = require('../../lib/ui/plain-renderer');
+const { TuiRenderer } = require('../../lib/ui/tui-renderer');
 
 function tty() { return { isTTY: true }; }
 function pipe() { return { isTTY: false }; }
@@ -67,29 +80,21 @@ describe('lib/ui — createUi() (PR-0)', () => {
     });
   });
 
-  describe('TUI explicit (FR-3 fail-fast)', () => {
-    it('--tui + TTY → exit 22 (TUI not yet implemented in PR-0)', () => {
-      expect(() =>
-        createUi({ flagTui: true, stdout: tty(), stdin: tty(), env: {} })
-      ).toThrow('process.exit called');
-      expect(exitSpy).toHaveBeenCalledWith(22);
-      expect(stderrSpy).toHaveBeenCalledWith(
-        expect.stringContaining('TUI explicitly requested')
-      );
+  describe('TUI explicit', () => {
+    it('--tui + TTY → TuiRenderer', () => {
+      const ui = createUi({ flagTui: true, stdout: tty(), stdin: tty(), env: {} });
+      expect(ui).toBeInstanceOf(TuiRenderer);
+      expect(exitSpy).not.toHaveBeenCalled();
     });
 
-    it('AI_ISSUE_UI_MODE=tui → exit 22', () => {
-      expect(() =>
-        createUi({ stdout: tty(), stdin: tty(), env: { AI_ISSUE_UI_MODE: 'tui' } })
-      ).toThrow('process.exit called');
-      expect(exitSpy).toHaveBeenCalledWith(22);
+    it('AI_ISSUE_UI_MODE=tui → TuiRenderer', () => {
+      const ui = createUi({ stdout: tty(), stdin: tty(), env: { AI_ISSUE_UI_MODE: 'tui' } });
+      expect(ui).toBeInstanceOf(TuiRenderer);
     });
 
-    it('config.uiMode=tui → exit 22', () => {
-      expect(() =>
-        createUi({ stdout: tty(), stdin: tty(), env: {}, config: { uiMode: 'tui' } })
-      ).toThrow('process.exit called');
-      expect(exitSpy).toHaveBeenCalledWith(22);
+    it('config.uiMode=tui → TuiRenderer', () => {
+      const ui = createUi({ stdout: tty(), stdin: tty(), env: {}, config: { uiMode: 'tui' } });
+      expect(ui).toBeInstanceOf(TuiRenderer);
     });
 
     it('--tui + non-TTY stdout → exit 22 (explicit channel beats auto)', () => {
@@ -97,13 +102,16 @@ describe('lib/ui — createUi() (PR-0)', () => {
         createUi({ flagTui: true, stdout: pipe(), stdin: pipe(), env: {} })
       ).toThrow('process.exit called');
       expect(exitSpy).toHaveBeenCalledWith(22);
+      expect(stderrSpy).toHaveBeenCalledWith(
+        expect.stringContaining('TUI explicitly requested')
+      );
     });
   });
 
-  describe('TUI implicit (FR-14 silent fallback)', () => {
-    it('auto-ok (TTY everywhere) → silent fallback to PlainRenderer (PR-0 only)', () => {
+  describe('TUI implicit', () => {
+    it('auto-ok (TTY everywhere) → TuiRenderer', () => {
       const ui = createUi({ stdout: tty(), stdin: tty(), env: { CI: 'false' } });
-      expect(ui).toBeInstanceOf(PlainRenderer);
+      expect(ui).toBeInstanceOf(TuiRenderer);
       expect(exitSpy).not.toHaveBeenCalled();
     });
   });
@@ -141,9 +149,8 @@ describe('lib/ui — createUi() (PR-0)', () => {
     });
 
     it('called with no args at all returns a renderer (defaults to process.*)', () => {
-      // In Jest, process.stdout.isTTY is usually false → plain auto path.
       const ui = createUi();
-      expect(ui).toBeInstanceOf(PlainRenderer);
+      expect(['plain', 'tui']).toContain(ui.mode);
     });
   });
 

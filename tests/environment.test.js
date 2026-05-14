@@ -42,6 +42,7 @@ describe('environment', () => {
       const copilotCheck = checks.find(c => c.name === 'Copilot CLI');
       expect(copilotCheck).toBeDefined();
       expect(copilotCheck.status).toBe(true);
+      expect(copilotCheck.group).toBe('agents');
     });
 
     it('should fail Node check when Node major version is less than 18', () => {
@@ -67,6 +68,7 @@ describe('environment', () => {
       const nodeCheck = checks.find(c => c.name === 'Node.js v18.20.0');
       expect(nodeCheck).toBeDefined();
       expect(nodeCheck.status).toBe(true);
+      expect(nodeCheck.group).toBe('core');
     });
 
     it('should include local knowledge base placeholder when not configured', () => {
@@ -77,6 +79,7 @@ describe('environment', () => {
       const kbCheck = checks.find(c => c.name === 'Local Knowledge Base');
       expect(kbCheck).toBeDefined();
       expect(kbCheck.status).toBe(true);
+      expect(kbCheck.group).toBe('kb');
       expect(kbCheck.detail).toBe('not configured');
     });
 
@@ -122,6 +125,7 @@ describe('environment', () => {
       
       const repoCheck = checks.find(c => c.name === 'Repository Path');
       expect(repoCheck).toBeDefined();
+      expect(repoCheck.group).toBe('repository');
     });
 
     it('should check report path exists', () => {
@@ -131,6 +135,7 @@ describe('environment', () => {
       
       const reportCheck = checks.find(c => c.name === 'Report Path');
       expect(reportCheck).toBeDefined();
+      expect(reportCheck.group).toBe('repository');
     });
 
     it('should check prompt files exist', () => {

@@ -15,6 +15,22 @@ jest.mock('os', () => ({
 const { mockCreateLogger } = require('../helpers/mock-logger');
 jest.mock('../../lib/logger', () => mockCreateLogger());
 
+const mockUi = {
+  header: jest.fn(),
+  statusList: jest.fn(),
+  log: jest.fn(),
+  success: jest.fn(),
+  error: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  debug: jest.fn(),
+  highlight: jest.fn((value) => value),
+};
+const mockCreateUi = jest.fn(() => mockUi);
+jest.mock('../../lib/ui', () => ({
+  createUi: mockCreateUi,
+}));
+
 // Mock service-health so that check.js' integration of the service probe
 // is testable in isolation from the network layer.
 const mockCheckServiceConnectivity = jest.fn();
@@ -32,7 +48,15 @@ jest.mock('../../lib/migration-notifier', () => ({
 }));
 
 const { cmdCheck } = require('../../lib/commands/check');
-const { log, error, success, warning, info } = require('../../lib/logger');
+const log = mockUi.log;
+const error = mockUi.error;
+const success = mockUi.success;
+const warning = mockUi.warn;
+const info = mockUi.info;
+
+function renderedStatusText() {
+  return JSON.stringify(mockUi.statusList.mock.calls.flat());
+}
 
 /**
  * Default mock for fs that simulates a properly-configured environment.
@@ -90,7 +114,24 @@ describe('commands/check', () => {
 
       await cmdCheck();
 
+      expect(mockCreateUi).toHaveBeenCalledWith(expect.objectContaining({
+        flagPlain: false,
+        flagTui: false,
+        config: expect.any(Object),
+      }));
       expect(success).toHaveBeenCalledWith(expect.stringContaining('All checks passed'));
+    });
+
+    it('passes explicit UI flags to createUi', async () => {
+      setupHappyPath();
+
+      await cmdCheck({ plain: true, tui: false, debug: true });
+
+      expect(mockCreateUi).toHaveBeenCalledWith(expect.objectContaining({
+        flagPlain: true,
+        flagTui: false,
+        debug: true,
+      }));
     });
 
     it('should fail when Copilot CLI is not installed', async () => {
@@ -128,7 +169,7 @@ describe('commands/check', () => {
       }));
 
       await expect(cmdCheck()).rejects.toThrow('process.exit called');
-      expect(warning).toHaveBeenCalled();
+      expect(mockUi.statusList).toHaveBeenCalled();
     });
 
     it('should warn that repo .mcp.json is ignored for Claude Code strict MCP mode', async () => {
@@ -168,10 +209,9 @@ describe('commands/check', () => {
         // unrelated environments; we only care about the warning rendering.
       }
 
-      const warningLines = warning.mock.calls.flat().join('\n');
-      const infoLines = info.mock.calls.flat().join('\n');
-      expect(warningLines).toContain('Configuration Validation');
-      expect(infoLines).toContain('/missing/kb-dir');
+      const statusText = renderedStatusText();
+      expect(statusText).toContain('Configuration Validation');
+      expect(statusText).toContain('/missing/kb-dir');
       expect(success).not.toHaveBeenCalledWith(expect.stringContaining('0. ✅ Configuration Validation'));
     });
 
@@ -197,7 +237,7 @@ describe('commands/check', () => {
 
       await cmdCheck();
 
-      const messages = success.mock.calls.flat().join('\n');
+      const messages = renderedStatusText();
       expect(messages).toContain('Local Knowledge Base');
       expect(messages).toContain('2026.05.07');
       expect(messages).toContain('3 entries');
@@ -215,10 +255,9 @@ describe('commands/check', () => {
 
       await expect(cmdCheck()).rejects.toThrow('process.exit called');
 
-      const errors = error.mock.calls.flat().join('\n');
-      const warnings = warning.mock.calls.flat().join('\n');
-      expect(errors).toContain('Local Knowledge Base');
-      expect(warnings).toContain('Run: ai-issue kb download');
+      const statusText = renderedStatusText();
+      expect(statusText).toContain('Local Knowledge Base');
+      expect(statusText).toContain('Run: ai-issue kb download');
     });
 
     it('shows verify hint when configured KB manifest is corrupted', async () => {
@@ -235,10 +274,9 @@ describe('commands/check', () => {
 
       await expect(cmdCheck()).rejects.toThrow('process.exit called');
 
-      const errors = error.mock.calls.flat().join('\n');
-      const warnings = warning.mock.calls.flat().join('\n');
-      expect(errors).toContain('Local Knowledge Base');
-      expect(warnings).toContain('Run: ai-issue kb verify');
+      const statusText = renderedStatusText();
+      expect(statusText).toContain('Local Knowledge Base');
+      expect(statusText).toContain('Run: ai-issue kb verify');
     });
   });
 
@@ -248,13 +286,10 @@ describe('commands/check', () => {
 
       await cmdCheck();
 
-      const allMessages = [
-        ...log.mock.calls.flat(),
-        ...success.mock.calls.flat(),
-      ].join('\n');
-      expect(allMessages).toContain('Service Reachability');
-      expect(allMessages).toContain('serviceUrl not configured');
-      expect(allMessages).toContain('Service Authentication');
+      const statusText = renderedStatusText();
+      expect(statusText).toContain('Service Reachability');
+      expect(statusText).toContain('serviceUrl not configured');
+      expect(statusText).toContain('Service Authentication');
       // Should still pass overall.
       expect(success).toHaveBeenCalledWith(expect.stringContaining('All checks passed'));
     });
@@ -272,9 +307,9 @@ describe('commands/check', () => {
 
       await cmdCheck();
 
-      const warningMessages = warning.mock.calls.flat().join('\n');
-      expect(warningMessages).toContain('Service Reachability');
-      expect(warningMessages).toContain('serviceApiKey is set');
+      const statusText = renderedStatusText();
+      expect(statusText).toContain('Service Reachability');
+      expect(statusText).toContain('serviceApiKey is set');
       // Mismatch is a warning, not a fail.
       expect(success).toHaveBeenCalledWith(expect.stringContaining('All checks passed'));
     });
@@ -292,12 +327,12 @@ describe('commands/check', () => {
 
       await cmdCheck();
 
-      const successMessages = success.mock.calls.flat().join('\n');
-      expect(successMessages).toContain('Service Reachability');
-      expect(successMessages).toContain('https://svc.example.com/health');
-      expect(successMessages).toContain('200');
-      expect(successMessages).toContain('Service Authentication');
-      expect(successMessages).toContain('credentialSent=Bearer');
+      const statusText = renderedStatusText();
+      expect(statusText).toContain('Service Reachability');
+      expect(statusText).toContain('https://svc.example.com/health');
+      expect(statusText).toContain('200');
+      expect(statusText).toContain('Service Authentication');
+      expect(statusText).toContain('credentialSent=Bearer');
       expect(success).toHaveBeenCalledWith(expect.stringContaining('All checks passed'));
     });
 
@@ -318,9 +353,9 @@ describe('commands/check', () => {
 
       await expect(cmdCheck()).rejects.toThrow('process.exit called');
 
-      const warningMessages = warning.mock.calls.flat().join('\n');
-      expect(warningMessages).toContain('az login');
-      expect(error).toHaveBeenCalledWith(expect.stringContaining('Service Authentication'));
+      const statusText = renderedStatusText();
+      expect(statusText).toContain('az login');
+      expect(statusText).toContain('Service Authentication');
     });
 
     it('should render skipped auth row when reachability has transport-level failure', async () => {
@@ -337,12 +372,11 @@ describe('commands/check', () => {
 
       await expect(cmdCheck()).rejects.toThrow('process.exit called');
 
-      const errorMessages = error.mock.calls.flat().join('\n');
-      expect(errorMessages).toContain('Service Reachability');
-      expect(errorMessages).toContain('ETIMEDOUT');
-      const allLogs = [...log.mock.calls.flat()].join('\n');
-      expect(allLogs).toContain('Service Authentication');
-      expect(allLogs).toContain('transport-level failure');
+      const statusText = renderedStatusText();
+      expect(statusText).toContain('Service Reachability');
+      expect(statusText).toContain('ETIMEDOUT');
+      expect(statusText).toContain('Service Authentication');
+      expect(statusText).toContain('transport-level failure');
     });
 
     it('should fail with INVALID_URL hint when serviceUrl is malformed', async () => {
@@ -359,8 +393,7 @@ describe('commands/check', () => {
 
       await expect(cmdCheck()).rejects.toThrow('process.exit called');
 
-      const errorMessages = error.mock.calls.flat().join('\n');
-      expect(errorMessages).toContain('INVALID_URL');
+      expect(renderedStatusText()).toContain('INVALID_URL');
     });
 
     it('should warn (not fail) on 200 + credentialSent=none for auth probe', async () => {
@@ -381,10 +414,9 @@ describe('commands/check', () => {
 
       await cmdCheck();
 
-      const warningMessages = warning.mock.calls.flat().join('\n');
-      expect(warningMessages).toContain('Service Authentication');
-      const infoMessages = info.mock.calls.flat().join('\n');
-      expect(infoMessages).toContain('anonymous access');
+      const statusText = renderedStatusText();
+      expect(statusText).toContain('Service Authentication');
+      expect(statusText).toContain('anonymous access');
       // Anonymous access is a warning, not a fail.
       expect(success).toHaveBeenCalledWith(expect.stringContaining('All checks passed'));
     });

@@ -433,6 +433,10 @@ step. `npm run typecheck` runs the TypeScript compiler in `--noEmit` mode agains
 all `.js` files that opt in via `// @ts-check`; new files should add the pragma
 to be covered.
 
+The TUI layer uses `enquirer` for prompts and `terminal-kit` for inline terminal
+rendering. `terminal-kit` is loaded lazily by `lib/ui/tui-renderer.js`, and its
+installed package size is about 4.1 MB.
+
 CI (`.github/workflows/ci.yml`) runs `npm run typecheck` and `npm test` on every
 PR and on pushes to `main`, against Node 18 and Node 20. Both jobs must pass
 before a PR can merge.
