@@ -28,9 +28,16 @@ jest.mock('../../lib/commands/kb', () => ({
 }));
 
 const mockSaveConfig = jest.fn();
+const mockLoadConfig = jest.fn();
 jest.mock('../../lib/config', () => ({
   saveConfig: mockSaveConfig,
-  DEFAULT_CONFIG: { agent: 'copilot', reportPath: '/mock/home/.ai-issue/reports' },
+  loadConfig: mockLoadConfig,
+  DEFAULT_CONFIG: {
+    agent: 'copilot',
+    repoPath: '',
+    issueBaseUrl: 'https://github.com/hashicorp/terraform-provider-azurerm/issues',
+    reportPath: '/mock/home/.ai-issue/reports'
+  },
   CONFIG_FILE: '/mock/home/.ai-issue/config.json',
 }));
 
@@ -39,6 +46,7 @@ const { success, info, error } = require('../../lib/logger');
 
 describe('commands/init', () => {
   let originalIsTTY;
+  let originalStdinIsTTY;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -46,18 +54,29 @@ describe('commands/init', () => {
     mockUiInput.mockReset();
     mockUiConfirm.mockReset();
     mockSaveConfig.mockReset();
+    mockLoadConfig.mockReset();
     mockInstallKnowledgeBase.mockReset();
     mockUiConfirm.mockResolvedValue(false);
     mockUiSelect.mockResolvedValue('copilot');
+    mockUiInput.mockResolvedValue('/mock/repo');
+    mockLoadConfig.mockReturnValue({
+      agent: 'copilot',
+      repoPath: '/mock/repo',
+      issueBaseUrl: 'https://github.com/example/repo/issues',
+      reportPath: '/mock/home/.ai-issue/reports'
+    });
     mockSaveConfig.mockImplementation(() => undefined);
     delete process.env.CI;
     originalIsTTY = process.stdout.isTTY;
+    originalStdinIsTTY = process.stdin.isTTY;
     // Default: simulate non-TTY so existing tests don't try to render a picker.
     Object.defineProperty(process.stdout, 'isTTY', { value: false, writable: true, configurable: true });
+    Object.defineProperty(process.stdin, 'isTTY', { value: false, writable: true, configurable: true });
   });
 
   afterEach(() => {
     Object.defineProperty(process.stdout, 'isTTY', { value: originalIsTTY, writable: true, configurable: true });
+    Object.defineProperty(process.stdin, 'isTTY', { value: originalStdinIsTTY, writable: true, configurable: true });
   });
 
   it('should skip initialization if config file already exists', async () => {
@@ -200,6 +219,7 @@ describe('commands/init', () => {
 
     it('non-TTY: skips picker and persists copilot without calling select', async () => {
       Object.defineProperty(process.stdout, 'isTTY', { value: false, writable: true, configurable: true });
+      Object.defineProperty(process.stdin, 'isTTY', { value: false, writable: true, configurable: true });
 
       await cmdInit();
 
@@ -210,7 +230,14 @@ describe('commands/init', () => {
 
     it('TTY + user picks copilot: persists copilot', async () => {
       Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true, configurable: true });
-      mockUiSelect.mockResolvedValue('copilot');
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, writable: true, configurable: true });
+      mockUiSelect.mockResolvedValueOnce('copilot');
+      mockUiInput
+        .mockResolvedValueOnce('/mock/repo')
+        .mockResolvedValueOnce('https://github.com/example/repo/issues');
+      mockUiConfirm
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
 
       await cmdInit();
 
@@ -227,27 +254,37 @@ describe('commands/init', () => {
       expect(opts).toMatchObject({ initialIndex: 0 });
       expect(opts.message).toMatch(/Choose default agent/i);
       expect(mockSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ agent: 'copilot' }));
+      expect(mockSaveConfig).toHaveBeenCalledWith(expect.objectContaining({
+        repoPath: '/mock/repo',
+        issueBaseUrl: 'https://github.com/example/repo/issues'
+      }));
     });
 
     it('TTY + user picks claude-code: persists claude-code and prints model hint', async () => {
       Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true, configurable: true });
-      mockUiSelect.mockResolvedValue('claude-code');
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, writable: true, configurable: true });
+      mockUiSelect.mockResolvedValueOnce('claude-code');
+      mockUiInput
+        .mockResolvedValueOnce('/mock/repo')
+        .mockResolvedValueOnce('https://github.com/example/repo/issues');
+      mockUiConfirm
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
 
       await cmdInit();
 
       expect(mockSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ agent: 'claude-code' }));
-      expect(info).toHaveBeenCalledWith(expect.stringContaining('agents.claude-code.model'));
     });
 
-    it('TTY + user cancels picker: defaults to copilot and continues', async () => {
+    it('TTY + user cancels picker: does not write config', async () => {
       Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true, configurable: true });
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, writable: true, configurable: true });
       mockUiSelect.mockResolvedValue(null);
 
       await cmdInit();
 
-      expect(mockSaveConfig).toHaveBeenCalledWith(expect.objectContaining({ agent: 'copilot' }));
-      expect(info).toHaveBeenCalledWith(expect.stringContaining('No agent selected; defaulting to copilot'));
-      expect(success).toHaveBeenCalledWith(expect.stringContaining('Initialization complete'));
+      expect(mockSaveConfig).not.toHaveBeenCalled();
+      expect(info).toHaveBeenCalledWith(expect.stringContaining('cancelled'));
     });
 
     it('buildAgentChoices: returns recommended agent (copilot) first', () => {
@@ -260,6 +297,104 @@ describe('commands/init', () => {
         expect(typeof c.label).toBe('string');
         expect(c.label.length).toBeGreaterThan(0);
       }
+    });
+  });
+
+  describe('init wizard / reconfigure (PR-4)', () => {
+    it('existing config + --reconfigure + keep does not write', async () => {
+      fs.existsSync.mockReturnValue(true);
+      Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true, configurable: true });
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, writable: true, configurable: true });
+      mockUiSelect.mockResolvedValueOnce('keep');
+
+      await cmdInit({ reconfigure: true });
+
+      expect(mockLoadConfig).not.toHaveBeenCalled();
+      expect(mockSaveConfig).not.toHaveBeenCalled();
+      expect(info).toHaveBeenCalledWith(expect.stringContaining('unchanged'));
+    });
+
+    it('existing config + --reconfigure + cancel does not write', async () => {
+      fs.existsSync.mockReturnValue(true);
+      Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true, configurable: true });
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, writable: true, configurable: true });
+      mockUiSelect.mockResolvedValueOnce('cancel');
+
+      await cmdInit({ reconfigure: true });
+
+      expect(mockSaveConfig).not.toHaveBeenCalled();
+      expect(info).toHaveBeenCalledWith(expect.stringContaining('unchanged'));
+    });
+
+    it('existing config + --reconfigure + edit writes only after summary confirm', async () => {
+      fs.existsSync.mockReturnValue(true);
+      Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true, configurable: true });
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, writable: true, configurable: true });
+      mockUiSelect
+        .mockResolvedValueOnce('edit')
+        .mockResolvedValueOnce('claude-code');
+      mockUiInput
+        .mockResolvedValueOnce('/mock/repo')
+        .mockResolvedValueOnce('https://github.com/example/repo/issues');
+      mockUiConfirm
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(true);
+
+      await cmdInit({ reconfigure: true });
+
+      expect(mockLoadConfig).toHaveBeenCalled();
+      expect(mockSaveConfig).toHaveBeenCalledWith(expect.objectContaining({
+        agent: 'claude-code',
+        repoPath: '/mock/repo',
+        issueBaseUrl: 'https://github.com/example/repo/issues'
+      }));
+      expect(success).toHaveBeenCalledWith(expect.stringContaining('Configuration updated'));
+    });
+
+    it('existing config + --reconfigure + edit + summary cancel does not write', async () => {
+      fs.existsSync.mockReturnValue(true);
+      Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true, configurable: true });
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, writable: true, configurable: true });
+      mockUiSelect
+        .mockResolvedValueOnce('edit')
+        .mockResolvedValueOnce('copilot');
+      mockUiInput
+        .mockResolvedValueOnce('/mock/repo')
+        .mockResolvedValueOnce('https://github.com/example/repo/issues');
+      mockUiConfirm
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false);
+
+      await cmdInit({ reconfigure: true });
+
+      expect(mockSaveConfig).not.toHaveBeenCalled();
+      expect(info).toHaveBeenCalledWith(expect.stringContaining('Configuration unchanged'));
+    });
+
+    it('existing config + --reconfigure in non-TTY remains non-mutating', async () => {
+      fs.existsSync.mockReturnValue(true);
+      Object.defineProperty(process.stdout, 'isTTY', { value: false, writable: true, configurable: true });
+      Object.defineProperty(process.stdin, 'isTTY', { value: false, writable: true, configurable: true });
+
+      await cmdInit({ reconfigure: true });
+
+      expect(mockUiSelect).not.toHaveBeenCalled();
+      expect(mockSaveConfig).not.toHaveBeenCalled();
+      expect(info).toHaveBeenCalledWith(expect.stringContaining('interactive terminal'));
+    });
+
+    it('buildInitSummary includes all wizard fields', () => {
+      expect(_internal.buildInitSummary({
+        agent: 'copilot',
+        repoPath: '/repo',
+        issueBaseUrl: 'https://github.com/o/r/issues',
+        reportPath: '/reports'
+      }, true)).toContain('Download local knowledge base: yes');
+    });
+
+    it('looksLikeIssueBaseUrl validates issue URLs', () => {
+      expect(_internal.looksLikeIssueBaseUrl('https://github.com/o/r/issues')).toBe(true);
+      expect(_internal.looksLikeIssueBaseUrl('https://github.com/o/r/pulls')).toBe(false);
     });
   });
 });
