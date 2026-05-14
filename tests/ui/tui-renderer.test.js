@@ -134,4 +134,18 @@ describe('lib/ui/tui-renderer — TuiRenderer (PR-3)', () => {
     expect(term._calls).toContainEqual(['yellow', '   💡 Set token\n']);
     expect(term._calls).toContainEqual(['gray', '   $ export GITHUB_TOKEN=...\n']);
   });
+
+  it('renders task events as timeline lines', () => {
+    const term = createTerminalMock();
+    const { TuiRenderer } = loadWithMock(term);
+    const ui = new TuiRenderer({ stdout: { isTTY: true } });
+
+    ui.emit({ type: 'task:start', taskId: 'phase1', label: 'Phase 1', startedAt: 100 });
+    ui.emit({ type: 'task:finish', taskId: 'phase1', label: 'Phase 1', endedAt: 1600, success: true });
+
+    expect(term._calls).toContainEqual(['bold.cyan', '\nTimeline\n']);
+    expect(term._calls).toContainEqual(['yellow', '▶ Phase 1\n']);
+    expect(term._calls).toContainEqual(['green', '✓ Phase 1 (1.5s)\n']);
+    expect(term._calls.filter(([style, text]) => style === 'bold.cyan' && text === '\nTimeline\n')).toHaveLength(1);
+  });
 });

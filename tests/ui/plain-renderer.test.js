@@ -381,6 +381,14 @@ describe('lib/ui/plain-renderer — PlainRenderer (PR-2 facade)', () => {
       expect(logSpy).not.toHaveBeenCalled();
       expect(errSpy).not.toHaveBeenCalled();
     });
+
+    it('event.plain=false suppresses plain output for TUI-only orchestration events', () => {
+      new PlainRenderer().emit({ type: 'task:start', taskId: 'phase1', label: 'Phase 1', plain: false });
+      new PlainRenderer().emit({ type: 'task:finish', taskId: 'phase1', label: 'Phase 1', plain: false });
+
+      expect(logSpy).not.toHaveBeenCalled();
+      expect(errSpy).not.toHaveBeenCalled();
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────────

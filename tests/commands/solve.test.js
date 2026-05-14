@@ -611,4 +611,54 @@ describe('commands/solve', () => {
       expect(cmdEvaluate).toHaveBeenCalledWith('12345', expect.any(Object));
     });
   });
+
+  describe('task events (PR-5 solve timeline)', () => {
+    it('emits start/finish events around solve orchestration stages', async () => {
+      const ui = { emit: jest.fn() };
+
+      const promise = cmdSolve('12345', { skipEval: false, ui });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      const sequence = ui.emit.mock.calls.map(([event]) => `${event.taskId}:${event.type}:${event.success === false ? 'failure' : 'ok'}`);
+      expect(sequence).toEqual([
+        'phase1:task:start:ok',
+        'phase1:task:finish:ok',
+        'phase2:task:start:ok',
+        'phase2:task:finish:ok',
+        'rubber-duck:task:start:ok',
+        'rubber-duck:task:finish:ok',
+        'auto-review:task:start:ok',
+        'auto-review:task:finish:ok',
+        'evaluation:task:start:ok',
+        'evaluation:task:finish:ok'
+      ]);
+      for (const [event] of ui.emit.mock.calls) {
+        expect(event.plain).toBe(false);
+      }
+    });
+
+    it('emits a failed finish event when a stage throws', async () => {
+      const ui = { emit: jest.fn() };
+      mockRunTask.mockRejectedValueOnce(new Error('Phase 1 crash'));
+
+      await expect(cmdSolve('12345', { ui })).rejects.toThrow('Phase 1 crash');
+
+      expect(ui.emit).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'task:finish',
+        taskId: 'phase1',
+        success: false
+      }));
+    });
+
+    it('does not emit task events in silent mode unless ui is injected', async () => {
+      const ui = { emit: jest.fn() };
+
+      const promise = cmdSolve('12345', { skipEval: true, silent: true, ui });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      expect(ui.emit).toHaveBeenCalled();
+    });
+  });
 });
