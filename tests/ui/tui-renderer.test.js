@@ -186,4 +186,20 @@ describe('lib/ui/tui-renderer — TuiRenderer (PR-3)', () => {
     expect(term._calls).toContainEqual(['green', '✓ #123  success  1.5s  copilot  Phase 1\n']);
     expect(term._calls.filter(([style, text]) => style === 'bold.cyan' && text === '\nBatch Dashboard\n')).toHaveLength(1);
   });
+
+  it('uses custom dashboard title for watch events', () => {
+    const term = createTerminalMock();
+    const { TuiRenderer } = loadWithMock(term);
+    const ui = new TuiRenderer({ stdout: { isTTY: true } });
+
+    ui.emit({
+      type: 'task:start',
+      taskId: 'issue-123',
+      parentTaskId: 'issue-123',
+      label: 'Issue #123',
+      dashboardTitle: 'Watch Dashboard'
+    });
+
+    expect(term._calls).toContainEqual(['bold.cyan', '\nWatch Dashboard\n']);
+  });
 });
