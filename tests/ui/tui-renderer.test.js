@@ -148,4 +148,42 @@ describe('lib/ui/tui-renderer — TuiRenderer (PR-3)', () => {
     expect(term._calls).toContainEqual(['green', '✓ Phase 1 (1.5s)\n']);
     expect(term._calls.filter(([style, text]) => style === 'bold.cyan' && text === '\nTimeline\n')).toHaveLength(1);
   });
+
+  it('renders parent task events as dashboard rows', () => {
+    const term = createTerminalMock();
+    const { TuiRenderer } = loadWithMock(term);
+    const ui = new TuiRenderer({ stdout: { isTTY: true } });
+
+    ui.emit({
+      type: 'task:start',
+      taskId: 'issue-123',
+      parentTaskId: 'issue-123',
+      label: 'Issue #123',
+      startedAt: 100,
+      agent: 'copilot'
+    });
+    ui.emit({
+      type: 'task:start',
+      taskId: 'issue-123:phase1',
+      parentTaskId: 'issue-123',
+      label: 'Phase 1',
+      startedAt: 150,
+      agent: 'copilot'
+    });
+    ui.emit({
+      type: 'task:finish',
+      taskId: 'issue-123',
+      parentTaskId: 'issue-123',
+      endedAt: 1600,
+      success: true,
+      agent: 'copilot'
+    });
+
+    expect(term._calls).toContainEqual(['bold.cyan', '\nBatch Dashboard\n']);
+    expect(term._calls).toContainEqual(['gray', '#issue  status  duration  agent  lastStep\n']);
+    expect(term._calls).toContainEqual(['yellow', '▶ #123  running  -  copilot  Starting\n']);
+    expect(term._calls).toContainEqual(['yellow', '▶ #123  running  -  copilot  Phase 1\n']);
+    expect(term._calls).toContainEqual(['green', '✓ #123  success  1.5s  copilot  Phase 1\n']);
+    expect(term._calls.filter(([style, text]) => style === 'bold.cyan' && text === '\nBatch Dashboard\n')).toHaveLength(1);
+  });
 });

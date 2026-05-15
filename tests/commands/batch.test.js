@@ -56,7 +56,7 @@ describe('commands/batch', () => {
   it('should process single issue', async () => {
     await cmdBatch(['12345'], { concurrency: 1 });
     
-    expect(cmdSolve).toHaveBeenCalledWith('12345', expect.any(Object));
+    expect(cmdSolve).toHaveBeenCalledWith('12345', expect.any(Object), expect.any(Object));
     expect(success).toHaveBeenCalled();
   });
 
@@ -64,8 +64,8 @@ describe('commands/batch', () => {
     await cmdBatch(['12345', '67890'], { concurrency: 1 });
     
     expect(cmdSolve).toHaveBeenCalledTimes(2);
-    expect(cmdSolve).toHaveBeenCalledWith('12345', expect.any(Object));
-    expect(cmdSolve).toHaveBeenCalledWith('67890', expect.any(Object));
+    expect(cmdSolve).toHaveBeenCalledWith('12345', expect.any(Object), expect.any(Object));
+    expect(cmdSolve).toHaveBeenCalledWith('67890', expect.any(Object), expect.any(Object));
   });
 
   it('should process multiple issues with default concurrency', async () => {
@@ -89,7 +89,8 @@ describe('commands/batch', () => {
 
     expect(cmdSolve).toHaveBeenCalledWith(
       '12345',
-      expect.objectContaining({ model: 'claude-opus-4.5' })
+      expect.objectContaining({ model: 'claude-opus-4.5' }),
+      expect.any(Object)
     );
   });
 
@@ -130,12 +131,40 @@ describe('commands/batch', () => {
       noEval: true 
     });
     
-    expect(cmdSolve).toHaveBeenCalledWith('12345', expect.objectContaining({
-      model: 'gpt-4',
-      noEval: true,
-      skipHeader: true,
-      quiet: true,
-      silent: true
+    expect(cmdSolve).toHaveBeenCalledWith(
+      '12345',
+      expect.objectContaining({
+        model: 'gpt-4',
+        noEval: true,
+        skipHeader: true,
+        quiet: true,
+        silent: true
+      }),
+      expect.any(Object)
+    );
+  });
+
+  it('injects a child ui that prefixes solve task events for the batch dashboard', async () => {
+    const ui = { emit: jest.fn() };
+
+    await cmdBatch(['12345'], { concurrency: 1, ui });
+
+    const solveDeps = cmdSolve.mock.calls[0][2];
+    solveDeps.ui.emit({
+      type: 'task:start',
+      taskId: 'phase1',
+      label: 'Phase 1',
+      startedAt: 100,
+      plain: false
+    });
+
+    expect(ui.emit).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'task:start',
+      taskId: 'issue-12345:phase1',
+      parentTaskId: 'issue-12345',
+      issue: '12345',
+      label: 'Phase 1',
+      plain: false
     }));
   });
 

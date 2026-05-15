@@ -1,4 +1,4 @@
-const { reduceTaskEvent } = require('../../lib/ui/events');
+const { reduceDashboardEvent, reduceTaskEvent } = require('../../lib/ui/events');
 
 describe('lib/ui/events', () => {
   it('start marks a task running and records order', () => {
@@ -55,5 +55,39 @@ describe('lib/ui/events', () => {
     const second = reduceTaskEvent(first, { type: 'task:start', taskId: 'phase1' });
 
     expect(second.order).toEqual(['phase1']);
+  });
+
+  it('dashboard groups child task events under parent issue rows', () => {
+    const started = reduceDashboardEvent(null, {
+      type: 'task:start',
+      taskId: 'issue-123',
+      parentTaskId: 'issue-123',
+      label: 'Issue #123',
+      startedAt: 100,
+      agent: 'copilot'
+    });
+    const phase = reduceDashboardEvent(started, {
+      type: 'task:start',
+      taskId: 'issue-123:phase1',
+      parentTaskId: 'issue-123',
+      label: 'Phase 1'
+    });
+    const finished = reduceDashboardEvent(phase, {
+      type: 'task:finish',
+      taskId: 'issue-123',
+      parentTaskId: 'issue-123',
+      endedAt: 1600,
+      success: true
+    });
+
+    expect(finished.order).toEqual(['issue-123']);
+    expect(finished.rows['issue-123']).toMatchObject({
+      issue: '123',
+      label: 'Issue #123',
+      status: 'success',
+      lastStep: 'Phase 1',
+      durationMs: 1500,
+      agent: 'copilot'
+    });
   });
 });
