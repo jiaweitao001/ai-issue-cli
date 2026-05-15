@@ -132,6 +132,45 @@ describe('commands/watch', () => {
         force: true,
         silent: true,
         pushFork: true,
+      }), expect.any(Object));
+    });
+
+    it('emits watch dashboard issue events and injects child ui into solve', async () => {
+      const ui = { emit: jest.fn() };
+      serviceRequest.mockResolvedValue({
+        status: 200,
+        data: [{ issue: 42, title: 'Test' }],
+      });
+      cmdSolve.mockResolvedValue(undefined);
+
+      await watchCycle(config, 'alice', { ui });
+
+      expect(ui.emit).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'task:start',
+        taskId: 'issue-42',
+        parentTaskId: 'issue-42',
+        issue: '42',
+        dashboardTitle: 'Watch Dashboard',
+        plain: false
+      }));
+      expect(cmdSolve).toHaveBeenCalledWith('42', expect.any(Object), expect.objectContaining({
+        ui: expect.objectContaining({ emit: expect.any(Function) })
+      }));
+
+      const solveDeps = cmdSolve.mock.calls[0][2];
+      solveDeps.ui.emit({
+        type: 'task:start',
+        taskId: 'phase1',
+        label: 'Phase 1',
+        plain: false
+      });
+      expect(ui.emit).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'task:start',
+        taskId: 'issue-42:phase1',
+        parentTaskId: 'issue-42',
+        issue: '42',
+        dashboardTitle: 'Watch Dashboard',
+        plain: false
       }));
     });
 
