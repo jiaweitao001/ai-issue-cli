@@ -23,7 +23,7 @@ npm --version
 git --version
 ```
 
-Install Node.js from <https://nodejs.org/> if `node` or `npm` is missing. The package declares Node.js `>=14.0.0`.
+Install Node.js from <https://nodejs.org/> if `node` or `npm` is missing. The package requires Node.js 18 or newer.
 
 ### GitHub Copilot CLI
 
@@ -140,6 +140,7 @@ The remaining defaults are ready to use:
 | `reportPath` | `~/.ai-issue/reports` | Use a different report output directory. |
 | `model` | `claude-sonnet-4.5` | Prefer another Copilot model. You can also use `--model` per run. |
 | `logLevel` | `info` | Usually leave this alone; use `--debug` for troubleshooting. |
+| `uiMode` | `auto` | Use `plain` for stable logs, `tui` to require interactive rendering, or `auto` to detect. |
 | `forkRemote` | `origin` fallback | Set this only if `--push-fork` should push to another remote. |
 
 For example, only configure `forkRemote` when needed:
@@ -153,6 +154,19 @@ View the final config:
 ```bash
 ai-issue config show
 ```
+
+### Display mode
+
+By default, `ai-issue` uses `uiMode=auto`: interactive terminals get TUI enhancements, while CI, pipes, redirects, and non-TTY sessions keep plain line output.
+
+```bash
+ai-issue --plain check       # stable text for logs/scripts
+ai-issue --tui check         # require TUI; exits 22 if unsupported
+ai-issue config set uiMode plain
+ai-issue config set uiMode auto
+```
+
+TUI mode adds grouped `check` output, an interactive `init` wizard, solve timelines, batch/watch dashboards, and table rendering for service data commands. Plain mode keeps the same grep-friendly text shape.
 
 ## 5. Configure service-backed features, if needed
 
@@ -219,9 +233,12 @@ What happens during `solve`:
 3. Phase 1 asks Copilot to research the issue using GitHub issue context, local code similarity, and optional historical issue search.
 4. Phase 1 writes a temporary research report and classifies the issue as `CODE_CHANGE` or `GUIDANCE`.
 5. Phase 2 either implements a code fix or writes a guidance answer.
-6. For `CODE_CHANGE`, the post-Phase 2 review tool runs and Copilot is expected to address review feedback.
-7. The final Phase 2 report is saved.
-8. If evaluation is not skipped, Phase 3 evaluates the result and saves an evaluation report.
+6. For `CODE_CHANGE`, an always-on rubber-duck critique/fix pass reviews the Phase 2 changes.
+7. For `CODE_CHANGE`, the post-Phase 2 review tool runs and Copilot is expected to address review feedback.
+8. The final Phase 2 report is saved.
+9. If evaluation is not skipped, Phase 3 evaluates the result and saves an evaluation report.
+
+In an interactive terminal, solve shows a timeline for Phase 1, Phase 2, rubber-duck, auto-review, and evaluation. Agent logs still stream normally; the timeline only reflects orchestration status.
 
 Useful variants:
 
@@ -318,6 +335,8 @@ Batch logs are written under:
 ```
 
 Keep concurrency conservative if Copilot or GitHub rate limits become an issue.
+
+In an interactive terminal, batch mode shows a dashboard with one row per issue, including status, duration, selected agent, and last solve phase. Plain mode keeps the existing per-issue summary logs.
 
 ## 11. Service-backed daily workflow
 
@@ -422,6 +441,8 @@ ai-issue --skip-eval watch --owner alice --push-fork
 
 Stop the daemon with `Ctrl+C`.
 
+In the foreground with an interactive terminal, watch shows a dashboard of queued issues as they move through solve phases. Non-TTY usage such as `nohup ai-issue watch --owner alice > watch.log 2>&1 &` stays plain and suitable for logs.
+
 ### Use metrics and search
 
 ```bash
@@ -433,6 +454,8 @@ ai-issue search "key vault" --owner alice --status solved --limit 5
 ```
 
 These commands require service support and may be manager-restricted depending on your deployment.
+
+When TUI mode is explicitly requested, `pipeline`, `metrics`, and `search` use paginated table rendering for the loaded results. Plain/default output remains text-first for scripting and copy/paste.
 
 ## 12. Command cheat sheet
 

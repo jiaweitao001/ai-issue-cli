@@ -82,6 +82,7 @@ Configuration is stored in `~/.ai-issue/config.json`. Environment variables are 
 | `model` | `AI_ISSUE_MODEL` | No | Copilot model fallback passed to `copilot --model`. Default: `claude-sonnet-4.5`. |
 | `agents.<agent>.model` | - | No | Per-agent model override, for example `agents.claude-code.model=sonnet`. |
 | `rubberDuckAgent` | `AI_ISSUE_RUBBER_DUCK_AGENT` | No | Optional agent override for the post-Phase 2 rubber-duck critique/fix pass. |
+| `uiMode` | `AI_ISSUE_UI_MODE` | No | Display mode: `auto`, `plain`, or `tui`. Default: `auto`. Invalid values warn and fall back to `auto`. |
 | `logLevel` | `AI_ISSUE_LOG_LEVEL` | No | Copilot log level. Default: `info`; `--debug` uses debug logging. |
 | `serviceUrl` | `AI_ISSUE_SERVICE_URL` | Service features | Base URL for `ai-issue-service`. |
 | `serviceApiKey` | `AI_ISSUE_SERVICE_API_KEY` | Optional | Legacy service auth fallback. Also used by the Phase 1 `similar-issue-finder` MCP skill if your backend expects `X-Api-Key`. |
@@ -102,7 +103,24 @@ ai-issue config set agent claude-code
 ai-issue config set agents.claude-code.model sonnet
 ai-issue config set rubberDuckAgent copilot
 ai-issue config set model claude-sonnet-4.5
+ai-issue config set uiMode auto
 ai-issue config reset
+```
+
+## Display modes
+
+AI Issue CLI has two renderers:
+
+- **Plain mode** prints stable, grep-friendly line output. It is always used for pipes, redirects, CI, non-TTY stdin/stdout, and `--debug`.
+- **TUI mode** uses inline terminal rendering for grouped checks, setup prompts, solve timelines, batch/watch dashboards, and explicit data tables.
+
+Selection order is: `--plain` / `--tui` flags, then `uiMode` config, then `AI_ISSUE_UI_MODE`, then auto-detection. `auto` chooses TUI only when both stdin and stdout are interactive TTYs and CI is not set. Use `--plain` when saving logs or scripting, and `--tui` to require the interactive renderer; explicit TUI requests exit with code `22` if the terminal cannot support it.
+
+```bash
+ai-issue --plain solve 30340 --branch
+ai-issue --tui check
+ai-issue config set uiMode plain
+ai-issue config set uiMode auto
 ```
 
 ### 本地知识库
@@ -203,6 +221,8 @@ Global options:
 | `--skip-eval` | Skip Phase 3 evaluation after solving. |
 | `--concurrency <number>` | Batch concurrency. Default: `3`. |
 | `--debug` | Enable debug logging. |
+| `--plain` | Force plain text output. |
+| `--tui` | Force TUI output and exit `22` if unsupported. |
 
 Commands:
 
@@ -435,7 +455,9 @@ to be covered.
 
 The TUI layer uses `enquirer` for prompts and `terminal-kit` for inline terminal
 rendering. `terminal-kit` is loaded lazily by `lib/ui/tui-renderer.js`, and its
-installed package size is about 4.1 MB.
+installed package size is about 4.1 MB. The UI facade lives under `lib/ui/`; pure
+components such as timelines, dashboards, status lists, and paginated tables live
+under `lib/ui/components/`.
 
 CI (`.github/workflows/ci.yml`) runs `npm run typecheck` and `npm test` on every
 PR and on pushes to `main`, against Node 18 and Node 20. Both jobs must pass
