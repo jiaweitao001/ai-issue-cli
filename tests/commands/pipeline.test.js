@@ -392,6 +392,25 @@ describe('cmdPipeline', () => {
     expect(allLogs).toContain('#456');
   });
 
+  it('renders TUI table when a TUI ui is injected', async () => {
+    const ui = { mode: 'tui', header: jest.fn(), table: jest.fn() };
+    serviceRequest.mockResolvedValue({
+      status: 200,
+      data: [
+        { issue: 123, status: 'triaged', title: 'first', assigned_to: 'alice' },
+      ],
+    });
+
+    await cmdPipeline({ ui });
+
+    expect(ui.header).toHaveBeenCalledWith('📋 Issue Pipeline');
+    expect(ui.table).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.arrayContaining(['#123', expect.stringContaining('triaged')])]),
+      expect.any(Array),
+      expect.objectContaining({ pageSize: 20 })
+    );
+  });
+
   it('summarizes counts independent of the input ordering', async () => {
     serviceRequest.mockResolvedValue({
       status: 200,

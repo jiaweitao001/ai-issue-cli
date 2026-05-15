@@ -103,6 +103,19 @@ describe('commands/search-cmd', () => {
       expect(output).toContain('timeout');
     });
 
+    it('renders search results through TUI table when a TUI ui is injected', async () => {
+      const ui = { mode: 'tui', table: jest.fn() };
+      serviceRequest.mockResolvedValue({ status: 200, data: SAMPLE_RESULTS });
+
+      await cmdSearch('timeout', { ui });
+
+      expect(ui.table).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.arrayContaining(['#30340', 'solved', 'alice'])]),
+        expect.any(Array),
+        expect.objectContaining({ pageSize: 20, detailIndex: 0 })
+      );
+    });
+
     it('should pass --owner filter to API', async () => {
       serviceRequest.mockResolvedValue({ status: 200, data: SAMPLE_RESULTS });
 

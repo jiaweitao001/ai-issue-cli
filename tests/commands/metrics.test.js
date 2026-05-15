@@ -112,6 +112,20 @@ describe('commands/metrics', () => {
       expect(renderMetricsTable).toHaveBeenCalled();
     });
 
+    it('renders engineer metrics through TUI table when a TUI ui is injected', async () => {
+      const ui = { mode: 'tui', table: jest.fn() };
+      serviceRequest.mockResolvedValue({ status: 200, data: SAMPLE_METRICS });
+
+      await cmdMetrics({ ui });
+
+      expect(ui.table).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.arrayContaining(['alice', 15, 12])]),
+        expect.any(Array),
+        expect.objectContaining({ pageSize: 20 })
+      );
+      expect(renderMetricsTable).not.toHaveBeenCalled();
+    });
+
     it('should pass --owner filter to API', async () => {
       serviceRequest.mockResolvedValue({ status: 200, data: SAMPLE_METRICS });
 
