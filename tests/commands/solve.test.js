@@ -660,5 +660,18 @@ describe('commands/solve', () => {
 
       expect(ui.emit).toHaveBeenCalled();
     });
+
+    it('accepts injected ui through deps for composed batch/watch callers', async () => {
+      const ui = { emit: jest.fn() };
+
+      const promise = cmdSolve('12345', { skipEval: true, silent: true }, { ui });
+      jest.advanceTimersByTime(1000);
+      await promise;
+
+      expect(ui.emit).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'task:start',
+        taskId: 'phase1'
+      }));
+    });
   });
 });
