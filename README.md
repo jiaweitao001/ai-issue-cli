@@ -112,7 +112,7 @@ ai-issue config reset
 AI Issue CLI has two renderers:
 
 - **Plain mode** prints stable, grep-friendly line output. It is always used for pipes, redirects, CI, non-TTY stdin/stdout, and `--debug`.
-- **TUI mode** uses inline terminal rendering for grouped checks, setup prompts, solve timelines, batch/watch dashboards, and explicit data tables.
+- **TUI mode** uses inline terminal rendering for grouped checks, setup prompts, solve timelines, batch/watch dashboards, and explicit data tables. Data tables support `n`/`p` pagination, `f` local filtering, `d` row details, and `q` to quit.
 
 Selection order is: `--plain` / `--tui` flags, then `uiMode` config, then `AI_ISSUE_UI_MODE`, then auto-detection. `auto` chooses TUI only when both stdin and stdout are interactive TTYs and CI is not set. Use `--plain` when saving logs or scripting, and `--tui` to require the interactive renderer; explicit TUI requests exit with code `22` if the terminal cannot support it.
 
@@ -457,7 +457,9 @@ The TUI layer uses `enquirer` for prompts and `terminal-kit` for inline terminal
 rendering. `terminal-kit` is loaded lazily by `lib/ui/tui-renderer.js`, and its
 installed package size is about 4.1 MB. The UI facade lives under `lib/ui/`; pure
 components such as timelines, dashboards, status lists, and paginated tables live
-under `lib/ui/components/`.
+under `lib/ui/components/`. Table filtering, pagination, and detail rendering are
+pure row transformations; the TUI renderer owns only keyboard input and display
+state.
 
 CI (`.github/workflows/ci.yml`) runs `npm run typecheck` and `npm test` on every
 PR and on pushes to `main`, against Node 18 and Node 20. Both jobs must pass
