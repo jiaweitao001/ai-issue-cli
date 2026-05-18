@@ -6,6 +6,8 @@
  */
 
 function createTerminalMock() {
+  const EventEmitter = require('events');
+  const emitter = new EventEmitter();
   const calls = [];
   const term = jest.fn((text) => calls.push(['plain', text]));
   for (const color of ['green', 'red', 'blue', 'yellow', 'gray', 'white', 'cyan']) {
@@ -16,7 +18,36 @@ function createTerminalMock() {
     term.bold[color] = jest.fn((text) => calls.push([`bold.${color}`, text]));
   }
   term._calls = calls;
+  term.grabInput = jest.fn();
+  term.on = emitter.on.bind(emitter);
+  term.once = emitter.once.bind(emitter);
+  term.emit = emitter.emit.bind(emitter);
+  term.removeListener = emitter.removeListener.bind(emitter);
   return term;
+}
+
+class FakeStdin extends require('events').EventEmitter {
+  constructor() {
+    super();
+    this.isTTY = true;
+    this.isRaw = false;
+    this.readable = true;
+    this.paused = true;
+    this.setEncoding = jest.fn();
+    this.setRawMode = jest.fn((enabled) => {
+      this.isRaw = enabled;
+    });
+    this.resume = jest.fn(() => {
+      this.paused = false;
+    });
+    this.pause = jest.fn(() => {
+      this.paused = true;
+    });
+  }
+
+  isPaused() {
+    return this.paused;
+  }
 }
 
 function loadWithMock(term) {
@@ -201,5 +232,79 @@ describe('lib/ui/tui-renderer — TuiRenderer (PR-3)', () => {
     });
 
     expect(term._calls).toContainEqual(['bold.cyan', '\nWatch Dashboard\n']);
+  });
+
+  it('lets TUI tables move to the next page and quit with terminal-kit key events', async () => {
+    const term = createTerminalMock();
+    const stdin = new FakeStdin();
+    const { TuiRenderer } = loadWithMock(term);
+    const ui = new TuiRenderer({ stdout: { isTTY: true }, stdin });
+    const rows = Array.from({ length: 25 }, (_v, i) => [`row-${i + 1}`]);
+
+    const tablePromise = ui.table(rows, [{ header: 'Name', width: 6 }], { pageSize: 20 });
+    setImmediate(() => {
+      term.emit('key', 'n');
+      setImmediate(() => term.emit('key', 'q'));
+    });
+    await tablePromise;
+
+    const renderedText = term._calls.map(([_style, text]) => text).join('');
+    expect(renderedText).toContain('row-21');
+    expect(renderedText).toContain('Page 2/2  Rows 25');
+    expect(term.grabInput).toHaveBeenCalledWith(true);
+    expect(term.grabInput).toHaveBeenLastCalledWith(false);
+  });
+
+  it('handles table filter and detail commands with terminal-kit key events', async () => {
+    const term = createTerminalMock();
+    const { TuiRenderer } = loadWithMock(term);
+    const ui = new TuiRenderer({ stdout: { isTTY: true }, stdin: new FakeStdin() });
+    ui._readLine = jest.fn()
+      .mockResolvedValueOnce('row-25')
+      .mockResolvedValueOnce('1');
+    const rows = Array.from({ length: 25 }, (_v, i) => [`row-${i + 1}`, `title-${i + 1}`]);
+    const columns = [{ header: 'Name', width: 6 }, { header: 'Title', width: 8 }];
+
+    const tablePromise = ui.table(rows, columns, { pageSize: 20 });
+    setImmediate(() => {
+      term.emit('key', 'f');
+      setImmediate(() => {
+        term.emit('key', 'd');
+        setImmediate(() => term.emit('key', 'q'));
+      });
+    });
+    await tablePromise;
+
+    const renderedText = term._calls.map(([_style, text]) => text).join('');
+    expect(ui._readLine).toHaveBeenCalledWith('Filter: ');
+    expect(renderedText).toContain('Enter text to filter the already-loaded rows, or press Enter to clear the filter.');
+    expect(ui._readLine).toHaveBeenCalledWith('Row number: ');
+    expect(renderedText).toContain('Enter current-page row number (1-1) to show details, or press Enter to clear.');
+    expect(renderedText).toContain('filter="row-25"');
+    expect(renderedText).toContain('Details\n');
+    expect(renderedText).toContain('Name: row-25');
+  });
+
+  it('falls back to raw stdin data when terminal-kit key events are unavailable', async () => {
+    const term = createTerminalMock();
+    delete term.grabInput;
+    delete term.once;
+    delete term.removeListener;
+    const stdin = new FakeStdin();
+    const { TuiRenderer } = loadWithMock(term);
+    const ui = new TuiRenderer({ stdout: { isTTY: true }, stdin });
+    const rows = Array.from({ length: 25 }, (_v, i) => [`row-${i + 1}`]);
+
+    const tablePromise = ui.table(rows, [{ header: 'Name', width: 6 }], { pageSize: 20 });
+    setImmediate(() => {
+      stdin.emit('data', 'n');
+      setImmediate(() => stdin.emit('data', 'q'));
+    });
+    await tablePromise;
+
+    const renderedText = term._calls.map(([_style, text]) => text).join('');
+    expect(renderedText).toContain('row-21');
+    expect(stdin.setRawMode).toHaveBeenCalledWith(true);
+    expect(stdin.setRawMode).toHaveBeenCalledWith(false);
   });
 });
