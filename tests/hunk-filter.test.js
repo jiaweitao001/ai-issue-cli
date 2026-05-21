@@ -190,5 +190,60 @@ describe('hunk-filter', () => {
       expect(accepted.split('\n')).toHaveLength(11);
       expect(accepted).toMatch(/90 more lines omitted/);
     });
+
+    // Regression: orchestrators that build the options object by forwarding
+    // `opts.maxTotalTokens` etc. will set values to `undefined` when the
+    // caller didn't specify them. A naive `{ ...DEFAULTS, ...options }`
+    // overwrites the defaults with `undefined`, which collapses every cap
+    // and disables truncation (chars/4 of NaN, etc.). packPrs must filter
+    // undefined values out of the merge. Discovered during BS-07 smoke test.
+    describe('undefined-key regression (BS-07 smoke)', () => {
+      it('ignores undefined-valued option keys and still applies defaults', () => {
+        const longHunk = {
+          file: 'x.go',
+          hunk: Array.from({ length: 200 }, (_, i) => `line ${i}`).join('\n')
+        };
+        const r = packPrs([makePr(1, 0.9, [longHunk])], {
+          maxTotalTokens: undefined,
+          maxHunksPerPr: undefined,
+          maxLinesPerHunk: undefined,
+          scoreThreshold: undefined
+        });
+        expect(r.packed).toHaveLength(1);
+        const accepted = r.packed[0].hunks[0].hunk;
+        // Default maxLinesPerHunk is 40, so we should see "X more lines
+        // omitted" with X = 160 (and never `NaN`).
+        expect(accepted).toMatch(/160 more lines omitted/);
+        expect(accepted).not.toMatch(/NaN/);
+        expect(accepted.split('\n').length).toBeLessThanOrEqual(41);
+      });
+
+      it('enforces the default total-token cap when caller forwards undefined', () => {
+        // Build many large hunks; without the fix, all of them get through.
+        const big = 'x'.repeat(2000);
+        const hunks = Array.from({ length: 20 }, (_, i) => ({ file: `f${i}.go`, hunk: big }));
+        const r = packPrs([makePr(1, 0.9, hunks)], {
+          maxTotalTokens: undefined,
+          maxHunksPerPr: undefined,
+          maxLinesPerHunk: undefined
+        });
+        // Default cap is 4000 tokens; with chars/4 cost the accepted hunks
+        // cannot exceed ~16k chars total.
+        const totalChars = r.packed[0].hunks
+          .reduce((acc, h) => acc + h.hunk.length, 0);
+        expect(totalChars).toBeLessThanOrEqual(4000 * 4 + 1000);
+        expect(r.totalOmittedHunks).toBeGreaterThan(0);
+      });
+    });
+
+    describe('truncateHunkLines defensive', () => {
+      it('returns body unchanged when maxLines is undefined / non-finite', () => {
+        const body = 'a\nb\nc\nd\ne';
+        expect(truncateHunkLines(body, undefined)).toBe(body);
+        expect(truncateHunkLines(body, NaN)).toBe(body);
+        expect(truncateHunkLines(body, 0)).toBe(body);
+        expect(truncateHunkLines(body, -1)).toBe(body);
+      });
+    });
   });
 });
