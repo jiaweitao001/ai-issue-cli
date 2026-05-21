@@ -39,6 +39,35 @@ Based on Phase 1 research, design and implement a high-quality solution.
 
 ---
 
+## 📎 About the "Sibling PR Diffs" Section (When Present)
+
+If the research report below includes a `## Sibling PR Diffs` section, it
+contains verbatim diffs from one or more **already-merged historical PRs**
+that closed issues highly similar to the current one (cosine-similarity ≥ 0.7).
+
+**How to use them:**
+
+- ✅ **Mirror their structure** — file layout, hook placement, error-handling
+  pattern, test layout. These PRs were accepted upstream, so their shape is
+  almost certainly the project-preferred shape.
+- ✅ **Treat them as the "case study" you'd otherwise have to reverse-engineer
+  from the codebase.** They show exactly what a passing fix looks like.
+- ❌ **Do NOT copy field names, resource names, SDK paths, or string literals**
+  verbatim. Each historical PR operated on a different resource — names,
+  schema fields, and parameters are almost certainly different here.
+- ❌ **Do NOT blindly include every changed file.** Some hunks (e.g., changes
+  in a `website/` doc generator or a co-changed unrelated bug) may not apply.
+  Cross-check each hunk against the current issue's stated scope.
+- ⚠️ **If the diffs contradict the Issue's stated requirement**, the Issue
+  wins. The similar-issue match could be noise. Note the conflict and
+  proceed with the Issue-aligned fix.
+
+The diffs are pre-trimmed (max 40 lines per hunk, max 6 hunks per PR, ~4000
+tokens total). A `> ⚠️ N hunks omitted` line means more existed but were
+dropped for budget; don't request more.
+
+---
+
 ## 📚 Reference Cases (Correct vs Wrong)
 
 ### Case 1: Issue #30849 (SKU Validation Missing)
