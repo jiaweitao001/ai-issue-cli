@@ -192,4 +192,99 @@ describe('similar-issue-finder skill', () => {
     }
     expect(global.fetch).not.toHaveBeenCalled();
   });
+
+  describe('sibling-pr cache write-through (BS-07 PR-C)', () => {
+    const os = require('os');
+    const originalCachePath = process.env.AI_ISSUE_SIBLING_PR_CACHE_PATH;
+    let cachePath;
+
+    beforeEach(() => {
+      cachePath = path.join(
+        os.tmpdir(),
+        `skill-cache-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.json`
+      );
+    });
+
+    afterEach(() => {
+      try { fs.unlinkSync(cachePath); } catch (_e) { /* */ }
+      if (originalCachePath === undefined) delete process.env.AI_ISSUE_SIBLING_PR_CACHE_PATH;
+      else process.env.AI_ISSUE_SIBLING_PR_CACHE_PATH = originalCachePath;
+    });
+
+    it('writes linked_pr.diff_hunks to the sidecar cache when env var is set', async () => {
+      process.env.AI_ISSUE_SIBLING_PR_CACHE_PATH = cachePath;
+      process.env.AI_ISSUE_SERVICE_URL = 'https://example.test';
+      mockCloudResponse({
+        similar_issues: [
+          {
+            issue: 12345,
+            score: 0.92,
+            title: 'something',
+            url: 'https://github.com/x/y/issues/12345',
+            state: 'closed',
+            linked_pr: {
+              number: 12400,
+              url: 'https://github.com/x/y/pull/12400',
+              files_changed: ['a.go'],
+              diff_hunks: [{ file: 'a.go', hunk: '@@\n+x' }],
+              diff_truncated: false
+            }
+          }
+        ],
+        solutions: []
+      });
+
+      const skill = require('../../skills/similar-issue-finder');
+      await skill.handlers.findSimilarIssues({
+        repo: 'X/Y',
+        title: 'something',
+        body: 'detail'
+      });
+
+      expect(fs.existsSync(cachePath)).toBe(true);
+      const cache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+      // repo is lowercased in the key
+      expect(cache['x/y#12345']).toBeDefined();
+      expect(cache['x/y#12345'].pr_number).toBe(12400);
+      expect(cache['x/y#12345'].diff_hunks).toEqual([{ file: 'a.go', hunk: '@@\n+x' }]);
+    });
+
+    it('is a no-op when AI_ISSUE_SIBLING_PR_CACHE_PATH is unset', async () => {
+      delete process.env.AI_ISSUE_SIBLING_PR_CACHE_PATH;
+      process.env.AI_ISSUE_SERVICE_URL = 'https://example.test';
+      mockCloudResponse({
+        similar_issues: [{
+          issue: 1, score: 0.9, title: 't', url: 'u', state: 'closed',
+          linked_pr: {
+            number: 100,
+            diff_hunks: [{ file: 'a', hunk: '@@\n+x' }]
+          }
+        }],
+        solutions: []
+      });
+
+      const skill = require('../../skills/similar-issue-finder');
+      await skill.handlers.findSimilarIssues({ repo: 'x/y', title: 't' });
+
+      expect(fs.existsSync(cachePath)).toBe(false);
+    });
+
+    it('skips items without linked_pr (older service response)', async () => {
+      process.env.AI_ISSUE_SIBLING_PR_CACHE_PATH = cachePath;
+      process.env.AI_ISSUE_SERVICE_URL = 'https://example.test';
+      mockCloudResponse({
+        similar_issues: [
+          { issue: 1, score: 0.9, title: 't', url: 'u', state: 'closed' }, // no linked_pr
+          { issue: 2, score: 0.8, title: 't2', url: 'u2', state: 'closed', linked_pr: null }
+        ],
+        solutions: []
+      });
+
+      const skill = require('../../skills/similar-issue-finder');
+      await skill.handlers.findSimilarIssues({ repo: 'x/y', title: 't' });
+
+      // appendEntries returns 0 → file never written
+      expect(fs.existsSync(cachePath)).toBe(false);
+    });
+  });
 });

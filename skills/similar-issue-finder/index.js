@@ -8,6 +8,7 @@ const {
 } = require('@modelcontextprotocol/sdk/types.js');
 const fs = require('fs');
 const { LocalKnowledgeBase } = require('../../lib/local-knowledge-base');
+const { appendEntries: appendSiblingPrCache } = require('../../lib/sibling-pr-cache');
 const { wrapToolHandler } = require('../../lib/skills-metrics');
 
 const KB_PATH = process.env.AI_ISSUE_KB_PATH || '';
@@ -21,6 +22,39 @@ function warnLocalKbFailure(error) {
   const code = error && error.code ? error.code : 'UNKNOWN';
   const message = error && error.message ? error.message : String(error);
   console.error(`[similar-issue-finder] local knowledge base disabled (${code}): ${message}`);
+}
+
+function siblingPrCacheLogger() {
+  return {
+    warning(msg) {
+      console.error(`[similar-issue-finder] ${msg}`);
+    }
+  };
+}
+
+/**
+ * BS-07 PR-C: persist `linked_pr.diff_hunks` from a /search response
+ * into the sidecar cache that lib/sibling-pr-diffs.js consumes after
+ * Phase 1. Best-effort: any failure is logged & swallowed so the MCP
+ * tool response is never corrupted by a cache I/O hiccup.
+ *
+ * No-op when:
+ *   - AI_ISSUE_SIBLING_PR_CACHE_PATH env var unset (e.g. older CLI host)
+ *   - response has no `similar_issues` (deterministic empty path)
+ *   - no issue carries a `linked_pr` (older service without BS-07 PR-B)
+ *
+ * @param {string} repo
+ * @param {{ similar_issues?: Array<{ issue?: number, linked_pr?: any }> }} result
+ */
+function maybeCacheLinkedPrs(repo, result) {
+  const cachePath = process.env.AI_ISSUE_SIBLING_PR_CACHE_PATH;
+  if (!cachePath) return;
+  if (!result || !Array.isArray(result.similar_issues) || result.similar_issues.length === 0) return;
+  try {
+    appendSiblingPrCache(cachePath, repo, result.similar_issues, siblingPrCacheLogger());
+  } catch (err) {
+    console.error(`[similar-issue-finder] sibling-pr-cache append failed: ${err.message}`);
+  }
 }
 
 if (KB_PATH && fs.existsSync(KB_PATH)) {
@@ -281,6 +315,12 @@ async function findSimilarIssues(args) {
       top_k: args.top_k || 5,
       include_solutions: args.include_solutions !== false,
     });
+
+    // BS-07 PR-C: persist `linked_pr.diff_hunks` to the sidecar cache so
+    // the parent CLI's post-Phase-1 sibling-pr-diffs orchestrator can
+    // reuse them instead of re-hitting GitHub. No-op when the env var
+    // is unset or the service response carries no linked_pr.
+    maybeCacheLinkedPrs(args.repo, result);
 
     // 格式化为可读文本
     let output = `## Similar Issues Found: ${result.similar_issues.length}\n\n`;
