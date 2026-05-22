@@ -250,3 +250,183 @@ describe('buildSiblingPrDiffsSection', () => {
     );
   });
 });
+
+describe('buildSiblingPrDiffsSection — cache integration (BS-07 PR-C)', () => {
+  const os = require('os');
+  const fs = require('fs');
+  const path = require('path');
+
+  function mkOpts(over = {}) {
+    return {
+      researchContent: SAMPLE_REPORT,
+      config: { githubToken: 't' },
+      issueNumber: 30340,
+      resolvePrForIssueImpl: jest.fn(async (_repo, n) => n + 100),
+      fetchPrDiffImpl: jest.fn(async (_repo, prN) => ({
+        number: prN,
+        files_changed: ['internal/services/storage/foo.go'],
+        hunks: [{
+          file: 'internal/services/storage/foo.go',
+          hunk: '@@ -120,5 +120,8 @@\n+if response.WasNotFound(...) { d.SetId(""); return nil }'
+        }]
+      })),
+      ...over
+    };
+  }
+
+  function mktmpCache(payload) {
+    const p = path.join(os.tmpdir(), `sibling-pr-diffs-cache-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
+    fs.writeFileSync(p, JSON.stringify(payload));
+    return p;
+  }
+
+  afterEach(() => {
+    delete process.env.AI_ISSUE_SIBLING_PR_CACHE_PATH;
+  });
+
+  it('uses cached PR data and skips GitHub fetchers entirely on full hit', async () => {
+    const cachePath = mktmpCache({
+      'hashicorp/terraform-provider-azurerm#28765': {
+        pr_number: 28800,
+        pr_url: 'https://github.com/hashicorp/terraform-provider-azurerm/pull/28800',
+        files_changed: ['internal/services/storage/foo.go'],
+        diff_hunks: [{
+          file: 'internal/services/storage/foo.go',
+          hunk: '@@ -1,3 +1,4 @@\n+from cache'
+        }],
+        diff_truncated: false
+      },
+      'hashicorp/terraform-provider-azurerm#28925': {
+        pr_number: 28950,
+        pr_url: 'https://github.com/hashicorp/terraform-provider-azurerm/pull/28950',
+        files_changed: ['internal/services/storage/bar.go'],
+        diff_hunks: [{
+          file: 'internal/services/storage/bar.go',
+          hunk: '@@ -1,3 +1,4 @@\n+also from cache'
+        }],
+        diff_truncated: false
+      }
+    });
+    try {
+      const opts = mkOpts({ cachePath });
+      const out = await buildSiblingPrDiffsSection(opts);
+      expect(out).not.toBeNull();
+      expect(out).toContain('from cache');
+      expect(out).toContain('PR #28800');
+      expect(out).toContain('PR #28950');
+      expect(opts.resolvePrForIssueImpl).not.toHaveBeenCalled();
+      expect(opts.fetchPrDiffImpl).not.toHaveBeenCalled();
+    } finally {
+      fs.unlinkSync(cachePath);
+    }
+  });
+
+  it('falls through to GitHub for cache misses, hybrid path', async () => {
+    const cachePath = mktmpCache({
+      'hashicorp/terraform-provider-azurerm#28765': {
+        pr_number: 28800,
+        pr_url: '',
+        files_changed: ['internal/services/storage/foo.go'],
+        diff_hunks: [{
+          file: 'internal/services/storage/foo.go',
+          hunk: '@@\n+cached one'
+        }],
+        diff_truncated: false
+      }
+      // #28925 is intentionally NOT cached → forced to GitHub fallback
+    });
+    try {
+      const opts = mkOpts({ cachePath });
+      const out = await buildSiblingPrDiffsSection(opts);
+      expect(out).not.toBeNull();
+      // The cache provided #28765 → PR #28800; the resolver should only
+      // have been called for the un-cached #28925.
+      expect(opts.resolvePrForIssueImpl).toHaveBeenCalledTimes(1);
+      expect(opts.resolvePrForIssueImpl).toHaveBeenCalledWith(
+        'hashicorp/terraform-provider-azurerm',
+        28925,
+        expect.anything()
+      );
+      // PR #28800 came from cache (not via resolver math), so the section
+      // mentions both PR numbers.
+      expect(out).toContain('PR #28800');
+      expect(out).toContain('cached one');
+    } finally {
+      fs.unlinkSync(cachePath);
+    }
+  });
+
+  it('handles a corrupt cache file by falling back to GitHub for all refs', async () => {
+    const cachePath = path.join(os.tmpdir(), `bad-cache-${process.pid}-${Date.now()}.json`);
+    fs.writeFileSync(cachePath, 'not json at all');
+    try {
+      const opts = mkOpts({ cachePath });
+      const out = await buildSiblingPrDiffsSection(opts);
+      expect(out).not.toBeNull();
+      // Bad cache → cache lookups return null → GitHub fallback for both
+      // qualifying refs.
+      expect(opts.resolvePrForIssueImpl).toHaveBeenCalledTimes(2);
+      expect(opts.fetchPrDiffImpl).toHaveBeenCalledTimes(2);
+    } finally {
+      fs.unlinkSync(cachePath);
+    }
+  });
+
+  it('honors AI_ISSUE_SIBLING_PR_CACHE_PATH env var when opts.cachePath is unset', async () => {
+    const cachePath = mktmpCache({
+      'hashicorp/terraform-provider-azurerm#28765': {
+        pr_number: 28800,
+        pr_url: '',
+        files_changed: ['x.go'],
+        diff_hunks: [{ file: 'x.go', hunk: '@@\n+envvar-cached' }],
+        diff_truncated: false
+      },
+      'hashicorp/terraform-provider-azurerm#28925': {
+        pr_number: 28950,
+        pr_url: '',
+        files_changed: ['y.go'],
+        diff_hunks: [{ file: 'y.go', hunk: '@@\n+envvar-cached2' }],
+        diff_truncated: false
+      }
+    });
+    process.env.AI_ISSUE_SIBLING_PR_CACHE_PATH = cachePath;
+    try {
+      const opts = mkOpts(); // no cachePath
+      const out = await buildSiblingPrDiffsSection(opts);
+      expect(out).not.toBeNull();
+      expect(out).toContain('envvar-cached');
+      expect(opts.resolvePrForIssueImpl).not.toHaveBeenCalled();
+    } finally {
+      fs.unlinkSync(cachePath);
+    }
+  });
+
+  it('is a no-op (uses GitHub) when env var points at a non-existent file', async () => {
+    const cachePath = path.join(os.tmpdir(), `non-existent-${process.pid}-${Date.now()}.json`);
+    const opts = mkOpts({ cachePath });
+    const out = await buildSiblingPrDiffsSection(opts);
+    expect(out).not.toBeNull();
+    expect(opts.resolvePrForIssueImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores cache entries with empty diff_hunks (treats as miss)', async () => {
+    const cachePath = mktmpCache({
+      'hashicorp/terraform-provider-azurerm#28765': {
+        pr_number: 28800,
+        pr_url: '',
+        files_changed: ['x.go'],
+        diff_hunks: [], // empty → lookup returns null
+        diff_truncated: true
+      }
+    });
+    try {
+      const opts = mkOpts({ cachePath });
+      const out = await buildSiblingPrDiffsSection(opts);
+      expect(out).not.toBeNull();
+      // #28765 missed (empty hunks) → goes to GitHub; #28925 also un-cached.
+      expect(opts.resolvePrForIssueImpl).toHaveBeenCalledTimes(2);
+    } finally {
+      fs.unlinkSync(cachePath);
+    }
+  });
+});
