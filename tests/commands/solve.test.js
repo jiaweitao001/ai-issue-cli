@@ -23,6 +23,17 @@ jest.mock('../../lib/commands/evaluate', () => ({
   cmdEvaluate: jest.fn()
 }));
 
+jest.mock('../../lib/verify-loop', () => ({
+  runPostPhase2VerifyLoop: jest.fn().mockResolvedValue({
+    passed: true,
+    skipped: true,
+    attempts: 0,
+    finalFailures: [],
+    warnings: [],
+    durationMs: 0
+  })
+}));
+
 // Mock service-client (Phase 3)
 jest.mock('../../lib/service-client', () => ({
   serviceRequest: jest.fn().mockResolvedValue({ status: 200, data: [] }),
@@ -43,6 +54,7 @@ jest.mock('../../lib/logger', () => mockCreateLogger());
 const { cmdSolve } = require('../../lib/commands/solve');
 const { runTask } = require('../../lib/agents');
 const { cmdEvaluate } = require('../../lib/commands/evaluate');
+const { runPostPhase2VerifyLoop } = require('../../lib/verify-loop');
 const { serviceRequest, getServiceUrl, updateSolutionSummary } = require('../../lib/service-client');
 const { extractSolutionSummary } = require('../../lib/summary-extractor');
 const { success, error, info, debug } = require('../../lib/logger');
@@ -83,6 +95,14 @@ describe('commands/solve', () => {
     fs.writeFileSync.mockReturnValue(undefined);
     
     mockResetAgentMocks();
+    runPostPhase2VerifyLoop.mockResolvedValue({
+      passed: true,
+      skipped: true,
+      attempts: 0,
+      finalFailures: [],
+      warnings: [],
+      durationMs: 0
+    });
     mockRunTask.mockImplementation(async (_config, request) => {
       const artifacts = {};
       for (const spec of request.expectedArtifacts || []) {
@@ -251,6 +271,43 @@ describe('commands/solve', () => {
     await promise;
     
     expect(cmdEvaluate).not.toHaveBeenCalled();
+  });
+
+  it('runs verify-loop after Phase 2 for code-change issues', async () => {
+    const promise = cmdSolve('12345', { skipEval: true });
+    jest.advanceTimersByTime(1000);
+    await promise;
+
+    expect(runPostPhase2VerifyLoop).toHaveBeenCalledWith(expect.objectContaining({
+      issueNumber: '12345',
+      issueType: 'CODE_CHANGE',
+      prePhase2Head: 'aaa111'
+    }));
+  });
+
+  it('skips rubber-duck and auto-review when verify-loop reports dirty state', async () => {
+    getServiceUrl.mockReturnValue('http://localhost:8000');
+    runPostPhase2VerifyLoop.mockResolvedValueOnce({
+      passed: false,
+      skipped: false,
+      attempts: 1,
+      finalFailures: [],
+      warnings: ['dirty'],
+      durationMs: 1,
+      dirty: true
+    });
+
+    const promise = cmdSolve('12345', {});
+    jest.advanceTimersByTime(1000);
+    await promise;
+
+    expect(runTask).toHaveBeenCalledTimes(2);
+    expect(cmdEvaluate).not.toHaveBeenCalled();
+    const postCalls = serviceRequest.mock.calls
+      .filter(call => call[0] === 'POST')
+      .map(call => call[1]);
+    expect(postCalls.some(url => url.includes('/solved'))).toBe(false);
+    expect(postCalls.some(url => url.includes('/failed'))).toBe(true);
   });
 
   it('should auto commit and run terraform review when tool is installed', async () => {
@@ -626,6 +683,8 @@ describe('commands/solve', () => {
         'phase1:task:finish:ok',
         'phase2:task:start:ok',
         'phase2:task:finish:ok',
+        'verify-loop:task:start:ok',
+        'verify-loop:task:finish:ok',
         'rubber-duck:task:start:ok',
         'rubber-duck:task:finish:ok',
         'auto-review:task:start:ok',

@@ -100,6 +100,26 @@ describe('config-cmd v3.4 validation', () => {
     it('is case-sensitive on enum values (TAG != tag)', () => {
       expect(() => validateConfigSet('updateChannel', 'TAG')).toThrow(/Invalid updateChannel/);
     });
+
+    it('accepts typed verifyLoop dotted keys', () => {
+      expect(() => validateConfigSet('verifyLoop.enabled', 'true')).not.toThrow();
+      expect(() => validateConfigSet('verifyLoop.maxAttempts', '2')).not.toThrow();
+      expect(() => validateConfigSet('verifyLoop.phaseATimeoutSec', '120')).not.toThrow();
+      expect(() => validateConfigSet('verifyLoop.phaseBTimeoutSec', '900')).not.toThrow();
+      expect(() => validateConfigSet('verifyLoop.parallelism', 'auto')).not.toThrow();
+      expect(() => validateConfigSet('verifyLoop.parallelism', '4')).not.toThrow();
+      expect(() => validateConfigSet('verifyLoop.skipGates', 'website-lint,unit-test')).not.toThrow();
+      expect(() => validateConfigSet('verifyLoop.skipGates', '["website-lint"]')).not.toThrow();
+    });
+
+    it('rejects invalid verifyLoop dotted values', () => {
+      expect(() => validateConfigSet('verifyLoop.enabled', 'yes')).toThrow(/true.*false/);
+      expect(() => validateConfigSet('verifyLoop.maxAttempts', '0')).toThrow(/positive integer/);
+      expect(() => validateConfigSet('verifyLoop.parallelism', 'fast')).toThrow(/auto.*positive integer/);
+      expect(() => validateConfigSet('verifyLoop.skipGates', '[1]')).toThrow(/array/);
+      expect(() => validateConfigSet('verifyLoop.unknown', 'x')).toThrow(/Unknown verifyLoop key/);
+      expect(() => validateConfigSet('verifyLoop', '{}')).toThrow(/verifyLoop\.<key>/);
+    });
   });
 
   describe('cmdConfig set integration', () => {
@@ -107,6 +127,20 @@ describe('config-cmd v3.4 validation', () => {
       cmdConfig('set', 'updateChannel', 'tag');
       expect(fs.writeFileSync).toHaveBeenCalled();
       expect(success).toHaveBeenCalled();
+    });
+
+    it('coerces verifyLoop dotted values before writing config', () => {
+      cmdConfig('set', 'verifyLoop.maxAttempts', '2');
+
+      const saved = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
+      expect(saved.verifyLoop.maxAttempts).toBe(2);
+    });
+
+    it('coerces verifyLoop skipGates comma list before writing config', () => {
+      cmdConfig('set', 'verifyLoop.skipGates', 'website-lint,unit-test');
+
+      const saved = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
+      expect(saved.verifyLoop.skipGates).toEqual(['website-lint', 'unit-test']);
     });
 
     it('exits with code 2 on typo key (not silently accepted)', () => {
