@@ -34,6 +34,7 @@ describe('agents index', () => {
   it.each([
     'research',
     'solution',
+    'verify_fix',
     'evaluation'
   ])('selectAgentForTask uses the configured agent for %s', (taskType) => {
     expect(selectAgentForTask({ agent: 'claude-code' }, taskType)).toBe('claude-code');

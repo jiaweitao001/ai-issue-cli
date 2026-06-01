@@ -42,6 +42,17 @@ describe('config', () => {
       expect(DEFAULT_CONFIG.knowledgeBaseEnabled).toBe(true);
       expect(DEFAULT_CONFIG.knowledgeBaseAutoUpdate).toBe(false);
     });
+
+    it('exposes verify-loop defaults', () => {
+      expect(DEFAULT_CONFIG.verifyLoop).toEqual(expect.objectContaining({
+        enabled: true,
+        maxAttempts: 3,
+        phaseATimeoutSec: 1800,
+        phaseBTimeoutSec: 2400,
+        parallelism: 'auto',
+        skipGates: []
+      }));
+    });
   });
 
   describe('loadConfig', () => {
@@ -73,6 +84,37 @@ describe('config', () => {
       expect(config.knowledgeBasePath).toBe('/mock/home/kb');
       expect(config.model).toBe('gpt-4');
       expect(config.logLevel).toBe(DEFAULT_CONFIG.logLevel);
+    });
+
+    it('deep-merges partial verifyLoop config with defaults', () => {
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        repoPath: '~/repo',
+        verifyLoop: { enabled: false }
+      }));
+
+      const config = loadConfig();
+
+      expect(config.verifyLoop).toEqual(expect.objectContaining({
+        enabled: false,
+        maxAttempts: DEFAULT_CONFIG.verifyLoop.maxAttempts,
+        phaseATimeoutSec: DEFAULT_CONFIG.verifyLoop.phaseATimeoutSec,
+        phaseBTimeoutSec: DEFAULT_CONFIG.verifyLoop.phaseBTimeoutSec,
+        parallelism: DEFAULT_CONFIG.verifyLoop.parallelism,
+        skipGates: DEFAULT_CONFIG.verifyLoop.skipGates
+      }));
+    });
+
+    it('preserves invalid non-object verifyLoop config so validation can report it', () => {
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        repoPath: '~/repo',
+        verifyLoop: 'bad'
+      }));
+
+      const config = loadConfig();
+
+      expect(config.verifyLoop).toBe('bad');
     });
 
     it('should handle corrupted config file gracefully', () => {
@@ -239,6 +281,41 @@ describe('config', () => {
        
       expect(valid).toBe(true);
       expect(errors).toHaveLength(0);
+    });
+
+    it('validates verifyLoop shape', () => {
+      const result = validateConfig({
+        repoPath: '/valid/path',
+        issueBaseUrl: 'https://github.com/test/repo/issues',
+        reportPath: '/valid/reports',
+        verifyLoop: {
+          enabled: 'yes',
+          maxAttempts: 0,
+          phaseATimeoutSec: 1800,
+          phaseBTimeoutSec: 2400,
+          parallelism: 'fast',
+          skipGates: ['unit-test']
+        }
+      });
+
+      expect(result.valid).toBe(false);
+      expect(result.errors).toEqual(expect.arrayContaining([
+        'verifyLoop.enabled must be a boolean',
+        'verifyLoop.maxAttempts must be a positive integer',
+        'verifyLoop.parallelism must be "auto" or a positive integer'
+      ]));
+    });
+
+    it('rejects non-object verifyLoop config', () => {
+      const result = validateConfig({
+        repoPath: '/valid/path',
+        issueBaseUrl: 'https://github.com/test/repo/issues',
+        reportPath: '/valid/reports',
+        verifyLoop: 'bad'
+      });
+
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('verifyLoop must be an object');
     });
 
     it('should return warnings without invalidating config when knowledgeBasePath is missing', () => {
